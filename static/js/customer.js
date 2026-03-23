@@ -889,8 +889,6 @@ class CustomerChat {
             </div>
         </div>`;
     }
-        this.updateAgentStatus('Remediation complete');
-    }
 
     // ─── Message Rendering ────────────────────────────────
     addMsg(role, text) {
@@ -1233,16 +1231,20 @@ class CustomerChat {
 
     addFollowUps(options) {
         const container = document.getElementById('chatMessages');
+        // Append follow-ups to the last agent message if possible
+        const lastMsg = container.querySelector('.chat-msg.msg-agent:last-of-type .msg-text');
         const div = document.createElement('div');
-        div.className = 'chat-msg msg-agent';
-        div.innerHTML = `
-            <div class="msg-avatar" style="visibility:hidden">🧠</div>
-            <div class="msg-body">
-                <div class="msg-followups">
-                    ${options.map(o => `<button class="followup-chip">${o}</button>`).join('')}
-                </div>
-            </div>`;
-        container.appendChild(div);
+        div.className = 'msg-followups';
+        div.innerHTML = options.map(o => `<button class="followup-chip">${o}</button>`).join('');
+        
+        if (lastMsg) {
+            lastMsg.appendChild(div);
+        } else {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'chat-msg msg-agent';
+            wrapper.innerHTML = `<div class="msg-avatar" style="visibility:hidden">🧠</div><div class="msg-body">${div.outerHTML}</div>`;
+            container.appendChild(wrapper);
+        }
         this.scrollToBottom();
 
         div.querySelectorAll('.followup-chip').forEach(btn => {
