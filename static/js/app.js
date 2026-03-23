@@ -2502,12 +2502,26 @@ class DellAIAgent {
         }
     }
 
+    // ─── Status color map (centralized for all render functions) ──
+    static STATUS = { ok: '#10b981', warn: '#f59e0b', crit: '#ef4444', info: '#3b82f6', muted: '#6b7280' };
+
+    _statusColor(status) {
+        const s = (status || '').toLowerCase();
+        if (s.includes('ok') || s.includes('online') || s.includes('healthy') || s.includes('enabled') || s === 'true') return DellAIAgent.STATUS.ok;
+        if (s.includes('warn') || s.includes('degraded')) return DellAIAgent.STATUS.warn;
+        if (s.includes('crit') || s.includes('fail') || s.includes('error') || s.includes('offline')) return DellAIAgent.STATUS.crit;
+        if (s.includes('running') || s.includes('progress') || s.includes('connecting')) return DellAIAgent.STATUS.info;
+        return DellAIAgent.STATUS.muted;
+    }
+
     // ─── Rich HTML renderers for operation results ──────────
     _renderOpsResult(op, data) {
         const v = (x) => x ?? 'N/A';
-        const badge = (text, color) => `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;background:${color}20;color:${color};margin-right:4px">${text}</span>`;
-        const row = (label, val) => `<tr><td style="padding:3px 12px 3px 0;color:var(--text-muted);white-space:nowrap">${label}</td><td style="padding:3px 0;color:var(--text-primary)">${val}</td></tr>`;
-        const tbl = (rows) => `<table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:8px">${rows}</table>`;
+        const S = DellAIAgent.STATUS;
+        const badge = (text, color) => `<span class="badge" style="background:${color}20;color:${color}">${text}</span>`;
+        const sbadge = (status) => { const c = this._statusColor(status); const label = (status||'unknown').toUpperCase(); return badge(label, c); };
+        const row = (label, val) => `<tr><td class="tbl-cell">${label}</td><td class="tbl-cell-val">${val}</td></tr>`;
+        const tbl = (rows) => `<table class="data-table mt-2">${rows}</table>`;
 
         // ── BIOS attributes ──
         if (op === 'bios_get_all' && data.bios) {
