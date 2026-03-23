@@ -83,6 +83,14 @@
                     </div>
                 </div>
 
+                <!-- Compact bar shown when connected (banner collapsed) -->
+                <div class="banner-compact-bar" id="bannerCompactBar">
+                    <span class="compact-badge">Connected</span>
+                    <span class="compact-server-id" id="compactServerId"></span>
+                    <span id="compactServerModel" style="opacity:0.6"></span>
+                    <button class="banner-expand-btn" id="bannerExpandBtn" type="button">Edit connection</button>
+                </div>
+
                 <div class="connect-panels">
                     <!-- iDRAC (Primary) -->
                     <div class="connect-panel connect-panel-primary" id="idracPanel">
@@ -861,6 +869,13 @@
         </div>
     </div>
     <button class="agent-chat-fab" id="agentChatFab" title="Open AI Agent Chat">🧠</button>
+
+    <!-- Keyboard shortcut legend -->
+    <div class="kbd-legend" id="kbdLegend">
+        <span><kbd>Ctrl</kbd>+<kbd>K</kbd> Chat</span>
+        <span><kbd>Ctrl</kbd>+<kbd>R</kbd> Refresh</span>
+        <span><kbd>Esc</kbd> Close</span>
+    </div>
 
     <!-- Loading Indicator -->
     <div class="loading-indicator" style="display: none;">

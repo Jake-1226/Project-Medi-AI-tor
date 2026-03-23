@@ -47,6 +47,8 @@ class DellAIAgent {
         this.updateUI();
         this.setupKeyboardShortcuts();
         this.injectAgentThinkingStyles();
+        // F8: Start with quick-actions disabled until connected
+        this._setQuickActionsEnabled(false);
     }
     
     setupEventListeners() {
@@ -80,6 +82,9 @@ class DellAIAgent {
         
         // iDRAC availability check
         document.getElementById('checkIdracBtn')?.addEventListener('click', () => this.checkIdracAvailability());
+        
+        // F1: Banner expand button
+        document.getElementById('bannerExpandBtn')?.addEventListener('click', () => this._expandBanner());
         
         // SR# auto-save on blur
         document.getElementById('srNumber')?.addEventListener('blur', () => this.saveSrNumber());
@@ -256,10 +261,25 @@ class DellAIAgent {
                 // Update connection mode bar
                 this.updateConnectionMode();
 
+                // F1: Collapse connect banner to compact bar
+                this._collapseBanner(host, result.server_info);
+
                 // Auto-fetch all dashboard data
                 setTimeout(() => this.fetchAllDashboardData(), 1000);
                 // Start auto-refresh every 60 seconds
                 this._startAutoRefresh();
+
+                // F2: Scroll metrics into view after data arrives
+                setTimeout(() => {
+                    const metrics = document.getElementById('overviewMetricsContainer');
+                    if (metrics) metrics.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 2000);
+
+                // F8: Enable quick-action buttons
+                this._setQuickActionsEnabled(true);
+
+                // F9: Store connection for cross-page handoff (monitoring, fleet)
+                sessionStorage.setItem('activeServerConnection', JSON.stringify({ host, username, port }));
             } else {
                 this.showAlert(`Connection failed: ${result.detail}`, 'danger');
                 this.log(`Connection failed: ${result.detail}`, 'error');
@@ -297,6 +317,15 @@ class DellAIAgent {
             if (idracDot) { idracDot.classList.remove('connected', 'error'); }
             const idracPanel = document.getElementById('idracPanel');
             if (idracPanel) { idracPanel.classList.remove('panel-connected', 'panel-error'); }
+            
+            // F1: Expand banner back to full form
+            this._expandBanner();
+            
+            // F8: Disable quick-action buttons
+            this._setQuickActionsEnabled(false);
+            
+            // F9: Clear cross-page handoff
+            sessionStorage.removeItem('activeServerConnection');
             
             // Try to disconnect via API
             try {
@@ -341,6 +370,61 @@ class DellAIAgent {
             clearInterval(this._autoRefreshTimer);
             this._autoRefreshTimer = null;
         }
+    }
+
+    // ─── F1: Banner collapse / expand ────────────────────────────
+    _collapseBanner(host, serverInfo) {
+        const banner = document.getElementById('connectBanner');
+        if (!banner) return;
+        banner.classList.add('banner-connected');
+        const serverId = document.getElementById('compactServerId');
+        if (serverId) serverId.textContent = host;
+        const model = document.getElementById('compactServerModel');
+        if (model && serverInfo) {
+            const parts = [];
+            if (serverInfo.model) parts.push(serverInfo.model);
+            if (serverInfo.service_tag) parts.push(serverInfo.service_tag);
+            model.textContent = parts.length ? `(${parts.join(' / ')})` : '';
+        }
+    }
+
+    _expandBanner() {
+        const banner = document.getElementById('connectBanner');
+        if (banner) banner.classList.remove('banner-connected');
+    }
+
+    // ─── F5: Inline confirmation UX ──────────────────────────────
+    _showInlineConfirm(anchorEl, message, isDanger, onConfirm) {
+        // Remove any existing inline-confirm in the same area
+        document.querySelectorAll('.inline-confirm').forEach(el => el.remove());
+        const div = document.createElement('div');
+        div.className = `inline-confirm${isDanger ? '' : ' inline-confirm-warn'}`;
+        div.innerHTML = `
+            <span class="confirm-msg">${isDanger ? '⚠️ ' : ''}${message}</span>
+            <button class="confirm-yes">${isDanger ? 'Yes, proceed' : 'Confirm'}</button>
+            <button class="confirm-no">Cancel</button>`;
+        div.querySelector('.confirm-yes').addEventListener('click', () => { div.remove(); onConfirm(); });
+        div.querySelector('.confirm-no').addEventListener('click', () => div.remove());
+        if (anchorEl) {
+            anchorEl.style.display = 'block';
+            anchorEl.innerHTML = '';
+            anchorEl.appendChild(div);
+            anchorEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+            // Fallback: append to alert container
+            const alert = document.getElementById('alertContainer');
+            if (alert) alert.appendChild(div);
+        }
+    }
+
+    // ─── F8: Quick-action enable/disable ─────────────────────────
+    _setQuickActionsEnabled(enabled) {
+        const ids = ['healthCheckBtn', 'getServerInfoBtn', 'collectLogsBtn', 'performanceAnalysisBtn',
+                     'gracefulShutdownBtn', 'powerCycleBtn', 'vacCycleBtn', 'resetIdracBtn'];
+        ids.forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.disabled = !enabled;
+        });
     }
 
     _getAuthHeaders() {
@@ -727,6 +811,8 @@ class DellAIAgent {
                 if (panel && panel.classList.contains('agent-chat-open')) {
                     this.toggleChatPanel();
                 }
+                // Also dismiss inline confirms
+                document.querySelectorAll('.inline-confirm').forEach(el => el.remove());
             }
             // Ctrl+R or Cmd+R to refresh current tab data
             if ((e.ctrlKey || e.metaKey) && e.key === 'r' && this.currentServer) {
@@ -735,6 +821,12 @@ class DellAIAgent {
                 this.showAlert('Refreshing data...', 'info');
             }
         });
+        // F6: Show keyboard shortcut legend briefly on first load
+        const legend = document.getElementById('kbdLegend');
+        if (legend && !sessionStorage.getItem('kbdLegendShown')) {
+            setTimeout(() => { legend.classList.add('visible'); }, 2000);
+            setTimeout(() => { legend.classList.remove('visible'); sessionStorage.setItem('kbdLegendShown', '1'); }, 8000);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1744,11 +1836,14 @@ class DellAIAgent {
             }
         }
         
-        // If tab has no data yet and we're connected, show loading hint
+        // F7: If tab has no data yet and we're connected, show loading hint (all tabs)
         const emptyContainers = {
             'system': 'systemInfoContainer',
             'health': 'healthStatusContainer',
             'logs': 'logsContainer',
+            'troubleshooting': 'recommendationsContainer',
+            'operations': 'opsResultBios',
+            'advanced': 'lifecycleLogsContainer',
         };
         const containerId = emptyContainers[tabName];
         if (containerId && this.currentServer) {
@@ -1918,6 +2013,12 @@ class DellAIAgent {
                     container.className = 'action-result result-success';
                     container.innerHTML = `<strong>✅ ${command}</strong> — Action completed successfully.${guidance ? `<div class="action-guidance">${guidance}</div>` : ''}`;
                 }
+                // F3: Schedule a delayed data refresh after power/destructive ops
+                const refreshOps = ['force_restart', 'graceful_shutdown', 'virtual_ac_cycle', 'clear_sel'];
+                if (refreshOps.includes(command)) {
+                    const delay = command === 'force_restart' ? 15000 : command === 'graceful_shutdown' ? 20000 : 5000;
+                    setTimeout(() => { if (this.currentServer) this.fetchAllDashboardData(); }, delay);
+                }
             } else {
                 this.log(`❌ ${command} failed: ${result.detail}`, 'error');
                 if (container) {
@@ -1957,9 +2058,13 @@ class DellAIAgent {
 
     confirmAndExecute(command, label) {
         if (!this.currentServer) { this.showAlert('Please connect to a server first', 'warning'); return; }
-        if (confirm(`Are you sure you want to execute "${label}"? This action may affect server availability.`)) {
-            this.executeServerAction(command);
-        }
+        // F5: Inline confirmation instead of browser confirm()
+        this._showInlineConfirm(
+            document.getElementById('actionResultContainer'),
+            `Execute "${label}"? This may affect server availability.`,
+            false,
+            () => this.executeServerAction(command)
+        );
     }
 
     // ─── SR# Tracking ───────────────────────────────────────────
@@ -2019,7 +2124,11 @@ class DellAIAgent {
     // ─── Remote Diagnostics ─────────────────────────────────────
     async runDiagnostics(type = 'Express') {
         if (!this.currentServer) { this.showAlert('Connect first', 'warning'); return; }
-        if (!confirm(`Run ${type} ePSA diagnostics? Server must be powered on.`)) return;
+        const container = document.getElementById('diagnosticsResultContainer');
+        this._showInlineConfirm(container, `Run ${type} ePSA diagnostics? Server must be powered on.`, false, () => this._runDiagnosticsConfirmed(type));
+    }
+
+    async _runDiagnosticsConfirmed(type) {
         this.log(`Starting ${type} ePSA diagnostics...`, 'info');
         try {
             const response = await fetch(`/api/execute`, {
@@ -2090,9 +2199,12 @@ class DellAIAgent {
     async applyBiosPreset(attributes) {
         if (!this.currentServer) { this.showAlert('Connect first', 'warning'); return; }
         const attrNames = Object.keys(attributes).join(', ');
-        if (!confirm(`Apply BIOS changes: ${attrNames}?\n\nThis stages changes that will take effect on next reboot.`)) return;
-        this.log(`Applying BIOS preset: ${attrNames}`, 'info');
         const resultDiv = document.getElementById('biosPresetResult');
+        this._showInlineConfirm(resultDiv, `Apply BIOS changes: ${attrNames}? Takes effect on next reboot.`, false, () => this._applyBiosPresetConfirmed(attributes, attrNames, resultDiv));
+    }
+
+    async _applyBiosPresetConfirmed(attributes, attrNames, resultDiv) {
+        this.log(`Applying BIOS preset: ${attrNames}`, 'info');
         try {
             const response = await fetch(`/api/execute`, {
                 method: 'POST',
@@ -2158,7 +2270,7 @@ class DellAIAgent {
         if (fullControlOps.includes(operation)) actionLevel = 'full_control';
         if (dangerOps.includes(operation)) actionLevel = 'full_control';
 
-        // Confirm dangerous operations with detailed warning
+        // F5: Inline confirmation for dangerous operations
         if (dangerOps.includes(operation)) {
             const opLabels = {
                 'raid_delete_vd': 'Delete Virtual Disk - All data will be lost',
@@ -2172,14 +2284,20 @@ class DellAIAgent {
                 'lc_wipe': 'Wipe Lifecycle Controller - Cannot be undone',
             };
             const label = opLabels[operation] || operation;
-            if (!confirm(`⚠️ DESTRUCTIVE OPERATION\n\n${label}\n\nThis action may affect server availability and cannot be easily undone.\n\nAre you absolutely sure?`)) return;
+            this._showInlineConfirm(resultDiv, label, true, () => this._executeOperation(operation, params, actionLevel, resultDiv));
+            return;
         }
-        // Confirm full-control writes with clear description
-        if (fullControlOps.includes(operation) && !dangerOps.includes(operation)) {
-            if (!confirm(`This operation will make changes to the server configuration.\n\nOperation: ${operation}\nAction Level: Full Control\n\nProceed?`)) return;
+        // Inline confirmation for full-control writes
+        if (fullControlOps.includes(operation)) {
+            this._showInlineConfirm(resultDiv, `${operation} — changes server configuration`, false, () => this._executeOperation(operation, params, actionLevel, resultDiv));
+            return;
         }
 
-        // Show loading state
+        await this._executeOperation(operation, params, actionLevel, resultDiv);
+    }
+
+    // Extracted operation execution (called after confirmation)
+    async _executeOperation(operation, params, actionLevel, resultDiv) {
         this.log(`Running operation: ${operation}`, 'info');
         if (resultDiv) {
             resultDiv.style.display = 'block';
@@ -2318,6 +2436,8 @@ class DellAIAgent {
                 if (resultDiv) {
                     resultDiv.className = 'ops-result ops-result-ok';
                     resultDiv.innerHTML = this._renderOpsResult(operation, data);
+                    // F4: Scroll result into view
+                    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             } else {
                 // Stub — operation not yet mapped to a backend command
@@ -2332,6 +2452,7 @@ class DellAIAgent {
             if (resultDiv) {
                 resultDiv.className = 'ops-result ops-result-err';
                 resultDiv.innerHTML = `<div class="ops-result-title">❌ ${operation} failed</div><p>${error.message}</p>`;
+                resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
         }
     }
