@@ -188,7 +188,7 @@ class FleetManager {
                 this.updateAlerts();
             }
         } catch (e) {
-            console.error('Error refreshing alerts:', e);
+            this.showToast('Failed to refresh alerts', 'error');
         }
     }
     
@@ -489,19 +489,20 @@ class FleetManager {
             return;
         }
         
-        alertsContainer.innerHTML = filteredAlerts.map(alert => `
+        alertsContainer.innerHTML = filteredAlerts.map((alert, idx) => `
             <div class="alert-card ${alert.type}">
                 <div class="alert-header">
                     <div class="alert-title">${alert.type.charAt(0).toUpperCase() + alert.type.slice(1)} Alert</div>
                     <div class="alert-timestamp">${this.formatTime(alert.timestamp)}</div>
                 </div>
                 <div class="alert-details">
-                    <div class="alert-server-name">🖥️ ${alert.server_name}</div>
+                    <div class="alert-server-name">${alert.server_name || 'Unknown Server'}</div>
                     <div class="alert-message">${alert.message}</div>
+                    ${alert.metric ? `<div class="alert-metric">Metric: ${alert.metric}</div>` : ''}
                 </div>
                 <div class="alert-actions">
-                    <button class="alert-action" onclick="fleetManager.acknowledgeAlert('${alert.id}')">Acknowledge</button>
-                    <button class="alert-action" onclick="fleetManager.viewAlertDetails('${alert.id}')">Details</button>
+                    <button class="alert-action" onclick="fleetManager.acknowledgeAlert(${idx})">Acknowledge</button>
+                    <button class="alert-action" onclick="fleetManager.viewAlertDetails(${idx})">Details</button>
                 </div>
             </div>
         `).join('');
@@ -597,14 +598,19 @@ class FleetManager {
     }
     
     hideAddServerModal() {
+        // Handle both HTML modal (classList) and dynamic modal (remove)
         const modal = document.getElementById('addServerModal');
         if (modal) {
             modal.classList.remove('active');
+            // If it's a dynamic modal (appended to body), remove it entirely
+            if (modal.parentElement === document.body) {
+                modal.remove();
+            }
         }
     }
     
-    async addServer() {
-        const serverData = {
+    async addServer(passedData) {
+        const serverData = passedData || {
             name: document.getElementById('serverName')?.value?.trim(),
             host: document.getElementById('serverHost')?.value?.trim(),
             username: document.getElementById('serverUsername')?.value?.trim(),
@@ -641,8 +647,7 @@ class FleetManager {
                 throw new Error(data.message || 'Failed to add server');
             }
         } catch (error) {
-            console.error('Error adding server:', error);
-            this.showToast('Failed to add server', 'error');
+            this.showToast(error.message || 'Failed to add server', 'error');
         } finally {
             this.showLoading(false);
         }
@@ -801,7 +806,7 @@ class FleetManager {
                 this.renderAnalytics(data.data);
             }
         } catch (error) {
-            console.error('Error refreshing analytics:', error);
+            this.showToast('Failed to load analytics', 'error');
         }
     }
     
@@ -1674,13 +1679,6 @@ class FleetManager {
             await this.addServer(serverData);
             modal.remove();
         });
-    }
-    
-    hideAddServerModal() {
-        const modal = document.getElementById('addServerModal');
-        if (modal) {
-            modal.remove();
-        }
     }
     
     async acknowledgeAlert(alertIndex) {
