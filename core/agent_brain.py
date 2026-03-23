@@ -274,6 +274,8 @@ class AgentBrain:
         self._investigation_start: Optional[datetime] = None
         self._investigation_end: Optional[datetime] = None
         self._remediation_log: List[dict] = []
+        self._tool_cache_times: Dict[str, float] = {}  # tool_name -> timestamp of last execution
+        self._CACHE_TTL = 60  # seconds before cached data is considered stale
 
     def set_stream_callback(self, callback: Callable):
         """Set async callback for streaming events to frontend: callback(event_type, data)"""
@@ -531,6 +533,7 @@ class AgentBrain:
 
             self.memory.tools_used.append(tool.name)
             self.memory.raw_data[tool.name] = raw_result
+            self._tool_cache_times[tool.name] = time.time()
 
             # Parse the result using the tool's parser
             if tool.parser:
@@ -543,6 +546,26 @@ class AgentBrain:
             logger.error(f"AgentBrain: Tool '{tool.name}' failed: {e}")
             self.memory.tools_used.append(tool.name)
             return ToolResult(tool_name=tool.name, success=False, summary=f"Failed: {str(e)}")
+
+    def _is_tool_cached(self, tool_name: str) -> bool:
+        """Check if a tool's data is fresh enough to use from cache."""
+        cached_time = self._tool_cache_times.get(tool_name)
+        if cached_time and (time.time() - cached_time) < self._CACHE_TTL:
+            return tool_name in self.memory.raw_data
+        return False
+
+    def _get_cached_result(self, tool_name: str) -> Optional[ToolResult]:
+        """Return cached parsed result for a tool if available."""
+        raw_data = self.memory.raw_data.get(tool_name)
+        if not raw_data:
+            return None
+        tool = AGENT_TOOLS.get(tool_name)
+        if tool and tool.parser:
+            try:
+                return tool.parser(raw_data)
+            except Exception:
+                return None
+        return ToolResult(tool_name=tool_name, success=True, summary=f"{tool_name} (cached)", raw_data=raw_data)
 
     # ═══════════════════════════════════════════════════════════
     # OBSERVE — Extract findings from tool results
@@ -1366,6 +1389,26 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
                                    "inlet temp", "check temp", "temperature status"]):
             return "dig_deeper"
 
+        # Power supply queries (targeted, not full investigation)
+        if any(w in msg for w in ["power supply", "power supplie", "psu status", "check power", "check psu",
+                                   "power budget", "wattage", "psu health", "power redundancy"]):
+            return "dig_deeper"
+
+        # Memory queries (targeted)
+        if any(w in msg for w in ["check memory", "dimm status", "ecc error", "memory health",
+                                   "check ram", "check dimm"]):
+            return "dig_deeper"
+
+        # Storage queries (targeted)
+        if any(w in msg for w in ["check storage", "check disk", "check drive", "disk health",
+                                   "drive status", "storage health", "raid status"]):
+            return "dig_deeper"
+
+        # Network queries (targeted)
+        if any(w in msg for w in ["check network", "nic status", "link status", "network health",
+                                   "check nic", "ethernet status"]):
+            return "dig_deeper"
+
         # Firmware check (targeted, not full investigation)
         if any(w in msg for w in ["firmware", "up to date", "update check", "check firmware", "firmware stack",
                                    "idrac version", "bios version", "driver version", "outdated"]):
@@ -1478,7 +1521,14 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
         if not tool:
             return {"summary": f"No tool available for '{target}'."}
 
-        result = await self._execute_tool(tool, action_level)
+        # Use cached data if fresh (< 60s old), otherwise re-fetch
+        if self._is_tool_cached(tool_name):
+            result = self._get_cached_result(tool_name)
+            if result:
+                logger.info(f"Using cached data for {tool_name}")
+        else:
+            result = await self._execute_tool(tool, action_level)
+
         if result and result.success:
             self._observe(tool, result)
             self._update_hypotheses(tool, result)
@@ -1796,17 +1846,27 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
         """Build a comprehensive server overview by running key read-only checks."""
         lines = []
 
-        # Always run all core tools fresh for a complete overview
+        # Run core tools sequentially (iDRAC throttles concurrent Redfish requests)
+        # but use cache for tools that were recently executed
         core_tools = ["check_system_info", "check_health", "check_temperatures", "check_fans",
                        "check_power_supplies", "check_memory", "check_storage", "check_network"]
 
         for tool_name in core_tools:
             tool = AGENT_TOOLS.get(tool_name)
-            if tool:
-                result = await self._execute_tool(tool, action_level)
-                if result and result.success:
-                    self._observe(tool, result)
+            if not tool:
+                continue
+
+            # Use cached data if fresh
+            if self._is_tool_cached(tool_name):
+                result = self._get_cached_result(tool_name)
+                if result:
                     await self._stream("action_result", result.to_dict())
+                    continue
+
+            result = await self._execute_tool(tool, action_level)
+            if result and result.success:
+                self._observe(tool, result)
+                await self._stream("action_result", result.to_dict())
 
         # Build the overview from collected data
         si = (self.memory.raw_data.get("check_system_info", {}).get("server_info")
