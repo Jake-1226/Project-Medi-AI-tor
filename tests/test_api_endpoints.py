@@ -12,10 +12,12 @@ BASE = "http://127.0.0.1:8000"
 
 async def get_token(username="admin", password="admin123"):
     async with httpx.AsyncClient() as c:
-        r = await c.post(f"{BASE}/api/auth/login", json={"username": username, "password": password})
-        if r.status_code == 429:
-            time.sleep(62)
+        for attempt in range(3):
             r = await c.post(f"{BASE}/api/auth/login", json={"username": username, "password": password})
+            if r.status_code == 200:
+                return r.json().get("token", "")
+            if r.status_code == 429:
+                time.sleep(62)  # Wait for rate limit window to reset
         return r.json().get("token", "")
 
 
