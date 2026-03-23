@@ -506,10 +506,10 @@ async def api_chat_stream(msg: ChatMessage):
     async def event_generator():
         try:
             # Send initial event
-            yield f"data: {json.dumps({'type': 'start', 'message': 'Starting...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'start', 'message': 'Starting...'}, ensure_ascii=False)}\n\n"
             
             if not agent.is_connected():
-                yield f"data: {json.dumps({'type': 'error', 'message': 'Not connected to server'})}\n\n"
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Not connected to server'}, ensure_ascii=False)}\n\n"
                 return
             
             # Use agent_brain.chat with streaming callback
@@ -528,22 +528,22 @@ async def api_chat_stream(msg: ChatMessage):
                 if chat_task.done():
                     while not event_queue.empty():
                         event = event_queue.get_nowait()
-                        yield f"data: {json.dumps(event, default=str)}\n\n"
+                        yield f"data: {json.dumps(event, default=str, ensure_ascii=False)}\n\n"
                     break
                 try:
                     event = await asyncio.wait_for(event_queue.get(), timeout=0.5)
-                    yield f"data: {json.dumps(event, default=str)}\n\n"
+                    yield f"data: {json.dumps(event, default=str, ensure_ascii=False)}\n\n"
                 except asyncio.TimeoutError:
-                    yield f"data: {json.dumps({'event': 'heartbeat', 'data': {}})}\n\n"
+                    yield f"data: {json.dumps({'event': 'heartbeat', 'data': {}}, ensure_ascii=False)}\n\n"
             
             try:
                 result = chat_task.result()
-                yield f"data: {json.dumps({'event': 'complete', 'data': result}, default=str)}\n\n"
+                yield f"data: {json.dumps({'event': 'complete', 'data': result}, default=str, ensure_ascii=False)}\n\n"
             except Exception as e:
-                yield f"data: {json.dumps({'event': 'error', 'data': {'message': str(e)}})}\n\n"
+                yield f"data: {json.dumps({'event': 'error', 'data': {'message': str(e)}}, ensure_ascii=False)}\n\n"
             
         except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)}, ensure_ascii=False)}\n\n"
         finally:
             agent_brain.set_stream_callback(None)
     
@@ -572,7 +572,7 @@ async def chat_stream(msg: ChatMessage):
             if hasattr(o, '__dict__'):
                 return o.__dict__
             return str(o)
-        return json.dumps(obj, default=default)
+        return json.dumps(obj, default=default, ensure_ascii=False)
 
     async def stream_callback(event_type: str, data: dict):
         await event_queue.put({"event": event_type, "data": data})
@@ -856,7 +856,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_text(json.dumps({
                     "type": "response",
                     "data": result
-                }))
+                }, ensure_ascii=False))
             elif message["type"] == "troubleshoot":
                 recommendations = await agent.troubleshoot_issue(
                     issue_description=message["issue_description"],
@@ -865,7 +865,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_text(json.dumps({
                     "type": "troubleshooting_result",
                     "recommendations": recommendations
-                }))
+                }, ensure_ascii=False))
                 
     except WebSocketDisconnect:
         logger.info("WebSocket client disconnected")
@@ -874,7 +874,7 @@ async def websocket_endpoint(websocket: WebSocket):
         await websocket.send_text(json.dumps({
             "type": "error",
             "message": str(e)
-        }))
+        }, ensure_ascii=False))
 
 # ─── Health Scoring Endpoint ───────────────────────────────────────
 @app.post("/health-score")
@@ -1368,7 +1368,7 @@ async def websocket_monitoring(websocket: WebSocket):
         await websocket.send_text(json.dumps({
             "type": "initial_metrics",
             "data": current_metrics
-        }))
+        }, ensure_ascii=False))
         
         # Keep connection alive and handle messages
         while True:
@@ -1383,24 +1383,24 @@ async def websocket_monitoring(websocket: WebSocket):
                         await websocket.send_text(json.dumps({
                             "type": "monitoring_started",
                             "data": {"status": "success"}
-                        }))
+                        }, ensure_ascii=False))
                     else:
                         await websocket.send_text(json.dumps({
                             "type": "error",
                             "data": {"message": "Not connected to server"}
-                        }))
+                        }, ensure_ascii=False))
                 elif data.get("action") == "stop_monitoring":
                     await realtime_monitor.stop_monitoring()
                     await websocket.send_text(json.dumps({
                         "type": "monitoring_stopped",
                         "data": {"status": "success"}
-                    }))
+                    }, ensure_ascii=False))
                 elif data.get("action") == "get_metrics":
                     metrics = realtime_monitor.get_current_metrics()
                     await websocket.send_text(json.dumps({
                         "type": "metrics_update",
                         "data": metrics
-                    }))
+                    }, ensure_ascii=False))
                     
             except WebSocketDisconnect:
                 break
@@ -1409,7 +1409,7 @@ async def websocket_monitoring(websocket: WebSocket):
                 await websocket.send_text(json.dumps({
                     "type": "error",
                     "data": {"message": str(e)}
-                }))
+                }, ensure_ascii=False))
                 
     except WebSocketDisconnect:
         logger.info("WebSocket client disconnected")

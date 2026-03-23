@@ -126,12 +126,16 @@ def parse_power_supplies(raw: Dict[str, Any]) -> ToolResult:
     for i, p in enumerate(psus):
         pid = p.get("id") or f"PSU-{i}"
         watts = p.get("power_watts")
-        healthy = _is_healthy(p.get("status"))
+        psu_status = p.get("status", "?")
+        healthy = _is_healthy(psu_status)
         status = "ok" if healthy else "critical"
         if not healthy:
-            critical.append(f"{pid}: FAILED ({p.get('status','?')})")
+            critical.append(f"{pid}: FAILED ({psu_status})")
+            desc = f"{pid} FAILED — {psu_status}" + (f" ({watts}W rated)" if watts else "")
+        else:
+            desc = f"{pid} = {watts}W" if watts else f"{pid} status={psu_status}"
         facts.append(Fact(
-            id=f"psu_{i}", description=f"{pid} = {watts}W" if watts else f"{pid} status={p.get('status','?')}",
+            id=f"psu_{i}", description=desc,
             component=pid, metric="power_watts", value=watts, unit="W", status=status,
         ))
     total_w = sum(p.get("power_watts") or 0 for p in psus)
@@ -205,13 +209,20 @@ def parse_network(raw: Dict[str, Any]) -> ToolResult:
     for i, n in enumerate(nics):
         nid = n.get("id") or n.get("name") or f"NIC-{i}"
         speed = n.get("speed_mbps")
-        healthy = _is_healthy(n.get("status"))
+        nic_status = n.get("status", "")
+        healthy = _is_healthy(nic_status)
         link = n.get("link_status", "")
-        status = "ok" if healthy else "warning"
-        if link and "down" in link.lower():
+        # Treat "Unknown" as informational, not a warning
+        is_unknown = "unknown" in (nic_status or "").lower() or not nic_status
+        status = "ok"
+        if not healthy and not is_unknown:
             status = "warning"
-            warnings.append(f"{nid}: link down")
-        desc = f"{nid} {speed}Mbps link={link}" if speed else f"{nid} status={n.get('status','?')}"
+        if link and "down" in link.lower():
+            # Only warn for link-down on NICs with known-good status (not unconfigured ports)
+            if not is_unknown:
+                status = "warning"
+                warnings.append(f"{nid}: link down")
+        desc = f"{nid} {speed}Mbps link={link}" if speed and speed > 0 else f"{nid} status={nic_status or 'Unknown'}"
         facts.append(Fact(
             id=f"nic_{i}", description=desc,
             component=nid, metric="speed_mbps", value=speed, unit="Mbps", status=status,
@@ -230,10 +241,15 @@ def parse_health(raw: Dict[str, Any]) -> ToolResult:
     if not hs:
         return ToolResult(tool_name="check_health", success=False, summary="Health data unavailable")
     overall = hs.get("overall_status", "unknown") if isinstance(hs, dict) else "unknown"
+    # Normalize enum values to clean strings
+    if hasattr(overall, 'value'):
+        overall = overall.value
+    overall = str(overall).lower().replace("serverstatus.", "")
     crits = hs.get("critical_issues", []) if isinstance(hs, dict) else []
     warns = hs.get("warnings", []) if isinstance(hs, dict) else []
     status = "ok" if overall in ("online", "ok") else "critical" if overall == "critical" else "warning"
-    facts = [Fact(id="health_overall", description=f"Overall health: {overall}",
+    overall_label = {"online": "Healthy", "ok": "Healthy", "critical": "Critical", "warning": "Warning"}.get(overall, overall.title())
+    facts = [Fact(id="health_overall", description=f"Overall server health: {overall_label}",
                   component="System", metric="health", value=overall, status=status)]
     summary = f"Health: {overall.upper()}"
     if crits:
