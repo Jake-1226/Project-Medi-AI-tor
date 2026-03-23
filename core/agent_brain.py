@@ -1144,6 +1144,49 @@ class AgentBrain:
                 "message": detail,
             }
 
+        elif intent == "greeting":
+            greeting = "Hello! 👋 I'm **Medi-AI-tor**, your AI server diagnostics agent."
+            if self._last_diagnosis:
+                greeting += f"\n\nI'm still connected and have data from our last session. You can ask me anything about the server, or describe a new issue to investigate."
+            elif self.agent.is_connected():
+                greeting += f"\n\nI'm connected to the server. Ask me anything — try **\"give me a server overview\"** to start, or describe an issue you're seeing."
+            else:
+                greeting += f"\n\nConnect to a server using the panel on the left, then I can help you diagnose issues, check health, review firmware, and more."
+            response = {"type": "answer", "message": greeting}
+
+        elif intent == "help":
+            help_text = """Here's what I can do:
+
+**📊 Quick Info** — Ask about the server model, RAM, CPU, BIOS version, power state, service tag
+**🔍 Diagnostics** — Check temperatures, fans, power supplies, storage, network, firmware, BIOS settings, boot order, system logs
+**🧪 Investigate** — Describe a problem and I'll form hypotheses, gather evidence, and diagnose the root cause
+**🌐 iDRAC** — Check iDRAC network config, users, SSL certificates, job queue, lifecycle controller
+**🔧 Remediate** — After an investigation, I can propose and execute fixes (with your approval)
+**📋 TSR** — Collect Tech Support Reports for Dell support escalation
+
+**Try these:**
+• "Give me a server overview"
+• "Check the temperatures"
+• "Is my firmware up to date?"
+• "Server is overheating and fans are loud"
+• "Power supply redundancy lost"
+• "Check system logs for errors"
+
+I investigate like a senior Dell engineer — I form hypotheses, run targeted checks, and build an evidence chain to find root cause."""
+            response = {"type": "answer", "message": help_text}
+
+        elif intent == "thanks":
+            responses = [
+                "You're welcome! Let me know if you need anything else. 👍",
+                "Happy to help! Feel free to ask more questions about the server.",
+                "Glad I could help! I'm here if you need to investigate anything else.",
+            ]
+            import random
+            response = {"type": "answer", "message": random.choice(responses)}
+
+        elif intent == "about":
+            response = {"type": "answer", "message": "I'm **Medi-AI-tor**, a purpose-built AI agent for Dell server diagnostics. I'm not an LLM — I'm a **ReAct reasoning engine** that uses hypothesis-driven investigation to diagnose server issues.\n\nI connect to Dell iDRAC controllers via the Redfish API, collect real telemetry data, decode hardware errors (MCA, PCIe AER), compare firmware against Dell's catalog, and arrive at a root-cause diagnosis with an evidence chain.\n\nI investigate like a senior support engineer would — but in ~30 seconds instead of 45+ minutes."}
+
         else:
             # General question — answer from working memory context
             response = {
@@ -1159,6 +1202,28 @@ class AgentBrain:
 
     def _classify_intent(self, msg: str) -> str:
         """Classify user message into an intent category."""
+        # ── Greetings and meta-conversation (check first) ──
+        # Use word-boundary checks to avoid substring false positives (e.g. "sup" in "supply")
+        words = set(re.findall(r'\b\w+\b', msg))
+        if words & {"hello", "howdy", "greetings"} or msg.strip() in ["hi", "hey", "hi!", "hey!"]:
+            return "greeting"
+        if any(p in msg for p in ["good morning", "good afternoon", "good evening", "what's up"]):
+            return "greeting"
+
+        if any(w in msg for w in ["help", "what can you do", "how do you work", "what are your capabilities",
+                                   "how does this work", "what do you do", "guide me", "tutorial",
+                                   "how to use", "show me what you can do", "getting started",
+                                   "what should i ask", "what should i do first"]):
+            return "help"
+
+        if any(w in msg for w in ["thank", "thanks", "thx", "cheers", "appreciate", "great job",
+                                   "good job", "nice work", "well done", "awesome", "perfect"]):
+            return "thanks"
+
+        if any(w in msg for w in ["who are you", "what are you", "about you", "your name",
+                                   "are you an ai", "are you a bot", "are you real"]):
+            return "about"
+
         # Approval of remediation
         if any(w in msg for w in ["approve", "yes fix", "go ahead", "execute fix", "do it", "yes remediate", "apply fix"]):
             if self._last_diagnosis and self._last_diagnosis.get("remediation_steps"):
@@ -1306,6 +1371,33 @@ class AgentBrain:
         issue_keywords = list(KEYWORD_HYPOTHESIS_MAP.keys())
         if any(kw in msg for kw in issue_keywords) or any(w in msg for w in ["investigate", "troubleshoot", "diagnose", "analyze"]):
             return "investigate"
+
+        # ── Conversational context: reference to previous response ──
+        # (Check BEFORE "no prior investigation" fallback so follow-up questions work)
+        if self._chat_history and len(self._chat_history) >= 2:
+            last_agent = None
+            for h in reversed(self._chat_history):
+                if h.get("role") == "agent":
+                    last_agent = h.get("text", "").lower()
+                    break
+            if last_agent:
+                # "are those normal?" / "is that ok?" / "is that bad?" — answer from context
+                if any(w in msg for w in ["is that normal", "are those normal", "is that ok", "is that bad",
+                                          "is that good", "should i worry", "is that a problem",
+                                          "what does that mean", "so what", "and?", "meaning?",
+                                          "is that a lot", "is that enough", "is that high", "is that low",
+                                          "is that too", "that seems", "sounds like", "looks like"]):
+                    return "explain"
+                # "tell me more" / "more details" about the last topic
+                if any(w in msg for w in ["more", "detail", "elaborate", "expand", "continue",
+                                          "go on", "keep going", "and then", "what else"]):
+                    return "detail_query"
+                # "what about X?" after a list was shown
+                if msg.startswith("what about") or msg.startswith("how about"):
+                    return "dig_deeper"
+                # Short affirmative/negative responses
+                if msg in ["yes", "no", "ok", "okay", "sure", "yep", "nope", "yeah", "nah"]:
+                    return "general"
 
         # If we have no prior investigation, treat as investigation
         if not self._last_diagnosis:
@@ -2002,9 +2094,54 @@ class AgentBrain:
         return "\n".join(lines) if lines else "No data collected yet. Describe your issue to begin."
 
     def _explain(self, msg: str) -> str:
-        """Explain reasoning or specific findings."""
+        """Explain reasoning or specific findings, with conversational context awareness."""
+        # Check if this is a conversational follow-up (e.g. "is that a lot?" after RAM answer)
+        if self._chat_history and len(self._chat_history) >= 2:
+            last_agent_text = ""
+            for h in reversed(self._chat_history):
+                if h.get("role") == "agent":
+                    last_agent_text = h.get("text", "")
+                    break
+            
+            if last_agent_text:
+                # Context-aware explanations based on what was just discussed
+                lt = last_agent_text.lower()
+                
+                # RAM context
+                if "memory" in lt or "ram" in lt or "gb" in lt or "dimm" in lt:
+                    mem_gb = 0
+                    import re as _re
+                    m = _re.search(r'(\d+)\s*gb', lt)
+                    if m:
+                        mem_gb = int(m.group(1))
+                    if mem_gb >= 256:
+                        return f"**{mem_gb} GB is substantial** — that's a high-end server configuration, suitable for large databases, in-memory analytics, virtualization with many VMs, or high-performance computing workloads."
+                    elif mem_gb >= 64:
+                        return f"**{mem_gb} GB is a solid amount** — typical for mid-range server workloads including virtualization, moderate databases, and application servers."
+                    elif mem_gb > 0:
+                        return f"**{mem_gb} GB is relatively modest** for a server. Depending on the workload, you may want to consider expanding memory capacity."
+                
+                # Temperature context
+                if "temperature" in lt or "°c" in lt or "temp" in lt:
+                    return "For Dell servers, these temperature ranges are typical:\n\n• **Inlet**: Normal < 35°C, Warning > 38°C, Critical > 42°C\n• **CPU**: Normal < 70°C, Warning > 85°C, Critical > 95°C\n• **Exhaust**: Normal < 65°C, Warning > 75°C, Critical > 80°C\n\nIf any sensor is in the warning or critical range, check airflow, fan operation, and ambient room temperature."
+                
+                # Fan context  
+                if "fan" in lt or "rpm" in lt:
+                    return "Fan speeds vary by server model and thermal load. For Dell PowerEdge/PowerScale servers:\n\n• **Idle**: 3,000-8,000 RPM (quiet)\n• **Normal load**: 8,000-15,000 RPM\n• **High load / hot**: 15,000-25,000 RPM (loud)\n\nConsistently high fan speeds may indicate thermal issues. Low RPM with high temperatures could mean a fan failure."
+                
+                # Power context
+                if "psu" in lt or "power supply" in lt or "power" in lt:
+                    return "Dell servers use redundant power supplies for high availability. Key things to know:\n\n• **N+1 redundancy**: Server runs fine on one PSU if the other fails\n• **Redundancy lost** = one PSU is offline — the server is still running but not protected\n• **Both PSUs OK** = normal, healthy configuration\n• PSU failures are a common cause of unplanned outages — replace failed PSUs promptly"
+                
+                # Firmware context
+                if "firmware" in lt or "bios" in lt or "idrac" in lt:
+                    return "Firmware versions should be kept current for security and stability:\n\n• **BIOS** updates fix CPU microcode vulnerabilities and stability issues\n• **iDRAC** updates improve management capabilities and fix security flaws\n• **NIC/RAID/Drive** firmware can fix performance bugs and compatibility issues\n\nDell recommends using the Dell Repository Manager or iDRAC web UI for updates. Critical updates should be applied during the next maintenance window."
+                
+                # Generic "is that normal/ok" with no specific topic
+                return f"Based on the data I've collected, this appears to be within normal parameters for this server model. If you want me to do a deeper analysis, say **\"run full investigation\"** and I'll check everything systematically."
+
         if not self._last_diagnosis:
-            return "I haven't investigated anything yet. Tell me the issue and I'll start."
+            return "I haven't run a full investigation yet. Tell me the issue and I'll investigate, or say **\"help\"** to see what I can do."
 
         d = self._last_diagnosis
         lines = []
@@ -2041,7 +2178,7 @@ class AgentBrain:
     def _answer_from_context(self, msg: str) -> str:
         """Answer a general question using working memory context."""
         if not self.memory.facts:
-            return "I don't have any data yet. Describe the server issue and I'll investigate."
+            return "I haven't collected any data yet. Try one of these:\n\n• **\"Give me a server overview\"** — Quick health check of all components\n• **\"Check temperatures\"** — Read all thermal sensors\n• **\"Check system logs\"** — Look for errors in the SEL\n• Or describe an issue like **\"server is overheating\"** and I'll investigate"
 
         # Search facts for relevant info
         relevant = []
@@ -2065,7 +2202,7 @@ class AgentBrain:
                     lines.append(f"  {icon} {desc} ({comp})")
             return "\n".join(lines)
 
-        return f"I have {len(self.memory.facts)} facts in memory but none seem directly related to your question. Try asking about temperatures, fans, memory, storage, power, or network."
+        return f"I have {len(self.memory.facts)} data points from this server, but I'm not sure what you're asking about. You can:\n\n• Ask about specific components: temperatures, fans, memory, storage, power, network\n• Ask me to **investigate** an issue\n• Say **\"status\"** to see what I've found so far\n• Say **\"help\"** to see everything I can do"
 
     def _answer_detail_query(self, msg: str) -> str:
         """Answer detail queries from cached investigation data — no re-running tools."""

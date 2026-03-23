@@ -902,11 +902,15 @@ class CustomerChat {
 
         const avatarIcon = role === 'user' ? '👤' : role === 'agent' ? '🧠' : 'ℹ️';
         const name = role === 'user' ? 'You' : role === 'agent' ? 'Medi-AI-tor' : 'System';
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         div.innerHTML = `
             <div class="msg-avatar">${avatarIcon}</div>
             <div class="msg-body">
-                <div class="msg-name">${name}</div>
+                <div class="msg-meta">
+                    <span class="msg-name">${name}</span>
+                    <span class="msg-time">${time}</span>
+                </div>
                 <div class="msg-text"><p>${this.formatText(text)}</p></div>
             </div>`;
 
@@ -924,11 +928,15 @@ class CustomerChat {
 
         const avatarIcon = role === 'agent' ? '🧠' : 'ℹ️';
         const name = role === 'agent' ? 'Medi-AI-tor' : 'System';
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         div.innerHTML = `
             <div class="msg-avatar">${avatarIcon}</div>
             <div class="msg-body">
-                <div class="msg-name">${name}</div>
+                <div class="msg-meta">
+                    <span class="msg-name">${name}</span>
+                    <span class="msg-time">${time}</span>
+                </div>
                 <div class="msg-text">${html}</div>
             </div>`;
 
@@ -1253,10 +1261,28 @@ class CustomerChat {
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
-        // Then apply markdown-like formatting on the escaped text
-        safe = safe
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\n/g, '<br>');
+        // Code blocks (triple backtick)
+        safe = safe.replace(/```(\w*)\n?([\s\S]*?)```/g, (m, lang, code) => {
+            return `<pre class="code-block"><code>${code.trim()}</code></pre>`;
+        });
+        // Inline code
+        safe = safe.replace(/`([^`]+)`/g, '<code>$1</code>');
+        // Bold
+        safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        // Italic
+        safe = safe.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        // Bullet lists (lines starting with • or -)
+        safe = safe.replace(/^[•\-]\s+(.+)$/gm, '<li>$1</li>');
+        safe = safe.replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
+        // Numbered lists
+        safe = safe.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+        // Newlines to <br> (but not inside <pre> or <ul>)
+        safe = safe.replace(/\n/g, '<br>');
+        // Clean up <br> inside <ul> and <pre>
+        safe = safe.replace(/<ul><br>/g, '<ul>');
+        safe = safe.replace(/<br><\/ul>/g, '</ul>');
+        safe = safe.replace(/<br><li>/g, '<li>');
+        safe = safe.replace(/<\/li><br>/g, '</li>');
         return safe;
     }
 

@@ -300,13 +300,24 @@ body {
 .msg-user .msg-avatar { background: #f1f5f9; border-color: var(--border); }
 
 .msg-body { flex: 1; min-width: 0; }
+.msg-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
 .msg-name {
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 700;
     color: var(--text-muted);
-    margin-bottom: 4px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+.msg-time {
+    font-size: 0.68rem;
+    color: var(--text-light);
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
 }
 .msg-text {
     background: var(--surface);
@@ -324,8 +335,12 @@ body {
 .msg-text p { margin-bottom: 8px; }
 .msg-text p:last-child { margin-bottom: 0; }
 .msg-text strong { color: var(--text); font-weight: 650; }
-.msg-text code { background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; font-family: var(--mono); font-size: 0.82em; }
-.msg-text pre { background: #1e293b; color: #e2e8f0; padding: 14px 16px; border-radius: var(--radius); overflow-x: auto; font-family: var(--mono); font-size: 0.82em; margin: 8px 0; line-height: 1.6; }
+.msg-text em { color: var(--text-secondary); font-style: italic; }
+.msg-text code { background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; font-family: var(--mono); font-size: 0.82em; color: var(--primary); }
+.msg-text pre, .msg-text .code-block { background: #1e293b; color: #e2e8f0; padding: 14px 16px; border-radius: var(--radius); overflow-x: auto; font-family: var(--mono); font-size: 0.82em; margin: 8px 0; line-height: 1.6; }
+.msg-text ul, .msg-text ol { padding-left: 20px; margin: 6px 0; }
+.msg-text li { padding: 2px 0; font-size: 0.88rem; line-height: 1.6; }
+.msg-text li::marker { color: var(--primary); }
 
 .msg-user .msg-text {
     background: var(--primary);
