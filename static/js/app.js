@@ -325,7 +325,7 @@ class DellAIAgent {
         try {
             const response = await fetch('/api/os/connect', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getAuthHeaders(),
                 body: JSON.stringify({ host, username, password, port })
             });
             const data = await response.json();
@@ -395,7 +395,7 @@ class DellAIAgent {
         try {
             const response = await fetch('/api/os/execute', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getAuthHeaders(),
                 body: JSON.stringify({ action, parameters: params })
             });
             const data = await response.json();
@@ -565,7 +565,7 @@ class DellAIAgent {
 
             const response = await fetch(`/api/investigate`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getAuthHeaders(),
                 body: JSON.stringify({
                     server_info: this.currentServer,
                     issue_description: issueDescription,
@@ -786,7 +786,7 @@ class DellAIAgent {
         try {
             const response = await fetch('/chat/stream', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getAuthHeaders(),
                 body: JSON.stringify({ message: msg, action_level: this.actionLevel })
             });
 
@@ -1540,7 +1540,7 @@ class DellAIAgent {
         try {
             const response = await fetch(`/api/execute`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getAuthHeaders(),
                 body: JSON.stringify({ action_level: actionLevel, action: command, parameters: {} })
             });
             const result = await response.json();
@@ -1839,7 +1839,7 @@ class DellAIAgent {
         try {
             const response = await fetch(`/api/execute`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getAuthHeaders(),
                 body: JSON.stringify({ action_level: 'full_control', action: command, parameters })
             });
             const result = await response.json();
@@ -1936,7 +1936,7 @@ class DellAIAgent {
         try {
             const response = await fetch(`/api/check-idrac`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getAuthHeaders(),
                 body: JSON.stringify({ host, username: username || '', password: password || '', port: 443 })
             });
             const result = await response.json();
@@ -1972,7 +1972,7 @@ class DellAIAgent {
         try {
             const response = await fetch(`/api/execute`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getAuthHeaders(),
                 body: JSON.stringify({ action_level: 'full_control', command: 'run_diagnostics', parameters: { type } })
             });
             const result = await response.json();
@@ -1998,7 +1998,7 @@ class DellAIAgent {
         try {
             const response = await fetch(`/api/execute`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getAuthHeaders(),
                 body: JSON.stringify({ action_level: 'read_only', command: 'get_support_assist_status', parameters: {} })
             });
             const result = await response.json();
@@ -2044,7 +2044,7 @@ class DellAIAgent {
         try {
             const response = await fetch(`/api/execute`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getAuthHeaders(),
                 body: JSON.stringify({ action_level: 'full_control', command: 'set_bios_attributes', parameters: { attributes } })
             });
             const result = await response.json();
@@ -2257,7 +2257,7 @@ class DellAIAgent {
             if (mapping) {
                 const response = await fetch(`/api/execute`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: this._getAuthHeaders(),
                     body: JSON.stringify({ action: mapping.cmd, action_level: actionLevel, parameters: mapping.p() })
                 });
                 const result = await response.json();
@@ -3249,7 +3249,7 @@ class DellAIAgent {
             try {
                 const response = await fetch(`/api/execute`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: this._getAuthHeaders(),
                     body: JSON.stringify({ action_level: 'full_control', command: 'get_job_status', parameters: { job_id: jobId } })
                 });
                 const result = await response.json();
@@ -3374,7 +3374,7 @@ class DellAIAgent {
         try {
             const response = await fetch(`/api/execute`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getAuthHeaders(),
                 body: JSON.stringify({ action_level: this.actionLevel, command: 'health_check', parameters: {} })
             });
             const result = await response.json();
