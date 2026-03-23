@@ -189,20 +189,30 @@ class DellAIAgent {
     }
     
     async connectToServer() {
-        const host = document.getElementById('serverHost').value.trim();
-        const username = document.getElementById('username').value.trim();
-        const password = document.getElementById('password').value.trim();
-        const port = parseInt(document.getElementById('port').value) || 443;
+        const hostEl = document.getElementById('serverHost');
+        const userEl = document.getElementById('username');
+        const passEl = document.getElementById('password');
+        const host = hostEl?.value?.trim();
+        const username = userEl?.value?.trim();
+        const password = passEl?.value?.trim();
+        const port = parseInt(document.getElementById('port')?.value) || 443;
         
-        if (!host || !username || !password) {
-            this.showAlert('Please fill in all connection fields', 'warning');
-            return;
-        }
+        // Validate with visual feedback on empty fields
+        let valid = true;
+        [hostEl, userEl, passEl].forEach(el => { if (el) el.style.borderColor = ''; });
+        if (!host) { if (hostEl) hostEl.style.borderColor = '#ef4444'; valid = false; }
+        if (!username) { if (userEl) userEl.style.borderColor = '#ef4444'; valid = false; }
+        if (!password) { if (passEl) passEl.style.borderColor = '#ef4444'; valid = false; }
+        if (!valid) { this.showAlert('Please fill in all connection fields', 'warning'); return; }
         
+        // Button loading state — prevent double-click
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        if (connectBtn) { connectBtn.disabled = true; connectBtn.textContent = 'Connecting...'; }
         this.showLoading(true);
         
         try {
-            const response = await fetch(`/connect`, {
+            const response = await fetch(`/api/connect`, {
                 method: 'POST',
                 headers: this._getAuthHeaders(),
                 body: JSON.stringify({ host, username, password, port })
@@ -215,8 +225,14 @@ class DellAIAgent {
                 this.saveSettings();
                 this.showAlert('Connected to server successfully!', 'success');
                 this.log(`Connected to server: ${host}`, 'success');
-                this.updateConnectionStatus(true);
-                this.updateConnectionMode();
+                
+                // Update button states
+                if (connectBtn) { connectBtn.textContent = 'Connected'; connectBtn.disabled = true; }
+                if (disconnectBtn) disconnectBtn.disabled = false;
+                
+                // Update iDRAC status dot
+                const idracDot = document.getElementById('idracStatusDot');
+                if (idracDot) { idracDot.classList.add('connected'); idracDot.classList.remove('error'); }
                 
                 // Update topbar with server identity
                 const statusEl = document.querySelector('.topbar-connection');
@@ -225,6 +241,9 @@ class DellAIAgent {
                         <strong>${this.currentServer.host}</strong>
                         <span style="opacity:0.6;margin-left:4px">Connected</span>`;
                 }
+                
+                // Update connection mode bar
+                this.updateConnectionMode();
 
                 // Auto-fetch all dashboard data
                 setTimeout(() => this.fetchAllDashboardData(), 1000);
@@ -233,10 +252,14 @@ class DellAIAgent {
             } else {
                 this.showAlert(`Connection failed: ${result.detail}`, 'danger');
                 this.log(`Connection failed: ${result.detail}`, 'error');
+                if (connectBtn) { connectBtn.textContent = 'Connect iDRAC'; connectBtn.disabled = false; }
+                const idracDot = document.getElementById('idracStatusDot');
+                if (idracDot) { idracDot.classList.add('error'); idracDot.classList.remove('connected'); }
             }
         } catch (error) {
             this.showAlert(`Network error: ${error.message}`, 'danger');
             this.log(`Network error: ${error.message}`, 'error');
+            if (connectBtn) { connectBtn.textContent = 'Connect iDRAC'; connectBtn.disabled = false; }
         } finally {
             this.showLoading(false);
         }
@@ -246,10 +269,19 @@ class DellAIAgent {
         this._stopAutoRefresh();
         try {
             this.currentServer = null;
-            this.updateConnectionStatus(false);
             this.showAlert('Disconnected from server', 'info');
             this.log('Disconnected from server', 'info');
             this.saveSettings();
+            
+            // Reset button states
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            if (connectBtn) { connectBtn.textContent = 'Connect iDRAC'; connectBtn.disabled = false; }
+            if (disconnectBtn) disconnectBtn.disabled = true;
+            
+            // Reset iDRAC status dot
+            const idracDot = document.getElementById('idracStatusDot');
+            if (idracDot) { idracDot.classList.remove('connected', 'error'); }
             
             // Try to disconnect via API if available, but don't fail if it doesn't work
             try {
@@ -262,7 +294,6 @@ class DellAIAgent {
                     this.log('API disconnect successful', 'success');
                 }
             } catch (error) {
-                // API disconnect not available, but that's ok
                 this.log('API disconnect not available, using UI-only disconnect', 'info');
             }
             this.updateConnectionMode();
@@ -3735,17 +3766,18 @@ class DellAIAgent {
 
     // ─── Unchanged infrastructure methods ───────────────────────
     updateConnectionStatus(connected) {
-        const statusElement = document.getElementById('connectionStatus');
         const connectBtn = document.getElementById('connectBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
+        const idracDot = document.getElementById('idracStatusDot');
+        
         if (connected) {
-            statusElement.innerHTML = '<span class="status-indicator status-online"></span>Connected';
-            connectBtn.disabled = true;
-            disconnectBtn.disabled = false;
+            if (connectBtn) { connectBtn.disabled = true; connectBtn.textContent = 'Connected'; }
+            if (disconnectBtn) disconnectBtn.disabled = false;
+            if (idracDot) { idracDot.classList.add('connected'); idracDot.classList.remove('error'); }
         } else {
-            statusElement.innerHTML = '<span class="status-indicator status-offline"></span>Disconnected';
-            connectBtn.disabled = false;
-            disconnectBtn.disabled = true;
+            if (connectBtn) { connectBtn.disabled = false; connectBtn.textContent = 'Connect iDRAC'; }
+            if (disconnectBtn) disconnectBtn.disabled = true;
+            if (idracDot) { idracDot.classList.remove('connected', 'error'); }
         }
     }
     
