@@ -230,9 +230,11 @@ class DellAIAgent {
                 if (connectBtn) { connectBtn.textContent = 'Connected'; connectBtn.disabled = true; }
                 if (disconnectBtn) disconnectBtn.disabled = false;
                 
-                // Update iDRAC status dot
+                // Update iDRAC status dot + panel state
                 const idracDot = document.getElementById('idracStatusDot');
                 if (idracDot) { idracDot.classList.add('connected'); idracDot.classList.remove('error'); }
+                const idracPanel = document.getElementById('idracPanel');
+                if (idracPanel) { idracPanel.classList.add('panel-connected'); idracPanel.classList.remove('panel-error'); }
                 
                 // Update topbar with server identity
                 const statusEl = document.querySelector('.topbar-connection');
@@ -255,6 +257,8 @@ class DellAIAgent {
                 if (connectBtn) { connectBtn.textContent = 'Connect iDRAC'; connectBtn.disabled = false; }
                 const idracDot = document.getElementById('idracStatusDot');
                 if (idracDot) { idracDot.classList.add('error'); idracDot.classList.remove('connected'); }
+                const idracPanel = document.getElementById('idracPanel');
+                if (idracPanel) { idracPanel.classList.add('panel-error'); idracPanel.classList.remove('panel-connected'); }
             }
         } catch (error) {
             this.showAlert(`Network error: ${error.message}`, 'danger');
@@ -279,11 +283,13 @@ class DellAIAgent {
             if (connectBtn) { connectBtn.textContent = 'Connect iDRAC'; connectBtn.disabled = false; }
             if (disconnectBtn) disconnectBtn.disabled = true;
             
-            // Reset iDRAC status dot
+            // Reset iDRAC status dot + panel state
             const idracDot = document.getElementById('idracStatusDot');
             if (idracDot) { idracDot.classList.remove('connected', 'error'); }
+            const idracPanel = document.getElementById('idracPanel');
+            if (idracPanel) { idracPanel.classList.remove('panel-connected', 'panel-error'); }
             
-            // Try to disconnect via API if available, but don't fail if it doesn't work
+            // Try to disconnect via API
             try {
                 const response = await fetch(`/api/disconnect`, {
                     method: 'POST',
@@ -367,6 +373,8 @@ class DellAIAgent {
                 
                 const dot = document.getElementById('osStatusDot');
                 if (dot) dot.classList.add('connected');
+                const osPanel = document.getElementById('osPanel');
+                if (osPanel) { osPanel.classList.add('panel-connected'); osPanel.classList.remove('panel-error'); }
                 
                 const disconnectBtn = document.getElementById('osDisconnectBtn');
                 if (disconnectBtn) disconnectBtn.disabled = false;
@@ -384,6 +392,8 @@ class DellAIAgent {
         } catch (error) {
             const dot = document.getElementById('osStatusDot');
             if (dot) { dot.classList.remove('connected'); dot.classList.add('error'); }
+            const osPanel = document.getElementById('osPanel');
+            if (osPanel) { osPanel.classList.add('panel-error'); osPanel.classList.remove('panel-connected'); }
             if (resultDiv) {
                 resultDiv.style.display = 'block';
                 resultDiv.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
@@ -404,6 +414,8 @@ class DellAIAgent {
             
             const dot = document.getElementById('osStatusDot');
             if (dot) { dot.classList.remove('connected', 'error'); }
+            const osPanel = document.getElementById('osPanel');
+            if (osPanel) { osPanel.classList.remove('panel-connected', 'panel-error'); }
             const disconnectBtn = document.getElementById('osDisconnectBtn');
             if (disconnectBtn) disconnectBtn.disabled = true;
             const resultDiv = document.getElementById('osConnectResult');
