@@ -286,10 +286,19 @@ class FleetManager:
                 server.status = ServerStatus.ONLINE
                 server.last_seen = datetime.now()
                 
+                # Run initial health check to compute a real health score
+                try:
+                    metrics = await self._collect_server_metrics(client, server_id)
+                    server.health_score = self._calculate_health_score(metrics)
+                    await self._check_server_alerts(server_id, metrics)
+                except Exception as e:
+                    logger.warning(f"Initial health check failed for {server.name}: {e}")
+                    server.health_score = 75.0  # Default if check fails
+                
                 # Start monitoring
                 await self.start_monitoring(server_id)
                 
-                logger.info(f"Connected to server {server.name}")
+                logger.info(f"Connected to server {server.name} (health: {server.health_score}%)")
                 return True
             else:
                 server.status = ServerStatus.ERROR
@@ -394,41 +403,41 @@ class FleetManager:
                 await asyncio.sleep(60)
     
     async def _collect_server_metrics(self, client, server_id: str) -> Dict[str, Any]:
-        """Collect metrics from a server"""
+        """Collect metrics from a server — returns parsed objects from the Redfish client."""
         metrics = {}
         
         try:
-            # Get thermal data
+            # Get thermal data (returns List[TemperatureInfo] or list of dicts)
             try:
                 thermal_data = await client.get_temperature_sensors()
-                metrics['thermal'] = thermal_data if isinstance(thermal_data, dict) else {}
+                metrics['thermal'] = thermal_data if thermal_data else []
             except Exception as e:
                 logger.warning(f"Failed to get thermal data for server {server_id}: {e}")
-                metrics['thermal'] = {}
+                metrics['thermal'] = []
             
-            # Get power data
+            # Get power data (returns List[PowerSupplyInfo] or list of dicts)
             try:
                 power_data = await client.get_power_supplies()
-                metrics['power'] = power_data if isinstance(power_data, dict) else {}
+                metrics['power'] = power_data if power_data else []
             except Exception as e:
                 logger.warning(f"Failed to get power data for server {server_id}: {e}")
-                metrics['power'] = {}
+                metrics['power'] = []
             
-            # Get memory data
+            # Get memory data (returns List[MemoryInfo] or list of dicts)
             try:
                 memory_data = await client.get_memory()
-                metrics['memory'] = memory_data if isinstance(memory_data, dict) else {}
+                metrics['memory'] = memory_data if memory_data else []
             except Exception as e:
                 logger.warning(f"Failed to get memory data for server {server_id}: {e}")
-                metrics['memory'] = {}
+                metrics['memory'] = []
             
-            # Get storage data
+            # Get storage data (returns List[StorageInfo] or list of dicts)
             try:
                 storage_data = await client.get_storage_devices()
-                metrics['storage'] = storage_data if isinstance(storage_data, dict) else {}
+                metrics['storage'] = storage_data if storage_data else []
             except Exception as e:
                 logger.warning(f"Failed to get storage data for server {server_id}: {e}")
-                metrics['storage'] = {}
+                metrics['storage'] = []
             
             # Get system info
             try:
@@ -444,131 +453,129 @@ class FleetManager:
         return metrics
     
     def _calculate_health_score(self, metrics: Dict[str, Any]) -> float:
-        """Calculate health score for a server"""
+        """Calculate health score from parsed Redfish objects.
+        Objects may be dataclass instances or dicts with keys like
+        reading_celsius, status, size_gb, etc."""
         if not metrics:
-            return 75.0  # Default score when no metrics available
+            return 75.0
+        
+        def _get(obj, key, default=None):
+            """Get attribute from dataclass or dict."""
+            if isinstance(obj, dict):
+                return obj.get(key, default)
+            return getattr(obj, key, default)
         
         scores = []
         
-        # Thermal health
-        if 'thermal' in metrics and metrics['thermal']:
-            thermal = metrics['thermal']
-            temps = thermal.get('Temperatures', [])
-            if temps:
-                max_temp = max(temp.get('ReadingCelsius', 0) for temp in temps if isinstance(temp, dict))
+        # Thermal health — parsed TemperatureInfo objects
+        temps = metrics.get('thermal', [])
+        if isinstance(temps, list) and temps:
+            readings = [_get(t, 'reading_celsius') for t in temps if _get(t, 'reading_celsius') is not None]
+            if readings:
+                max_temp = max(readings)
                 if max_temp > 85:
-                    scores.append(20)  # Critical
+                    scores.append(20)
                 elif max_temp > 75:
-                    scores.append(60)  # Warning
+                    scores.append(60)
+                elif max_temp > 65:
+                    scores.append(80)
                 else:
-                    scores.append(100)  # Good
-            else:
-                scores.append(85)  # No thermal data, assume good
-        else:
-            scores.append(85)  # No thermal data, assume good
-        
-        # Power health
-        if 'power' in metrics and metrics['power']:
-            power = metrics['power']
-            psus = power.get('PowerSupplies', [])
-            if psus:
-                healthy_psus = sum(1 for psu in psus if isinstance(psu, dict) and psu.get('Status', {}).get('Health') == 'OK')
-                if psus:
-                    power_score = (healthy_psus / len(psus)) * 100
-                    scores.append(power_score)
-            else:
-                scores.append(85)  # No power data, assume good
-        else:
-            scores.append(85)  # No power data, assume good
-        
-        # Memory health
-        if 'memory' in metrics and metrics['memory']:
-            memory = metrics['memory']
-            dimms = memory.get('Memory', [])
-            if dimms:
-                healthy_dimms = sum(1 for dimm in dimms if isinstance(dimm, dict) and dimm.get('Status', {}).get('Health') == 'OK')
-                if dimms:
-                    memory_score = (healthy_dimms / len(dimms)) * 100
-                    scores.append(memory_score)
-            else:
-                scores.append(85)  # No memory data, assume good
-        else:
-            scores.append(85)  # No memory data, assume good
-        
-        # Storage health
-        if 'storage' in metrics and metrics['storage']:
-            storage = metrics['storage']
-            drives = storage.get('drives', [])
-            if drives:
-                healthy_drives = sum(1 for drive in drives if isinstance(drive, dict) and not drive.get('FailurePredicted', False))
-                if drives:
-                    storage_score = (healthy_drives / len(drives)) * 100
-                    scores.append(storage_score)
-            else:
-                scores.append(85)  # No storage data, assume good
-        else:
-            scores.append(85)  # No storage data, assume good
-        
-        # System health based on system info
-        if 'system' in metrics and metrics['system']:
-            system = metrics['system']
-            if hasattr(system, 'status') and system.status:
-                if system.status.health == 'OK':
                     scores.append(100)
-                elif system.status.health == 'Warning':
-                    scores.append(70)
-                else:
-                    scores.append(40)
             else:
-                scores.append(85)  # No system status, assume good
+                scores.append(85)
         else:
-            scores.append(85)  # No system data, assume good
+            scores.append(85)
         
-        return sum(scores) / len(scores) if scores else 75.0
+        # Power health — parsed PowerSupplyInfo objects
+        psus = metrics.get('power', [])
+        if isinstance(psus, list) and psus:
+            ok_count = 0
+            for psu in psus:
+                st = str(_get(psu, 'status', '')).lower()
+                if 'ok' in st or 'enabled' in st or st == 'on':
+                    ok_count += 1
+            power_score = (ok_count / len(psus)) * 100 if psus else 85
+            scores.append(power_score)
+        else:
+            scores.append(85)
+        
+        # Memory health — parsed MemoryInfo objects
+        dimms = metrics.get('memory', [])
+        if isinstance(dimms, list) and dimms:
+            populated = [d for d in dimms if (_get(d, 'size_gb') or 0) > 0]
+            if populated:
+                ok_count = sum(1 for d in populated if 'ok' in str(_get(d, 'status', '')).lower() or 'enabled' in str(_get(d, 'status', '')).lower())
+                scores.append((ok_count / len(populated)) * 100)
+            else:
+                scores.append(85)
+        else:
+            scores.append(85)
+        
+        # Storage health — parsed StorageInfo objects
+        drives = metrics.get('storage', [])
+        if isinstance(drives, list) and drives:
+            ok_count = sum(1 for d in drives if 'ok' in str(_get(d, 'status', '')).lower() or 'enabled' in str(_get(d, 'status', '')).lower())
+            scores.append((ok_count / len(drives)) * 100)
+        else:
+            scores.append(85)
+        
+        # System health — parsed SystemInfo object
+        system = metrics.get('system')
+        if system:
+            overall = str(_get(system, 'overall_health') or _get(system, 'status') or '').lower()
+            if 'ok' in overall or 'healthy' in overall:
+                scores.append(100)
+            elif 'warning' in overall or 'degraded' in overall:
+                scores.append(70)
+            elif 'critical' in overall or 'error' in overall:
+                scores.append(30)
+            else:
+                scores.append(85)
+        else:
+            scores.append(85)
+        
+        return round(sum(scores) / len(scores), 1) if scores else 75.0
     
     async def _check_server_alerts(self, server_id: str, metrics: Dict[str, Any]):
-        """Check for alerts on a server"""
+        """Check for alerts on a server using parsed Redfish objects."""
         server = self.servers[server_id]
         alerts = []
         
+        def _get(obj, key, default=None):
+            return obj.get(key, default) if isinstance(obj, dict) else getattr(obj, key, default)
+        
         # Check thermal alerts
-        if 'thermal' in metrics:
-            thermal = metrics['thermal']
-            temps = thermal.get('Temperatures', [])
+        temps = metrics.get('thermal', [])
+        if isinstance(temps, list):
             for temp in temps:
-                temp_value = temp.get('ReadingCelsius', 0)
-                if temp_value > 85:
+                val = _get(temp, 'reading_celsius')
+                name = _get(temp, 'name') or _get(temp, 'id') or 'Sensor'
+                if val is not None and val > 85:
                     alerts.append({
-                        'server_id': server_id,
-                        'server_name': server.name,
-                        'type': 'critical',
-                        'metric': 'temperature',
-                        'message': f"Critical temperature: {temp.get('Name')} = {temp_value}°C",
+                        'server_id': server_id, 'server_name': server.name,
+                        'type': 'critical', 'metric': 'temperature',
+                        'message': f"Critical temperature: {name} = {val}°C",
                         'timestamp': datetime.now()
                     })
-                elif temp_value > 75:
+                elif val is not None and val > 75:
                     alerts.append({
-                        'server_id': server_id,
-                        'server_name': server.name,
-                        'type': 'warning',
-                        'metric': 'temperature',
-                        'message': f"High temperature: {temp.get('Name')} = {temp_value}°C",
+                        'server_id': server_id, 'server_name': server.name,
+                        'type': 'warning', 'metric': 'temperature',
+                        'message': f"High temperature: {name} = {val}°C",
                         'timestamp': datetime.now()
                     })
         
         # Check power alerts
-        if 'power' in metrics:
-            power = metrics['power']
-            psus = power.get('PowerSupplies', [])
+        psus = metrics.get('power', [])
+        if isinstance(psus, list):
             for i, psu in enumerate(psus):
-                psu_status = psu.get('Status', {}).get('Health')
-                if psu_status != 'OK':
+                st = str(_get(psu, 'status', '')).lower()
+                name = _get(psu, 'id') or _get(psu, 'name') or f'PSU {i+1}'
+                if st and 'ok' not in st and 'enabled' not in st and 'on' not in st:
                     alerts.append({
-                        'server_id': server_id,
-                        'server_name': server.name,
-                        'type': 'critical',
-                        'metric': 'power',
-                        'message': f"PSU {i+1} status: {psu_status}",
+                        'server_id': server_id, 'server_name': server.name,
+                        'type': 'critical', 'metric': 'power',
+                        'message': f"{name} status: {_get(psu, 'status', 'Unknown')}",
                         'timestamp': datetime.now()
                     })
         
@@ -626,6 +633,12 @@ class FleetManager:
                 try:
                     metrics = await self._collect_server_metrics(self.active_connections[server_id], server_id)
                     server_result['metrics'] = metrics
+                    # Calculate and update health score from real metrics
+                    server.health_score = self._calculate_health_score(metrics)
+                    server_result['health_score'] = server.health_score
+                    # Check for alerts
+                    await self._check_server_alerts(server_id, metrics)
+                    server_result['alert_count'] = server.alert_count
                 except Exception as e:
                     server_result['error'] = str(e)
             

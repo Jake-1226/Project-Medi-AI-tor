@@ -1453,8 +1453,9 @@ async def get_fleet_dashboard():
     return FileResponse('templates/fleet.html', headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 @app.get("/api/fleet/overview")
-async def get_fleet_overview():
+async def get_fleet_overview(request: Request):
     """Get fleet overview data"""
+    user = await _get_current_user(request)
     try:
         overview = fleet_manager.get_fleet_overview()
         return {
@@ -1466,8 +1467,9 @@ async def get_fleet_overview():
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/servers")
-async def add_fleet_server(server_data: dict):
+async def add_fleet_server(server_data: dict, request: Request):
     """Add a new server to the fleet"""
+    user = await _get_current_user(request)
     try:
         server_id = fleet_manager.add_server(
             name=server_data.get('name'),
@@ -1493,8 +1495,9 @@ async def add_fleet_server(server_data: dict):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/servers/{server_id}/connect")
-async def connect_fleet_server(server_id: str):
+async def connect_fleet_server(server_id: str, request: Request):
     """Connect to a specific server in the fleet"""
+    user = await _get_current_user(request)
     try:
         success = await fleet_manager.connect_server(server_id)
         
@@ -1507,8 +1510,9 @@ async def connect_fleet_server(server_id: str):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/servers/{server_id}/disconnect")
-async def disconnect_fleet_server(server_id: str):
+async def disconnect_fleet_server(server_id: str, request: Request):
     """Disconnect from a specific server in the fleet"""
+    user = await _get_current_user(request)
     try:
         success = await fleet_manager.disconnect_server(server_id)
         
@@ -1521,8 +1525,9 @@ async def disconnect_fleet_server(server_id: str):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/connect-all")
-async def connect_all_fleet_servers():
+async def connect_all_fleet_servers(request: Request):
     """Connect to all servers in the fleet"""
+    user = await _get_current_user(request)
     try:
         results = await fleet_manager.connect_all_servers()
         
@@ -1536,8 +1541,9 @@ async def connect_all_fleet_servers():
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/disconnect-all")
-async def disconnect_all_fleet_servers():
+async def disconnect_all_fleet_servers(request: Request):
     """Disconnect from all servers in the fleet"""
+    user = await _get_current_user(request)
     try:
         results = await fleet_manager.disconnect_all_servers()
         
@@ -1551,8 +1557,9 @@ async def disconnect_all_fleet_servers():
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/api/fleet/servers/{server_id}")
-async def get_fleet_server(server_id: str):
+async def get_fleet_server(server_id: str, request: Request):
     """Get details for a specific server"""
+    user = await _get_current_user(request)
     try:
         server = fleet_manager.get_server(server_id)
         if not server:
@@ -1570,8 +1577,9 @@ async def get_fleet_server(server_id: str):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.put("/api/fleet/servers/{server_id}")
-async def update_fleet_server(server_id: str, server_data: dict):
+async def update_fleet_server(server_id: str, server_data: dict, request: Request):
     """Update a server in the fleet"""
+    user = await _get_current_user(request)
     try:
         success = fleet_manager.update_server(server_id, **server_data)
         
@@ -1589,8 +1597,9 @@ async def update_fleet_server(server_id: str, server_data: dict):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.delete("/api/fleet/servers/{server_id}")
-async def delete_fleet_server(server_id: str):
+async def delete_fleet_server(server_id: str, request: Request):
     """Delete a server from the fleet"""
+    user = await _get_current_user(request)
     try:
         success = fleet_manager.delete_server(server_id)
         
@@ -1608,8 +1617,9 @@ async def delete_fleet_server(server_id: str):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/servers/{server_id}/diagnostics")
-async def run_server_diagnostics(server_id: str):
+async def run_server_diagnostics(server_id: str, request: Request):
     """Run diagnostics on a specific server"""
+    user = await _get_current_user(request)
     try:
         server = fleet_manager.get_server(server_id)
         if not server:
@@ -1652,8 +1662,9 @@ async def run_server_diagnostics(server_id: str):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/health-check")
-async def run_fleet_health_check():
+async def run_fleet_health_check(request: Request):
     """Run health check on all connected servers"""
+    user = await _get_current_user(request)
     try:
         results = await fleet_manager.run_fleet_health_check()
         
@@ -1667,13 +1678,14 @@ async def run_fleet_health_check():
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/alerts/{alert_index}/acknowledge")
-async def acknowledge_fleet_alert(alert_index: int, request: dict = {}):
+async def acknowledge_fleet_alert(alert_index: int, body: dict = {}, request: Request = None):
     """Acknowledge a fleet alert"""
+    user = await _get_current_user(request)
     try:
         alerts = fleet_manager.get_recent_alerts(hours=168, limit=1000)
         if 0 <= alert_index < len(alerts):
             alerts[alert_index]["acknowledged"] = True
-            alerts[alert_index]["acknowledged_by"] = request.get("acknowledged_by", "user")
+            alerts[alert_index]["acknowledged_by"] = body.get("acknowledged_by", "user")
             alerts[alert_index]["acknowledged_at"] = datetime.now().isoformat()
             return {"status": "success", "message": "Alert acknowledged"}
         raise HTTPException(status_code=404, detail="Alert not found")
@@ -1684,8 +1696,9 @@ async def acknowledge_fleet_alert(alert_index: int, request: dict = {}):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/alerts/clear")
-async def clear_fleet_alerts(request: dict = {}):
+async def clear_fleet_alerts(body: dict = {}, request: Request = None):
     """Clear resolved/acknowledged fleet alerts"""
+    user = await _get_current_user(request)
     try:
         before = len(fleet_manager.alerts)
         fleet_manager.alerts = [a for a in fleet_manager.alerts if not a.get("acknowledged")]
@@ -1696,8 +1709,9 @@ async def clear_fleet_alerts(request: dict = {}):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/api/fleet/alerts")
-async def get_fleet_alerts(hours: int = 24, limit: int = 100):
+async def get_fleet_alerts(hours: int = 24, limit: int = 100, request: Request = None):
     """Get recent alerts from all servers"""
+    user = await _get_current_user(request)
     try:
         alerts = fleet_manager.get_recent_alerts(hours, limit)
         
@@ -1830,8 +1844,9 @@ async def get_metric_history(metric_name: str, minutes: int = 60):
 
 # ─── Fleet Group Management Endpoints ──────────────────────────────
 @app.get("/api/fleet/groups")
-async def get_fleet_groups():
+async def get_fleet_groups(request: Request):
     """Get all server groups"""
+    user = await _get_current_user(request)
     try:
         groups = {}
         for name, group in fleet_manager.server_groups.items():
@@ -1849,8 +1864,9 @@ async def get_fleet_groups():
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/groups")
-async def create_fleet_group(group_data: dict):
+async def create_fleet_group(group_data: dict, request: Request):
     """Create a new server group"""
+    user = await _get_current_user(request)
     try:
         name = group_data.get("name")
         description = group_data.get("description", "")
@@ -1872,8 +1888,9 @@ async def create_fleet_group(group_data: dict):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.delete("/api/fleet/groups/{group_name}")
-async def delete_fleet_group(group_name: str):
+async def delete_fleet_group(group_name: str, request: Request):
     """Delete a server group"""
+    user = await _get_current_user(request)
     try:
         success = fleet_manager.delete_group(group_name)
         if success:
@@ -1887,8 +1904,9 @@ async def delete_fleet_group(group_name: str):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/groups/{group_name}/servers/{server_id}")
-async def add_server_to_group(group_name: str, server_id: str):
+async def add_server_to_group(group_name: str, server_id: str, request: Request):
     """Add a server to a group"""
+    user = await _get_current_user(request)
     try:
         success = fleet_manager.add_server_to_group(server_id, group_name)
         if success:
@@ -1902,8 +1920,9 @@ async def add_server_to_group(group_name: str, server_id: str):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.delete("/api/fleet/groups/{group_name}/servers/{server_id}")
-async def remove_server_from_group(group_name: str, server_id: str):
+async def remove_server_from_group(group_name: str, server_id: str, request: Request):
     """Remove a server from a group"""
+    user = await _get_current_user(request)
     try:
         success = fleet_manager.remove_server_from_group(server_id, group_name)
         if success:
@@ -1918,8 +1937,9 @@ async def remove_server_from_group(group_name: str, server_id: str):
 
 # ─── Fleet Analytics Endpoints ──────────────────────────────
 @app.get("/api/fleet/analytics")
-async def get_fleet_analytics(time_range: str = "24h", metric: str = "health"):
+async def get_fleet_analytics(time_range: str = "24h", metric: str = "health", request: Request = None):
     """Get fleet analytics data"""
+    user = await _get_current_user(request)
     try:
         overview = fleet_manager.get_fleet_overview()
         alerts = fleet_manager.get_recent_alerts(hours=168 if time_range == "week" else 720 if time_range == "month" else 24)
@@ -1959,8 +1979,9 @@ async def get_fleet_analytics(time_range: str = "24h", metric: str = "health"):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/analytics/report")
-async def generate_fleet_report(report_config: dict = {}):
+async def generate_fleet_report(report_config: dict = {}, request: Request = None):
     """Generate a fleet analytics report"""
+    user = await _get_current_user(request)
     try:
         overview = fleet_manager.get_fleet_overview()
         alerts = fleet_manager.get_recent_alerts(hours=168)
@@ -2023,8 +2044,9 @@ async def generate_fleet_report(report_config: dict = {}):
 
 # ─── Export Endpoints ──────────────────────────────
 @app.get("/api/fleet/export/servers")
-async def export_fleet_servers(format: str = "json"):
+async def export_fleet_servers(format: str = "json", request: Request = None):
     """Export fleet servers data"""
+    user = await _get_current_user(request)
     try:
         servers_data = []
         for server in fleet_manager.servers.values():
@@ -2061,8 +2083,9 @@ async def export_fleet_servers(format: str = "json"):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/api/fleet/export/alerts")
-async def export_fleet_alerts(format: str = "json", hours: int = 24):
+async def export_fleet_alerts(format: str = "json", hours: int = 24, request: Request = None):
     """Export fleet alerts data"""
+    user = await _get_current_user(request)
     try:
         alerts = fleet_manager.get_recent_alerts(hours=hours, limit=1000)
         alerts_data = [
@@ -2316,10 +2339,11 @@ async def get_diagnostics_summary():
 
 # ─── Server Comparison ──────────────────────────────────────────
 @app.post("/api/fleet/compare")
-async def compare_fleet_servers(request: dict):
+async def compare_fleet_servers(body: dict, request: Request):
     """Compare two or more servers side by side"""
+    user = await _get_current_user(request)
     try:
-        server_ids = request.get("server_ids", [])
+        server_ids = body.get("server_ids", [])
         if len(server_ids) < 2:
             raise HTTPException(status_code=400, detail="Need at least 2 servers to compare")
         

@@ -11,8 +11,17 @@ class FleetManager {
         this.currentTab = 'overview';
         this.refreshInterval = null;
         this.refreshRate = 30000; // 30 seconds
+        this._authToken = sessionStorage.getItem('auth_token') || '';
         
         this.init();
+    }
+    
+    /** Auth headers for all API calls. Token comes from sessionStorage or HTTP-only cookie. */
+    _headers(json = true) {
+        const h = {};
+        if (json) h['Content-Type'] = 'application/json';
+        if (this._authToken) h['Authorization'] = `Bearer ${this._authToken}`;
+        return h;
     }
     
     init() {
@@ -159,9 +168,33 @@ class FleetManager {
         }
     }
     
+    /** Refresh the overview tab by re-fetching data and updating overview widgets */
+    async refreshOverview() {
+        await this.refreshFleetData();
+    }
+    
+    /** Refresh the servers table by re-fetching data */
+    async refreshServersTable() {
+        await this.refreshFleetData();
+    }
+    
+    /** Refresh alerts from the API */
+    async refreshAlerts() {
+        try {
+            const response = await fetch('/api/fleet/alerts?hours=168', { headers: this._headers(false) });
+            const data = await response.json();
+            if (data.status === 'success') {
+                this.alerts = data.alerts || data.data || [];
+                this.updateAlerts();
+            }
+        } catch (e) {
+            console.error('Error refreshing alerts:', e);
+        }
+    }
+    
     async loadFleetData() {
         try {
-            const response = await fetch('/api/fleet/overview');
+            const response = await fetch('/api/fleet/overview', { headers: this._headers(false) });
             const data = await response.json();
             
             if (data.status === 'success') {
@@ -177,6 +210,9 @@ class FleetManager {
                     this.groups.set(groupName, groupData);
                 }
                 
+                // Load alerts from data
+                this.alerts = data.data.recent_alerts || this.alerts;
+                
                 this.updateUI();
             }
         } catch (error) {
@@ -189,7 +225,7 @@ class FleetManager {
         this.showLoading(true);
         
         try {
-            const response = await fetch('/api/fleet/overview');
+            const response = await fetch('/api/fleet/overview', { headers: this._headers(false) });
             const data = await response.json();
             
             if (data.status === 'success') {
@@ -379,7 +415,7 @@ class FleetManager {
         
         tbody.innerHTML = Array.from(this.servers.values()).map(server => `
             <tr>
-                <td><input type="checkbox" data-server-id="${server.id}"></td>
+                <td><input type="checkbox" class="server-row-check" value="${server.id}" data-server-id="${server.id}"></td>
                 <td>
                     <strong>${server.name}</strong>
                     ${server.tags.length > 0 ? `<br><small>${server.tags.join(', ')}</small>` : ''}
@@ -475,7 +511,7 @@ class FleetManager {
         this.setButtonLoading('connectAllBtn', true);
         
         try {
-            const response = await fetch('/api/fleet/connect-all', { method: 'POST' });
+            const response = await fetch('/api/fleet/connect-all', { method: 'POST', headers: this._headers(false) });
             
             if (response.ok) {
                 const result = await response.json();
@@ -498,7 +534,7 @@ class FleetManager {
         this.setButtonLoading('disconnectAllBtn', true);
         
         try {
-            const response = await fetch('/api/fleet/disconnect-all', { method: 'POST' });
+            const response = await fetch('/api/fleet/disconnect-all', { method: 'POST', headers: this._headers(false) });
             
             if (response.ok) {
                 const result = await response.json();
@@ -519,7 +555,7 @@ class FleetManager {
     
     async connectServer(serverId) {
         try {
-            const response = await fetch(`/api/fleet/servers/${serverId}/connect`, { method: 'POST' });
+            const response = await fetch(`/api/fleet/servers/${serverId}/connect`, { method: 'POST', headers: this._headers(false) });
             const data = await response.json();
             
             if (data.status === 'success') {
@@ -536,7 +572,7 @@ class FleetManager {
     
     async disconnectServer(serverId) {
         try {
-            const response = await fetch(`/api/fleet/servers/${serverId}/disconnect`, { method: 'POST' });
+            const response = await fetch(`/api/fleet/servers/${serverId}/disconnect`, { method: 'POST', headers: this._headers(false) });
             const data = await response.json();
             
             if (data.status === 'success') {
@@ -591,9 +627,7 @@ class FleetManager {
         try {
             const response = await fetch('/api/fleet/servers', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: this._headers(),
                 body: JSON.stringify(serverData)
             });
             
@@ -729,7 +763,7 @@ class FleetManager {
         if (tbody) {
             tbody.innerHTML = filteredServers.map(server => `
                 <tr>
-                    <td><input type="checkbox" data-server-id="${server.id}"></td>
+                    <td><input type="checkbox" class="server-row-check" value="${server.id}" data-server-id="${server.id}"></td>
                     <td>
                         <strong>${server.name}</strong>
                         ${server.tags.length > 0 ? `<br><small>${server.tags.join(', ')}</small>` : ''}
@@ -760,7 +794,7 @@ class FleetManager {
             const timeRange = document.getElementById('analyticsTimeRange')?.value || '24';
             const metric = document.getElementById('analyticsMetric')?.value || 'health';
             
-            const response = await fetch(`/api/fleet/analytics?time_range=${timeRange}h&metric=${metric}`);
+            const response = await fetch(`/api/fleet/analytics?time_range=${timeRange}h&metric=${metric}`, { headers: this._headers(false) });
             const data = await response.json();
             
             if (data.status === 'success') {
@@ -873,7 +907,7 @@ class FleetManager {
         try {
             const response = await fetch('/api/fleet/analytics/report', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._headers(),
                 body: JSON.stringify({})
             });
             const data = await response.json();
@@ -1192,7 +1226,7 @@ class FleetManager {
             this.showLoading(true);
             const response = await fetch('/api/fleet/groups', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._headers(),
                 body: JSON.stringify({ name, description, server_ids: selectedServers })
             });
             const data = await response.json();
@@ -1218,7 +1252,7 @@ class FleetManager {
     async manageGroups() {
         // Fetch latest groups from API
         try {
-            const response = await fetch('/api/fleet/groups');
+            const response = await fetch('/api/fleet/groups', { headers: this._headers(false) });
             const data = await response.json();
             
             if (data.status === 'success') {
@@ -1284,7 +1318,7 @@ class FleetManager {
     async deleteGroup(groupName) {
         this.confirmAction(`Delete group "${groupName}"? Servers will not be deleted.`, async () => {
             try {
-                const response = await fetch(`/api/fleet/groups/${encodeURIComponent(groupName)}`, { method: 'DELETE' });
+                const response = await fetch(`/api/fleet/groups/${encodeURIComponent(groupName)}`, { method: 'DELETE', headers: this._headers(false) });
                 const data = await response.json();
                 if (data.status === 'success') {
                     this.showToast(`Group "${groupName}" deleted`, 'success');
@@ -1344,7 +1378,7 @@ class FleetManager {
         document.getElementById('bulkActionsModal')?.classList.remove('active');
         this.showLoading(true);
         try {
-            const response = await fetch('/api/fleet/health-check', { method: 'POST' });
+            const response = await fetch('/api/fleet/health-check', { method: 'POST', headers: this._headers(false) });
             const data = await response.json();
             this.showToast(data.message || 'Health check completed', 'success');
             await this.loadFleetData();
@@ -1478,9 +1512,7 @@ class FleetManager {
                 
                 const response = await fetch(`/api/fleet/servers/${serverId}`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: this._headers(),
                     body: JSON.stringify(updateData)
                 });
                 
@@ -1516,7 +1548,8 @@ class FleetManager {
             this.showLoading(true);
             
             const response = await fetch(`/api/fleet/servers/${serverId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: this._headers(false)
             });
             
             if (response.ok) {
@@ -1650,8 +1683,18 @@ class FleetManager {
         }
     }
     
-    acknowledgeAlert(alertId) {
-        this.showToast(`Alert acknowledged`, 'success');
+    async acknowledgeAlert(alertIndex) {
+        try {
+            const response = await fetch(`/api/fleet/alerts/${alertIndex}/acknowledge`, {
+                method: 'POST', headers: this._headers(false)
+            });
+            if (response.ok) {
+                this.showToast('Alert acknowledged', 'success');
+                await this.refreshAlerts();
+            }
+        } catch (e) {
+            this.showToast('Failed to acknowledge alert', 'error');
+        }
     }
     
     viewAlertDetails(alertId) {
@@ -1730,9 +1773,7 @@ class FleetManager {
             // Run diagnostics
             const response = await fetch(`/api/fleet/servers/${serverId}/diagnostics`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                headers: this._headers()
             });
             
             if (response.ok) {
