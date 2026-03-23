@@ -571,6 +571,12 @@ body {
     color: #78350f;
     font-size: 0.85rem;
 }
+.msg-info .msg-text {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #1e40af;
+    font-size: 0.85rem;
+}
 
 /* Capabilities list */
 .msg-capabilities {
@@ -1502,14 +1508,19 @@ body {
 }
 .connect-error .error-retry:hover { background: var(--red); color: white; }
 
-/* ─── Suggestion chips hide animation ────────────────── */
+/* ─── Suggestion chips hide/show animation ─────────────── */
+.chat-suggestions {
+    transition: opacity 0.3s ease, max-height 0.3s ease, padding 0.3s ease;
+    max-height: 200px;
+    overflow: hidden;
+}
 .chat-suggestions.hiding {
     opacity: 0;
     max-height: 0;
-    padding: 0;
-    border: 0;
-    overflow: hidden;
-    transition: opacity 0.2s, max-height 0.3s ease, padding 0.3s;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-top-color: transparent;
+    pointer-events: none;
 }
 
 /* ─── Accessibility — focus-visible for all interactive ─ */

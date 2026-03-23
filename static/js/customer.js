@@ -412,19 +412,16 @@ class CustomerChat {
         if (!msg) return;
 
         if (!this.connected) {
-            this.addMsg('system', 'Please connect to a server first using the panel on the left.');
+            this.addMsg('info', 'Connect to a server first using the sidebar. Then I can help you diagnose any issue.');
             return;
         }
 
         input.value = '';
         input.style.height = 'auto';
 
-        // Hide suggestions with animation after first message
+        // Hide suggestions during conversation (but don't destroy them)
         const sug = document.getElementById('chatSuggestions');
-        if (sug && !sug.classList.contains('hiding')) {
-            sug.classList.add('hiding');
-            setTimeout(() => sug.remove(), 350);
-        }
+        if (sug) sug.classList.add('hiding');
 
         this.addMsg('user', msg);
 
@@ -571,8 +568,9 @@ class CustomerChat {
         this.addMsgHtml('agent', html);
         
         const followUps = this._buildContextualFollowUps(msg, result.data);
-        this.addFollowUps(followUps.length ? followUps : ['Check another component', 'Run full investigation', 'Help']);
+        this.addFollowUps(followUps.length ? followUps : this._getSmartFollowUps(msg));
         this.updateAgentStatus('Ready');
+        this._showSuggestions();
     }
 
     _renderServerOverview(msg) {
@@ -803,6 +801,7 @@ class CustomerChat {
 
         if (result.metrics) this.renderMetrics(result.metrics);
         this.updateAgentStatus('Investigation complete', result.metrics);
+        this._showSuggestions();
     }
 
     handleFollowUp(result) {
@@ -859,8 +858,9 @@ class CustomerChat {
         
         // Contextual follow-ups based on what was checked
         const followUps = this._buildContextualFollowUps(result.message, data);
-        this.addFollowUps(followUps.length ? followUps : ['What else should I check?', 'Run full investigation', 'Can you fix this?']);
+        this.addFollowUps(followUps.length ? followUps : this._getSmartFollowUps(result.message));
         this.updateAgentStatus('Ready');
+        this._showSuggestions();
     }
 
     handleStatus(result) {
@@ -1029,8 +1029,10 @@ class CustomerChat {
         div.id = id;
         div.className = `chat-msg msg-${role}`;
 
-        const avatarIcon = role === 'user' ? '👤' : role === 'agent' ? '🧠' : 'ℹ️';
-        const name = role === 'user' ? 'You' : role === 'agent' ? 'Medi-AI-tor' : 'System';
+        const avatarMap = { user: '👤', agent: '🧠', system: '⚠️', info: 'ℹ️' };
+        const nameMap = { user: 'You', agent: 'Medi-AI-tor', system: 'System', info: 'Info' };
+        const avatarIcon = avatarMap[role] || 'ℹ️';
+        const name = nameMap[role] || 'System';
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         div.innerHTML = `
@@ -1400,6 +1402,30 @@ class CustomerChat {
             container.appendChild(wrapper);
         }
         this.scrollToBottom();
+    }
+
+    /** Show suggestion chips again after a response */
+    _showSuggestions() {
+        const sug = document.getElementById('chatSuggestions');
+        if (sug) sug.classList.remove('hiding');
+    }
+
+    /** Generate smart follow-up options based on the response content */
+    _getSmartFollowUps(msg) {
+        const m = (msg || '').toLowerCase();
+        if (m.includes('psu') || m.includes('power supply') || m.includes('power'))
+            return ['Check temperatures', 'Run full investigation', 'Is the server at risk?'];
+        if (m.includes('temperature') || m.includes('thermal') || m.includes('overheat'))
+            return ['Check fan speeds', 'Check power consumption', 'Is this dangerous?'];
+        if (m.includes('memory') || m.includes('dimm') || m.includes('ecc'))
+            return ['Run full investigation', 'Check event logs', 'Which DIMM is affected?'];
+        if (m.includes('firmware') || m.includes('bios') || m.includes('idrac'))
+            return ['Check security settings', 'Overview', 'Any critical updates?'];
+        if (m.includes('raid') || m.includes('storage') || m.includes('drive') || m.includes('disk'))
+            return ['Check drive health', 'Run full investigation', 'Is data safe?'];
+        if (m.includes('overview') || m.includes('component health'))
+            return ['Check power supplies', 'Check event logs', 'Run investigation'];
+        return ['Server overview', 'Check event logs', 'Run investigation'];
     }
 
     formatText(text) {
