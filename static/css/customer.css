@@ -147,9 +147,26 @@ body {
 .sidebar-section { margin-bottom: 0; }
 
 /* ─── Connection Form ────────────────────────────────── */
-.connect-form { display: flex; flex-direction: column; gap: 6px; }
-.connect-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.c-port { max-width: 120px; font-size: 0.78rem; }
+.connect-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+}
+.connect-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.connect-card-icon { font-size: 1.4rem; }
+.connect-card-title { font-weight: 700; font-size: 0.9rem; color: var(--text); }
+.connect-card-sub { font-size: 0.72rem; color: var(--text-light); }
+
+.connect-form { display: flex; flex-direction: column; gap: 8px; }
+.connect-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.form-field { display: flex; flex-direction: column; gap: 3px; }
+.form-field-label { font-size: 0.68rem; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
 .c-input {
     padding: 8px 10px;
     border: 1.5px solid var(--border);
@@ -183,11 +200,28 @@ body {
     background: var(--primary);
     color: white;
     box-shadow: 0 1px 3px rgba(79,70,229,0.3);
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 0.88rem;
 }
 .c-btn-connect:hover { background: var(--primary-hover); box-shadow: 0 2px 8px rgba(79,70,229,0.4); transform: translateY(-1px); }
 .c-btn-connect:active { transform: translateY(0); }
-.c-btn-connect:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+.c-btn-connect:disabled { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: none; }
 .c-btn-connect:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.c-btn-connect.connecting { background: var(--primary); opacity: 0.85; }
+.c-btn-connect.connected { background: var(--green); }
+
+.btn-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+}
 
 .c-btn-sm { padding: 6px 12px; font-size: 0.78rem; }
 .c-btn-disconnect {
@@ -204,7 +238,55 @@ body {
 .connect-status.success { color: var(--green); }
 .connect-status.error { color: var(--red); }
 
-/* ─── Server Info Card ───────────────────────────────── */
+/* ─── Server Card (Connected State) ──────────────────── */
+.server-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    transition: opacity 0.2s;
+}
+.server-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.server-card-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 3px rgba(22,163,74,0.15);
+    flex-shrink: 0;
+    animation: pulse 2s infinite;
+}
+.server-card-model {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text);
+    line-height: 1.2;
+}
+.server-card-tag {
+    font-size: 0.72rem;
+    color: var(--text-light);
+    font-weight: 500;
+}
+.server-card-details {
+    margin-bottom: 8px;
+}
+.scd-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 0.78rem;
+    border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+.scd-row:last-child { border-bottom: none; }
+.scd-label { color: var(--text-light); font-size: 0.72rem; }
+.scd-val { color: var(--text); font-weight: 600; font-size: 0.78rem; text-align: right; max-width: 60%; overflow: hidden; text-overflow: ellipsis; }
+
+/* Legacy server info card (keep for compatibility) */
 .server-info-card {
     background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
     border-radius: var(--radius);
@@ -216,6 +298,12 @@ body {
 .si-row { display: flex; justify-content: space-between; padding: 3px 0; }
 .si-label { opacity: 0.75; font-size: 0.75rem; }
 .si-val { font-weight: 600; }
+
+/* Sidebar section transitions */
+.sidebar-section {
+    margin-bottom: 0;
+    transition: opacity 0.2s ease;
+}
 
 /* ─── Agent Status Card ──────────────────────────────── */
 .agent-status-card {

@@ -18,10 +18,10 @@
             <span class="nav-title">Medi-AI-tor</span>
         </div>
         <div class="nav-right">
-            <span class="nav-connection" id="navConnection" title="Server connection status">
+            <div class="nav-connection" id="navConnection" title="Server connection status">
                 <span class="conn-dot conn-off" id="connDot"></span>
                 <span id="connText">Not Connected</span>
-            </span>
+            </div>
             <a href="/technician" class="nav-link-tech" title="Technician Dashboard">🔧</a>
         </div>
     </nav>
@@ -29,31 +29,60 @@
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
     <div class="chat-app">
-        <!-- Compact sidebar -->
         <aside class="chat-sidebar" id="chatSidebar">
+            <!-- Connection panel — shown when disconnected -->
             <div class="sidebar-section" id="connectSection">
-                <h3 class="sidebar-heading">Connect to Server</h3>
-                <form id="connectForm" class="connect-form" role="form" aria-label="Server Connection">
-                    <input type="text" id="cHost" class="c-input" placeholder="iDRAC IP or Hostname" required autocomplete="off">
-                    <div class="connect-row-2">
-                        <input type="text" id="cUser" class="c-input" placeholder="Username" required autocomplete="username">
-                        <input type="password" id="cPass" class="c-input" placeholder="Password" required autocomplete="current-password">
+                <div class="connect-card">
+                    <div class="connect-card-header">
+                        <span class="connect-card-icon">🖥️</span>
+                        <div>
+                            <div class="connect-card-title">Connect to Server</div>
+                            <div class="connect-card-sub">Dell iDRAC via Redfish API</div>
+                        </div>
                     </div>
-                    <input type="number" id="cPort" class="c-input c-port" placeholder="Port (443)" value="443" min="1" max="65535">
-                    <button type="submit" class="c-btn c-btn-connect" id="connectBtn">
-                        <span id="connectIcon">🔗</span>
-                        <span id="connectLabel">Connect</span>
-                    </button>
-                </form>
-                <div class="connect-status" id="connectStatus"></div>
+                    <form id="connectForm" class="connect-form" role="form" aria-label="Server Connection">
+                        <div class="form-field">
+                            <label class="form-field-label" for="cHost">Server Address</label>
+                            <input type="text" id="cHost" class="c-input" placeholder="e.g. 192.168.1.100" required autocomplete="off">
+                        </div>
+                        <div class="connect-row-2">
+                            <div class="form-field">
+                                <label class="form-field-label" for="cUser">Username</label>
+                                <input type="text" id="cUser" class="c-input" placeholder="root" required autocomplete="username">
+                            </div>
+                            <div class="form-field">
+                                <label class="form-field-label" for="cPass">Password</label>
+                                <input type="password" id="cPass" class="c-input" placeholder="••••••" required autocomplete="current-password">
+                            </div>
+                        </div>
+                        <input type="hidden" id="cPort" value="443">
+                        <button type="submit" class="c-btn c-btn-connect" id="connectBtn">
+                            <span id="connectBtnContent">Connect to iDRAC</span>
+                        </button>
+                    </form>
+                    <div id="connectStatus"></div>
+                </div>
             </div>
 
+            <!-- Connected panel — shown when connected -->
             <div class="sidebar-section" id="serverInfoSection" style="display:none">
-                <h3 class="sidebar-heading">Connected Server</h3>
-                <div class="server-info-card" id="serverInfoCard"></div>
-                <button class="c-btn c-btn-sm c-btn-disconnect" id="disconnectBtn">Disconnect</button>
+                <div class="server-card">
+                    <div class="server-card-header">
+                        <div class="server-card-dot"></div>
+                        <div class="server-card-identity">
+                            <div class="server-card-model" id="serverModel">Connecting...</div>
+                            <div class="server-card-tag" id="serverTag"></div>
+                        </div>
+                    </div>
+                    <div class="server-card-details" id="serverDetails"></div>
+                    <button class="c-btn c-btn-sm c-btn-disconnect" id="disconnectBtn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        Disconnect
+                    </button>
+                </div>
             </div>
 
+            <!-- Agent status -->
             <div class="sidebar-section" id="agentSection">
                 <h3 class="sidebar-heading">Agent</h3>
                 <div class="agent-status-card" id="agentStatusCard">
@@ -70,17 +99,15 @@
             </div>
         </aside>
 
-        <!-- Main chat -->
         <main class="chat-main">
             <div class="chat-messages" id="chatMessages" role="log" aria-label="Chat conversation" aria-live="polite">
-                <!-- Compact welcome -->
                 <div class="chat-msg msg-agent">
                     <div class="msg-avatar">🧠</div>
                     <div class="msg-body">
                         <div class="msg-meta"><span class="msg-name">Medi-AI-tor</span></div>
                         <div class="msg-text">
                             <p><strong>Hi! I'm Medi-AI-tor</strong> — I diagnose Dell server issues in seconds.</p>
-                            <p>Connect to a server, then ask me anything or click a suggestion below.</p>
+                            <p>Connect to a server using the panel on the left, then ask me anything.</p>
                         </div>
                     </div>
                 </div>
@@ -90,7 +117,6 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
 
-            <!-- Streamlined suggestions — single row with all chips -->
             <div class="chat-suggestions" id="chatSuggestions">
                 <div class="suggest-row-wrap">
                     <button class="suggest-chip suggest-info" data-msg="Give me a server overview">📊 Overview</button>
@@ -99,15 +125,12 @@
                     <button class="suggest-chip suggest-diag" data-msg="Check power supplies">⚡ Power</button>
                     <button class="suggest-chip suggest-diag" data-msg="Is my firmware up to date?">📦 Firmware</button>
                     <button class="suggest-chip suggest-diag" data-msg="Check for errors in the system logs">📋 Logs</button>
-                    <button class="suggest-chip suggest-diag" data-msg="Audit my BIOS settings">⚙️ BIOS</button>
-                    <button class="suggest-chip suggest-issue" data-msg="Server is overheating and fans are loud">🌡️ Overheating</button>
                     <button class="suggest-chip suggest-issue" data-msg="Power supply redundancy lost">🔌 PSU Failure</button>
-                    <button class="suggest-chip suggest-issue" data-msg="Getting ECC memory errors">🧠 ECC Errors</button>
+                    <button class="suggest-chip suggest-issue" data-msg="Server is overheating and fans are loud">🌡️ Overheating</button>
                     <button class="suggest-chip suggest-info" data-msg="What can you do?">❓ Help</button>
                 </div>
             </div>
 
-            <!-- Input -->
             <form class="chat-input-area" id="chatForm" role="form">
                 <div class="chat-input-row">
                     <textarea id="chatInput" class="chat-input" placeholder="Ask about your server or describe an issue..." rows="1" maxlength="2000" disabled></textarea>

@@ -141,88 +141,114 @@ class CustomerChat {
 
     // ─── Connection ───────────────────────────────────────
     async connect() {
-        const host = document.getElementById('cHost').value.trim();
-        const user = document.getElementById('cUser').value.trim();
-        const pass = document.getElementById('cPass').value.trim();
-        const port = parseInt(document.getElementById('cPort').value) || 443;
+        const host = document.getElementById('cHost')?.value?.trim();
+        const user = document.getElementById('cUser')?.value?.trim();
+        const pass = document.getElementById('cPass')?.value?.trim();
+        const port = parseInt(document.getElementById('cPort')?.value) || 443;
 
         if (!host || !user || !pass) {
-            this.showToast('Please fill in all connection fields', 'warning');
+            this.showToast('Please fill in all fields', 'warning');
+            // Focus the first empty field
+            if (!host) document.getElementById('cHost')?.focus();
+            else if (!user) document.getElementById('cUser')?.focus();
+            else document.getElementById('cPass')?.focus();
             return;
         }
 
         const btn = document.getElementById('connectBtn');
+        const btnContent = document.getElementById('connectBtnContent');
         const status = document.getElementById('connectStatus');
+        
+        // Disable button with loading state
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-sm"></span> Connecting...';
+        btn.classList.add('connecting');
+        btnContent.innerHTML = '<span class="btn-spinner"></span>Connecting to ' + this._escapeHtml(host) + '...';
         status.innerHTML = '';
 
         try {
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 30000);
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
+            
             const r = await fetch(`${this.apiBase}/connect`, {
                 signal: controller.signal,
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ host, username: user, password: pass, port })
             });
+            clearTimeout(timeoutId);
             const data = await r.json();
-            clearTimeout(timeout);
 
             if (r.ok) {
                 this.connected = true;
                 this.serverInfo = { host, username: user, password: pass, port };
                 this.saveConnection();
+                
+                // Smooth transition: show success state on button before switching panels
+                btn.classList.remove('connecting');
+                btn.classList.add('connected');
+                btnContent.innerHTML = '✓ Connected';
+                
+                // Brief delay so user sees the success state
+                await new Promise(resolve => setTimeout(resolve, 400));
+                
                 this.updateConnectionUI(true, host);
                 this.setInputEnabled(true);
-                status.textContent = '';
-                this.showToast(`Connected to ${host}`, 'success');
+                this.showToast(`Connected to ${this._escapeHtml(host)}`, 'success');
 
-                // Close mobile sidebar after connecting
+                // Close mobile sidebar
                 document.getElementById('chatSidebar')?.classList.remove('open');
                 document.getElementById('sidebarOverlay')?.classList.remove('active');
 
-                this.addMsg('agent', `Connected to **${host}**. Let me get a quick overview of this server...`);
-                
-                // Auto-fetch server overview after connecting
-                setTimeout(() => {
-                    const input = document.getElementById('chatInput');
-                    if (input) {
-                        input.value = 'Give me a server overview';
-                        this.send();
-                    }
-                }, 500);
+                // Directly send overview (no visible text in input)
+                this.addMsg('agent', `Connected to **${this._escapeHtml(host)}**. Running server overview...`);
+                this._sendDirect('Give me a server overview');
             } else {
-                const errMsg = data.detail || 'Connection failed';
+                btn.classList.remove('connecting');
+                btn.disabled = false;
+                btnContent.textContent = 'Connect to iDRAC';
+                const errMsg = data.detail || 'Connection failed — check credentials and host';
                 status.innerHTML = `<div class="connect-error">
                     <span class="error-icon">⚠️</span>
-                    <span class="error-text">${errMsg}</span>
-                    <button class="error-retry" onclick="chat.connect()">Retry</button>
+                    <span class="error-text">${this._escapeHtml(errMsg)}</span>
                 </div>`;
             }
         } catch (err) {
-            const errMsg = err.name === 'AbortError' ? 'Connection timed out — server may be unreachable' : err.message;
+            btn.classList.remove('connecting');
+            btn.disabled = false;
+            btnContent.textContent = 'Connect to iDRAC';
+            const errMsg = err.name === 'AbortError' 
+                ? 'Connection timed out — check that the iDRAC IP is correct and reachable' 
+                : `Connection error: ${err.message}`;
             status.innerHTML = `<div class="connect-error">
                 <span class="error-icon">⚠️</span>
-                <span class="error-text">${errMsg}</span>
-                <button class="error-retry" onclick="chat.connect()">Retry</button>
+                <span class="error-text">${this._escapeHtml(errMsg)}</span>
             </div>`;
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<span class="c-btn-icon" id="connectIcon">🔗</span><span id="connectLabel">Connect</span>';
         }
     }
 
+    // Send a message programmatically without showing it in the input
+    async _sendDirect(msg) {
+        const input = document.getElementById('chatInput');
+        if (input) {
+            const prev = input.value;
+            input.value = msg;
+            await this.send();
+            // Don't restore — send() clears it
+        }
+    }
+
+    _escapeHtml(str) {
+        return (str || '').replace(/[<>"'&]/g, c => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
+    }
+
     disconnect() {
+        if (this.connected && !confirm('Disconnect from server?')) return;
         this.connected = false;
         this.serverInfo = null;
         this.setInputEnabled(false);
         localStorage.removeItem('mediAItor_conn');
-        // Clean up active operations
         if (this._thinkingTimer) { clearInterval(this._thinkingTimer); this._thinkingTimer = null; }
-        // Remove any active thinking panels
         document.querySelectorAll('[id^="thinking-"]').forEach(el => el.remove());
-        // Reset agent status
         const asState = document.getElementById('asState');
         const asFacts = document.getElementById('asFacts');
         const asHyps = document.getElementById('asHyps');
@@ -231,6 +257,11 @@ class CustomerChat {
         if (asFacts) asFacts.textContent = '0';
         if (asHyps) asHyps.textContent = '0';
         if (asConf) asConf.textContent = '—';
+        // Reset connect button
+        const btn = document.getElementById('connectBtn');
+        const btnContent = document.getElementById('connectBtnContent');
+        if (btn) { btn.disabled = false; btn.classList.remove('connecting', 'connected'); }
+        if (btnContent) btnContent.textContent = 'Connect to iDRAC';
         this.updateConnectionUI(false);
         this.addMsg('system', 'Disconnected from server.');
         this.showToast('Disconnected', 'info');
@@ -240,21 +271,59 @@ class CustomerChat {
         const nav = document.getElementById('navConnection');
         const connectSec = document.getElementById('connectSection');
         const serverSec = document.getElementById('serverInfoSection');
-        const card = document.getElementById('serverInfoCard');
-        // Sanitize host to prevent XSS
-        const safeHost = (host || '').replace(/[<>"'&]/g, c => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
+        const safeHost = this._escapeHtml(host);
 
         if (connected) {
-            nav.innerHTML = `<span class="conn-dot conn-on"></span> ${safeHost}`;
-            connectSec.style.display = 'none';
-            serverSec.style.display = 'block';
-            card.innerHTML = `<div class="si-row"><span class="si-label">Host</span><span class="si-val">${safeHost}</span></div>
-                <div class="si-row"><span class="si-label">Port</span><span class="si-val">${this.serverInfo?.port || 443}</span></div>
-                <div class="si-row"><span class="si-label">Status</span><span class="si-val" style="color:var(--green)">Connected</span></div>`;
+            // Update nav
+            if (nav) nav.innerHTML = `<span class="conn-dot conn-on"></span> <span>${safeHost}</span>`;
+            
+            // Smooth transition: fade out connect, fade in server card
+            if (connectSec) { connectSec.style.opacity = '0'; setTimeout(() => { connectSec.style.display = 'none'; connectSec.style.opacity = '1'; }, 200); }
+            if (serverSec) { serverSec.style.display = 'block'; serverSec.style.opacity = '0'; setTimeout(() => serverSec.style.opacity = '1', 50); }
+            
+            // Set initial server card content (will be enriched after overview)
+            const model = document.getElementById('serverModel');
+            const tag = document.getElementById('serverTag');
+            const details = document.getElementById('serverDetails');
+            if (model) model.textContent = safeHost;
+            if (tag) tag.textContent = 'Loading server info...';
+            if (details) details.innerHTML = '';
+            
+            // Fetch quick status to enrich the card
+            this._enrichServerCard();
         } else {
-            nav.innerHTML = '<span class="conn-dot conn-off"></span> Not Connected';
-            connectSec.style.display = 'block';
-            serverSec.style.display = 'none';
+            if (nav) nav.innerHTML = '<span class="conn-dot conn-off"></span> <span>Not Connected</span>';
+            if (serverSec) { serverSec.style.opacity = '0'; setTimeout(() => { serverSec.style.display = 'none'; serverSec.style.opacity = '1'; }, 200); }
+            if (connectSec) { connectSec.style.display = 'block'; connectSec.style.opacity = '0'; setTimeout(() => connectSec.style.opacity = '1', 50); }
+        }
+    }
+
+    async _enrichServerCard() {
+        try {
+            const r = await fetch('/api/server/quick-status');
+            const data = await r.json();
+            if (data.status === 'success' && data.data) {
+                const d = data.data;
+                const model = document.getElementById('serverModel');
+                const tag = document.getElementById('serverTag');
+                const details = document.getElementById('serverDetails');
+                if (model) model.textContent = d.model || this.serverInfo?.host || 'Server';
+                if (tag) tag.textContent = d.service_tag ? `Tag: ${d.service_tag}` : '';
+                if (details) {
+                    let html = '';
+                    if (d.cpu_model) html += `<div class="scd-row"><span class="scd-label">CPU</span><span class="scd-val">${this._escapeHtml(d.cpu_model)} × ${d.cpu_count || 1}</span></div>`;
+                    if (d.total_memory_gb) html += `<div class="scd-row"><span class="scd-label">RAM</span><span class="scd-val">${d.total_memory_gb} GB</span></div>`;
+                    if (d.bios_version) html += `<div class="scd-row"><span class="scd-label">BIOS</span><span class="scd-val">${this._escapeHtml(d.bios_version)}</span></div>`;
+                    if (d.idrac_version) html += `<div class="scd-row"><span class="scd-label">iDRAC</span><span class="scd-val">${this._escapeHtml(d.idrac_version)}</span></div>`;
+                    if (d.health) {
+                        const healthColor = d.health === 'critical' ? 'var(--red)' : d.health === 'warning' ? 'var(--yellow)' : 'var(--green)';
+                        html += `<div class="scd-row"><span class="scd-label">Health</span><span class="scd-val" style="color:${healthColor};font-weight:700">${d.health.toUpperCase()}</span></div>`;
+                    }
+                    details.innerHTML = html;
+                }
+            }
+        } catch (e) {
+            // Non-critical — card stays with basic info
         }
     }
 
