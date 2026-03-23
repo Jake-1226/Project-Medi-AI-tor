@@ -88,9 +88,13 @@ def _rate_check(ip: str, limit: int = 30, window: int = 60) -> bool:
 def _sanitize_error(e: Exception) -> str:
     """Return a safe error message for the client. Log full detail server-side."""
     msg = str(e)
-    # Strip file paths, stack traces, and internal IPs from client-facing messages
-    if any(tok in msg.lower() for tok in ['traceback', 'file "/', 'file "c:', 'file "\\\\', 'modulenotfound']):
+    # Strip file paths, stack traces, internal IPs, and technical details
+    lower = msg.lower()
+    if any(tok in lower for tok in ['traceback', 'file "/', 'file "c:', 'file "\\\\',
+                                     'modulenotfound', 'errno', 'econnrefused', 'econnreset']):
         return "An internal error occurred. Please try again."
+    # Strip internal IPs from messages
+    msg = re.sub(r'\b(?:10|172\.(?:1[6-9]|2\d|3[01])|192\.168)\.\d{1,3}\.\d{1,3}\b', '[server]', msg)
     # Keep short operational messages that are useful to the technician
     if len(msg) > 300:
         return msg[:297] + "..."
@@ -815,7 +819,7 @@ async def chat_with_agent(msg: ChatMessage):
         logger.error(f"Chat error: {str(e)}")
         return {
             "type": "error",
-            "message": f"Error: {str(e)}",
+            "message": f"Error: {_sanitize_error(e)}",
             "chat_history": agent_brain._chat_history[-20:] if agent_brain else [],
         }
 
@@ -1221,7 +1225,7 @@ async def websocket_endpoint(websocket: WebSocket):
         logger.error(f"WebSocket error: {str(e)}")
         await websocket.send_text(json.dumps({
             "type": "error",
-            "message": str(e)
+            "message": _sanitize_error(e)
         }, ensure_ascii=False))
 
 # ─── Health Scoring Endpoint ───────────────────────────────────────
@@ -1833,7 +1837,7 @@ async def websocket_monitoring(websocket: WebSocket):
                 logger.error(f"WebSocket message error: {e}")
                 await websocket.send_text(json.dumps({
                     "type": "error",
-                    "data": {"message": str(e)}
+                    "data": {"message": _sanitize_error(e)}
                 }, ensure_ascii=False))
                 
     except WebSocketDisconnect:
@@ -2261,7 +2265,7 @@ async def get_quick_status():
         return {"status": "success", "data": result}
     except Exception as e:
         logger.error(f"Quick status error: {e}")
-        return {"status": "error", "error": str(e), "connected": agent.is_connected()}
+        return {"status": "error", "error": _sanitize_error(e), "connected": agent.is_connected()}
 
 # ─── Batch Execute (multiple commands in one request) ──────────
 @app.post("/api/execute/batch")
@@ -2288,7 +2292,7 @@ async def batch_execute(body: dict, request: Request):
                 result = await agent.execute_action(al, action, params)
                 results[action] = {"status": "success", "result": result}
             except Exception as e:
-                results[action] = {"status": "error", "error": str(e)}
+                results[action] = {"status": "error", "error": _sanitize_error(e)}
         
         return {"status": "success", "results": results}
     except HTTPException:

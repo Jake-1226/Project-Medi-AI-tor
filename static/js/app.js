@@ -86,6 +86,11 @@ class DellAIAgent {
         // F1: Banner expand button
         document.getElementById('bannerExpandBtn')?.addEventListener('click', () => this._expandBanner());
         
+        // P4: Auto-clear input error state on focus
+        document.querySelectorAll('.form-input, .form-select, .form-textarea').forEach(el => {
+            el.addEventListener('focus', () => el.classList.remove('input-error'));
+        });
+        
         // SR# auto-save on blur
         document.getElementById('srNumber')?.addEventListener('blur', () => this.saveSrNumber());
         
@@ -165,6 +170,7 @@ class DellAIAgent {
             
             this.websocket.onopen = () => {
                 this.log('WebSocket connected', 'success');
+                this._hideDisconnectBanner();
             };
             
             this.websocket.onmessage = (event) => {
@@ -174,7 +180,8 @@ class DellAIAgent {
             
             this.websocket.onclose = () => {
                 this.log('WebSocket disconnected', 'warning');
-                // Attempt to reconnect after 5 seconds
+                // P7: Show disconnect banner if we had an active server
+                if (this.currentServer) this._showDisconnectBanner();
                 setTimeout(() => this.setupWebSocket(), 5000);
             };
             
@@ -213,11 +220,11 @@ class DellAIAgent {
         
         // Validate with visual feedback on empty fields
         let valid = true;
-        [hostEl, userEl, passEl].forEach(el => { if (el) el.style.borderColor = ''; });
-        if (!host) { if (hostEl) hostEl.style.borderColor = '#ef4444'; valid = false; }
-        if (!username) { if (userEl) userEl.style.borderColor = '#ef4444'; valid = false; }
-        if (!password) { if (passEl) passEl.style.borderColor = '#ef4444'; valid = false; }
-        if (!valid) { this.showAlert('Please fill in all connection fields', 'warning'); return; }
+        [hostEl, userEl, passEl].forEach(el => { if (el) el.classList.remove('input-error'); });
+        if (!host) { if (hostEl) hostEl.classList.add('input-error'); valid = false; }
+        if (!username) { if (userEl) userEl.classList.add('input-error'); valid = false; }
+        if (!password) { if (passEl) passEl.classList.add('input-error'); valid = false; }
+        if (!valid) { this.showAlert('Fill in all connection fields.', 'warning', { title: 'Missing fields' }); return; }
         
         // Button loading state — prevent double-click
         const connectBtn = document.getElementById('connectBtn');
@@ -290,7 +297,8 @@ class DellAIAgent {
                 if (idracPanel) { idracPanel.classList.add('panel-error'); idracPanel.classList.remove('panel-connected'); }
             }
         } catch (error) {
-            this.showAlert(`Network error: ${error.message}`, 'danger');
+            const friendly = this._friendlyError(error);
+            this.showAlert(friendly, 'danger', { title: 'Connection failed', retry: () => this.connectToServer() });
             this.log(`Network error: ${error.message}`, 'error');
             if (connectBtn) { connectBtn.textContent = 'Connect iDRAC'; connectBtn.disabled = false; }
         } finally {
@@ -348,7 +356,7 @@ class DellAIAgent {
                 statusEl.innerHTML = `<span class="status-indicator status-offline"></span> Disconnected`;
             }
         } catch (error) {
-            this.showAlert(`Disconnect error: ${error.message}`, 'danger');
+            this.showAlert(`Disconnect error: ${this._friendlyError(error)}`, 'danger');
             this.log(`Disconnect error: ${error.message}`, 'error');
         } finally {
             this.showLoading(false);
@@ -427,6 +435,26 @@ class DellAIAgent {
         });
     }
 
+    // ─── P7: Disconnection recovery banner ───────────────────────
+    _showDisconnectBanner() {
+        if (document.getElementById('disconnectBanner')) return; // already shown
+        const container = document.getElementById('alertContainer');
+        if (!container) return;
+        const banner = document.createElement('div');
+        banner.className = 'disconnect-banner';
+        banner.id = 'disconnectBanner';
+        banner.innerHTML = `
+            <span class="disconnect-icon">⚠</span>
+            <span class="disconnect-msg">Connection interrupted — real-time updates paused. Reconnecting...</span>
+            <button class="btn btn-sm btn-primary" onclick="app.fetchAllDashboardData(); document.getElementById('disconnectBanner')?.remove();">Refresh now</button>
+            <button class="btn btn-sm btn-outline" onclick="document.getElementById('disconnectBanner')?.remove()">Dismiss</button>`;
+        container.prepend(banner);
+    }
+
+    _hideDisconnectBanner() {
+        document.getElementById('disconnectBanner')?.remove();
+    }
+
     _getAuthHeaders() {
         // Token is in HTTP-only cookie, automatically sent by browser
         // But also support explicit token for API calls
@@ -491,7 +519,7 @@ class DellAIAgent {
                 resultDiv.style.display = 'block';
                 resultDiv.innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
             }
-            this.showAlert(`OS connection failed: ${error.message}`, 'danger');
+            this.showAlert(`OS connection failed: ${this._friendlyError(error)}`, 'danger', { title: 'SSH error' });
             this.log(`SSH connection failed: ${error.message}`, 'error');
         } finally {
             if (btn) { btn.disabled = false; btn.textContent = 'Connect OS'; }
@@ -577,10 +605,7 @@ class DellAIAgent {
     }
     
     async executeAction(command, parameters = {}) {
-        if (!this.currentServer) {
-            this.showAlert('Please connect to a server first', 'warning');
-            return;
-        }
+        if (!this._requireConnection('running actions')) return;
         
         // Visual feedback on quick action buttons
         const btnMap = {
@@ -641,7 +666,10 @@ class DellAIAgent {
             }
         } catch (error) {
             this.log(`❌ Network error during ${command}: ${error.message}`, 'error');
-            this.showAlert(`Network error: ${error.message} — Check your connection`, 'danger');
+            this.showAlert(this._friendlyError(error), 'danger', {
+                title: 'Action failed',
+                retry: () => this.executeAction(command, parameters)
+            });
             if (btn) {
                 btn.classList.remove('btn-loading');
                 btn.classList.add('btn-error');
@@ -656,8 +684,8 @@ class DellAIAgent {
     
     async startTroubleshooting() {
         const issueDescription = document.getElementById('issueDescription').value;
-        if (!this.currentServer) { this.showAlert('Please connect to a server first', 'warning'); return; }
-        if (!issueDescription) { this.showAlert('Please describe the issue', 'warning'); return; }
+        if (!this._requireConnection('starting investigation')) return;
+        if (!issueDescription) { this.showAlert('Describe the issue to investigate.', 'warning'); return; }
 
         const tsTab = document.querySelector('[data-tab="troubleshooting"]');
         if (tsTab) this.switchTab(tsTab);
@@ -1915,7 +1943,10 @@ class DellAIAgent {
             try {
                 await this.executeAction('get_full_inventory');
             } catch (e) {
-                this.showAlert('Failed to load server data', 'danger');
+                this.showAlert('Failed to load server data', 'danger', {
+                    title: 'Data load error',
+                    retry: () => this.fetchAllDashboardData()
+                });
             }
         }
     }
@@ -1980,7 +2011,7 @@ class DellAIAgent {
 
     // ─── Server Actions (full_control level) ────────────────────
     async executeServerAction(command, parameters = {}) {
-        if (!this.currentServer) { this.showAlert('Please connect to a server first', 'warning'); return; }
+        if (!this._requireConnection('executing actions')) return;
         this.showLoading(true);
         this.log(`Executing server action: ${command}`, 'info');
         try {
@@ -2057,7 +2088,7 @@ class DellAIAgent {
     }
 
     confirmAndExecute(command, label) {
-        if (!this.currentServer) { this.showAlert('Please connect to a server first', 'warning'); return; }
+        if (!this._requireConnection('running diagnostics')) return;
         // F5: Inline confirmation instead of browser confirm()
         this._showInlineConfirm(
             document.getElementById('actionResultContainer'),
@@ -2123,7 +2154,7 @@ class DellAIAgent {
 
     // ─── Remote Diagnostics ─────────────────────────────────────
     async runDiagnostics(type = 'Express') {
-        if (!this.currentServer) { this.showAlert('Connect first', 'warning'); return; }
+        if (!this._requireConnection('running diagnostics')) return;
         const container = document.getElementById('diagnosticsResultContainer');
         this._showInlineConfirm(container, `Run ${type} ePSA diagnostics? Server must be powered on.`, false, () => this._runDiagnosticsConfirmed(type));
     }
@@ -2148,13 +2179,13 @@ class DellAIAgent {
             }
         } catch (error) {
             this.log(`Diagnostics error: ${error.message}`, 'error');
-            this.showAlert(`Diagnostics failed: ${error.message}`, 'danger');
+            this.showAlert(this._friendlyError(error), 'danger', { title: 'Diagnostics failed' });
         }
     }
 
     // ─── SupportAssist Status ───────────────────────────────────
     async checkSupportAssist() {
-        if (!this.currentServer) { this.showAlert('Connect first', 'warning'); return; }
+        if (!this._requireConnection('checking SupportAssist')) return;
         this.log('Checking SupportAssist status...', 'info');
         try {
             const response = await fetch(`/api/execute`, {
@@ -2191,13 +2222,13 @@ class DellAIAgent {
             }, 100);
         } catch (error) {
             this.log(`SupportAssist check error: ${error.message}`, 'error');
-            this.showAlert(`SupportAssist check failed: ${error.message}`, 'danger');
+            this.showAlert(this._friendlyError(error), 'danger', { title: 'SupportAssist check failed' });
         }
     }
 
     // ─── BIOS Presets ───────────────────────────────────────────
     async applyBiosPreset(attributes) {
-        if (!this.currentServer) { this.showAlert('Connect first', 'warning'); return; }
+        if (!this._requireConnection('applying BIOS presets')) return;
         const attrNames = Object.keys(attributes).join(', ');
         const resultDiv = document.getElementById('biosPresetResult');
         this._showInlineConfirm(resultDiv, `Apply BIOS changes: ${attrNames}? Takes effect on next reboot.`, false, () => this._applyBiosPresetConfirmed(attributes, attrNames, resultDiv));
@@ -2228,7 +2259,7 @@ class DellAIAgent {
 
     // ─── Operations Tab: Generic operation runner ─────────────
     async runOperation(operation, params = {}) {
-        if (!this.currentServer) { this.showAlert('Connect to a server first', 'warning'); return; }
+        if (!this._requireConnection('running operations')) return;
 
         // Determine which result container to use based on the operation prefix
         const prefixMap = {
@@ -3546,7 +3577,7 @@ class DellAIAgent {
     // ─── Advanced Tab: Monitoring ────────────────────────────────
     async startMonitoring() {
         if (this.monitoringInterval) return;
-        if (!this.currentServer) { this.showAlert('Connect first', 'warning'); return; }
+        if (!this._requireConnection('starting monitoring')) return;
         this.monitoringSnapshots = [];
         document.getElementById('startMonitoringBtn').disabled = true;
         document.getElementById('stopMonitoringBtn').disabled = false;
@@ -3613,7 +3644,7 @@ class DellAIAgent {
 
     // ─── Advanced Tab: runAdvanced dispatcher ─────────────────────
     async runAdvanced(action) {
-        if (!this.currentServer) { this.showAlert('Connect to a server first', 'warning'); return; }
+        if (!this._requireConnection('running advanced actions')) return;
 
         // Map action -> endpoint + result container
         const mapping = {
@@ -3946,18 +3977,53 @@ class DellAIAgent {
         }
     }
     
-    showAlert(message, type) {
+    // ─── P1: Structured alert system ─────────────────────────────
+    showAlert(message, type, options = {}) {
         const alertContainer = document.getElementById('alertContainer');
         if (!alertContainer) return;
+        const icons = { success: '✓', warning: '⚠', danger: '✕', error: '✕', info: 'ℹ' };
+        const icon = icons[type] || icons.info;
+        const duration = type === 'danger' || type === 'error' ? 8000 : 5000;
         const alert = document.createElement('div');
         alert.className = `alert alert-${type}`;
-        alert.textContent = message;
+        let html = `<span class="alert-icon">${icon}</span><div class="alert-body">`;
+        if (options.title) html += `<div class="alert-title">${options.title}</div>`;
+        html += `<span>${this._escapeHtml(message)}</span>`;
+        if (options.retry) html += ` <button class="btn btn-sm btn-outline" style="margin-left:8px;font-size:0.75rem" data-retry>Retry</button>`;
+        html += `</div><button class="alert-dismiss" aria-label="Dismiss">×</button>`;
+        alert.innerHTML = html;
+        alert.querySelector('.alert-dismiss').addEventListener('click', () => alert.remove());
+        if (options.retry) alert.querySelector('[data-retry]').addEventListener('click', () => { alert.remove(); options.retry(); });
         alertContainer.appendChild(alert);
-        setTimeout(() => { alert.remove(); }, 5000);
+        setTimeout(() => { if (alert.parentNode) alert.remove(); }, duration);
     }
 
     showToast(message, type = 'info') {
         this.showAlert(message, type);
+    }
+
+    // Sanitize user-facing error messages — never show raw stack traces
+    _friendlyError(error) {
+        const msg = typeof error === 'string' ? error : (error?.message || 'An unexpected error occurred');
+        // Strip internal details
+        if (/traceback|file ["/\\]|modulenot|errno|ECONNREFUSED/i.test(msg)) return 'A server error occurred. Please try again.';
+        if (msg.length > 200) return msg.slice(0, 197) + '...';
+        return msg;
+    }
+
+    _escapeHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    // Unified precondition check — replaces 8 different "connect first" messages
+    _requireConnection(action) {
+        if (!this.currentServer) {
+            this.showAlert('Connect to a server before ' + (action || 'using this feature') + '.', 'warning', { title: 'Not connected' });
+            return false;
+        }
+        return true;
     }
     
     log(message, type = 'info') {

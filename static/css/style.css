@@ -853,36 +853,98 @@ body.tech-body {
     background: #6c757d;
 }
 
+/* ═══════════════════════════════════════
+   ALERT SYSTEM (single source of truth)
+   ═══════════════════════════════════════ */
 .alert {
-    padding: 15px 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    border-left: 4px solid;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--sp-2);
+    border-left: 3px solid;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    animation: alertSlideIn 0.25s ease-out;
+    position: relative;
 }
+.alert-icon { flex-shrink: 0; font-size: 1rem; line-height: 1; }
+.alert-body { flex: 1; min-width: 0; }
+.alert-title { font-weight: 600; margin-bottom: 2px; }
+.alert-dismiss {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: inherit;
+    opacity: 0.5;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0 2px;
+    line-height: 1;
+}
+.alert-dismiss:hover { opacity: 1; }
 
 .alert-success {
-    background: #d4edda;
+    background: rgba(34,197,94,0.1);
     border-color: var(--success-green);
-    color: #155724;
+    color: #4ade80;
 }
-
 .alert-warning {
-    background: #fff3cd;
+    background: rgba(245,158,11,0.1);
     border-color: var(--warning-yellow);
-    color: #856404;
+    color: #fbbf24;
 }
-
-.alert-danger {
-    background: #f8d7da;
+.alert-danger, .alert-error {
+    background: rgba(239,68,68,0.1);
     border-color: var(--danger-red);
-    color: #721c24;
+    color: #f87171;
+}
+.alert-info {
+    background: rgba(59,130,246,0.1);
+    border-color: var(--info-blue);
+    color: #60a5fa;
+}
+@keyframes alertSlideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-.alert-info {
-    background: #d1ecf1;
-    border-color: var(--info-blue);
-    color: #0c5460;
+/* ── Form input error state ── */
+.form-input.input-error,
+.form-select.input-error,
+.form-textarea.input-error {
+    border-color: var(--danger-red);
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
 }
+.form-input.input-error:focus,
+.form-select.input-error:focus,
+.form-textarea.input-error:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+.input-error-msg {
+    color: var(--danger-red);
+    font-size: 0.75rem;
+    margin-top: 4px;
+}
+
+/* ── Disconnection recovery banner ── */
+.disconnect-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--content-padding);
+    background: rgba(239, 68, 68, 0.1);
+    border-bottom: 1px solid rgba(239, 68, 68, 0.3);
+    color: #f87171;
+    font-size: 0.85rem;
+    font-weight: 500;
+    animation: alertSlideIn 0.3s ease-out;
+}
+.disconnect-banner .disconnect-icon { font-size: 1.1rem; }
+.disconnect-banner .disconnect-msg { flex: 1; }
+.disconnect-banner .btn { font-size: 0.78rem; padding: 4px 12px; }
 
 .log-container {
     background: var(--bg-card, #f8f9fa);
@@ -3114,17 +3176,7 @@ body.tech-body {
 .tech-body .detail-label { color: var(--text-muted); }
 .tech-body .detail-value { color: var(--text-secondary); font-weight: 500; }
 
-/* ── Alerts in dark mode ── */
-.tech-body .alert {
-    border-radius: 10px;
-    margin: 0 20px 12px;
-    font-size: 0.88rem;
-    border-left-width: 4px;
-}
-.tech-body .alert-success { background: rgba(34,197,94,0.1); border-color: var(--success-green); color: #4ade80; }
-.tech-body .alert-warning { background: rgba(245,158,11,0.1); border-color: var(--warning-yellow); color: #fbbf24; }
-.tech-body .alert-danger { background: rgba(239,68,68,0.1); border-color: var(--danger-red); color: #f87171; }
-.tech-body .alert-info { background: rgba(59,130,246,0.1); border-color: var(--info-blue); color: #60a5fa; }
+/* (alert dark mode consolidated at line ~856) */
 
 /* ── Action result ── */
 .tech-body .action-result {
@@ -3711,23 +3763,7 @@ body.tech-body {
     border: 1px solid var(--border, rgba(99,102,241,0.15)) !important;
 }
 
-/* Alert badge improvements */
-.alert {
-    border-radius: 8px;
-    padding: 12px 16px;
-    margin-bottom: 8px;
-    font-size: 13px;
-    border-left: 4px solid;
-    animation: slideIn 0.3s ease;
-}
-@keyframes slideIn {
-    from { opacity: 0; transform: translateX(-10px); }
-    to { opacity: 1; transform: translateX(0); }
-}
-.alert-success { border-left-color: #22c55e; }
-.alert-error, .alert-danger { border-left-color: #ef4444; }
-.alert-warning { border-left-color: #f59e0b; }
-.alert-info { border-left-color: #3b82f6; }
+/* (alert system consolidated at line ~856) */
 
 /* Sidebar enhancements */
 .sidebar {
@@ -3872,11 +3908,7 @@ table tbody tr:hover { background: rgba(99,102,241,0.05); }
 .empty-state p { font-size: 14px; }
 
 /* ─── Dark Theme Override for hardcoded light colors ─── */
-/* Fixes all components that use hardcoded #f8f9fa, #fff, #333, etc. */
-.alert-success { background: rgba(34,197,94,0.12); border-color: var(--success-green); color: var(--success-green); }
-.alert-danger, .alert-error { background: rgba(239,68,68,0.12); border-color: var(--danger-red); color: var(--danger-red); }
-.alert-warning { background: rgba(245,158,11,0.12); border-color: var(--warning-yellow); color: var(--warning-yellow); }
-.alert-info { background: rgba(59,130,246,0.12); border-color: var(--info-blue); color: var(--info-blue); }
+/* (alert colors consolidated at line ~856) */
 
 .log-container { background: var(--bg-card); border-color: var(--border-color); color: var(--text-primary); }
 .log-entry { border-bottom-color: var(--border-color); color: var(--text-primary); }
