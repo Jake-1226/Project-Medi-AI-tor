@@ -224,7 +224,7 @@
             <div id="sys-bios-presets" class="sub-tab-content">
                 <div class="section-block">
                     <h4>Common BIOS Configuration Presets</h4>
-                    <p style="color:#94a3b8;font-size:0.88rem;margin-bottom:12px">Apply common BIOS changes. Changes are staged and require a reboot to take effect.</p>
+                    <p class="section-desc">Apply common BIOS changes. Changes are staged and require a reboot to take effect.</p>
                 </div>
                 <div class="presets-grid" id="biosPresetsContainer">
                     <div class="preset-card"><h5>Disable C-States</h5><p>Disable CPU C-States for maximum performance (reduces latency variability)</p><button class="btn btn-sm btn-primary" onclick="app.applyBiosPreset({'ProcCStates':'Disabled'})">Apply</button></div>
@@ -353,8 +353,8 @@
             <div id="ts-diagnostics" class="sub-tab-content">
                 <div class="section-block">
                     <h4>Remote Diagnostics (ePSA)</h4>
-                    <p style="color:#94a3b8;font-size:0.88rem">Run Dell ePSA hardware diagnostics remotely via iDRAC.</p>
-                    <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+                    <p class="section-desc">Run Dell ePSA hardware diagnostics remotely via iDRAC.</p>
+                    <div class="section-actions">
                         <button class="btn btn-primary" onclick="app.runDiagnostics('Express')">Express</button>
                         <button class="btn btn-secondary" onclick="app.runDiagnostics('Extended')">Extended</button>
                         <button class="btn btn-secondary" onclick="app.runDiagnostics('PitStop')">PitStop</button>
@@ -418,7 +418,7 @@
             <div id="ops-bios" class="sub-tab-content active">
                 <div class="section-block" style="border-left-color: var(--info-blue)">
                     <h4>⚙️ BIOS Configuration Tasks</h4>
-                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">All changes are staged via Redfish BIOS Pending Settings and applied on next reboot.</p>
+                    <p class="section-desc">All changes are staged via Redfish BIOS Pending Settings and applied on next reboot.</p>
                 </div>
                 <div class="ops-category">
                     <h5 class="ops-cat-title">Read BIOS Configuration</h5>
@@ -480,7 +480,7 @@
             <div id="ops-raid" class="sub-tab-content">
                 <div class="section-block" style="border-left-color: #f97316">
                     <h4>💿 RAID Controller &amp; Virtual Disk Operations</h4>
-                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">Manage PERC RAID controllers, virtual disks, and storage pools via Redfish Storage API.</p>
+                    <p class="section-desc">Manage PERC RAID controllers, virtual disks, and storage pools via Redfish Storage API.</p>
                 </div>
                 <div class="ops-category">
                     <h5 class="ops-cat-title">Virtual Disk Management</h5>
@@ -518,7 +518,7 @@
             <div id="ops-drives" class="sub-tab-content">
                 <div class="section-block" style="border-left-color: #a855f7">
                     <h4>💽 Physical Drive Management</h4>
-                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">Manage individual physical drives — SMART data, LED identification, secure erase, and lifecycle.</p>
+                    <p class="section-desc">Manage individual physical drives — SMART data, LED identification, secure erase, and lifecycle.</p>
                 </div>
                 <div class="ops-category">
                     <h5 class="ops-cat-title">Drive Inventory &amp; Health</h5>
@@ -548,7 +548,7 @@
             <div id="ops-power" class="sub-tab-content">
                 <div class="section-block" style="border-left-color: var(--warning-yellow)">
                     <h4>⚡ Power &amp; Thermal Management</h4>
-                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">Server power state control, power budgets, thermal profiles, and fan management.</p>
+                    <p class="section-desc">Server power state control, power budgets, thermal profiles, and fan management.</p>
                 </div>
                 <div class="ops-category">
                     <h5 class="ops-cat-title">Power Control</h5>
@@ -588,7 +588,7 @@
             <div id="ops-idrac" class="sub-tab-content">
                 <div class="section-block" style="border-left-color: var(--success-green)">
                     <h4>🌐 iDRAC Management</h4>
-                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">Configure iDRAC settings, network, users, certificates, and virtual console.</p>
+                    <p class="section-desc">Configure iDRAC settings, network, users, certificates, and virtual console.</p>
                 </div>
                 <div class="ops-category">
                     <h5 class="ops-cat-title">iDRAC Network</h5>
@@ -643,7 +643,7 @@
             <div id="ops-firmware" class="sub-tab-content">
                 <div class="section-block" style="border-left-color: #ec4899">
                     <h4>📦 Firmware Lifecycle Management</h4>
-                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">Update, rollback, and schedule firmware changes via iDRAC Redfish UpdateService.</p>
+                    <p class="section-desc">Update, rollback, and schedule firmware changes via iDRAC Redfish UpdateService.</p>
                 </div>
                 <div class="ops-category">
                     <h5 class="ops-cat-title">Firmware Update</h5>
@@ -680,7 +680,7 @@
             <div id="ops-network" class="sub-tab-content">
                 <div class="section-block" style="border-left-color: #06b6d4">
                     <h4>🌐 Server Network Configuration</h4>
-                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">NIC teaming, VLAN configuration, bandwidth management, and diagnostics.</p>
+                    <p class="section-desc">NIC teaming, VLAN configuration, bandwidth management, and diagnostics.</p>
                 </div>
                 <div class="ops-category">
                     <h5 class="ops-cat-title">NIC Management</h5>
@@ -707,7 +707,7 @@
             <div id="ops-os" class="sub-tab-content">
                 <div class="section-block" style="border-left-color: #14b8a6">
                     <h4>💻 OS Deployment &amp; Boot Management</h4>
-                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">Remote OS installation, boot order management, and lifecycle controller operations.</p>
+                    <p class="section-desc">Remote OS installation, boot order management, and lifecycle controller operations.</p>
                 </div>
                 <div class="ops-category">
                     <h5 class="ops-cat-title">Boot Order</h5>
@@ -777,7 +777,7 @@
             <div id="adv-diagnostics" class="sub-tab-content">
                 <div class="section-block">
                     <h4>Quick Diagnostics</h4>
-                    <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:12px">Run diagnostic checks against the connected server.</p>
+                    <p class="section-desc">Run diagnostic checks against the connected server.</p>
                     <div class="ops-btn-grid">
                         <button class="ops-btn" onclick="app.runAdvanced('diagnostics_summary')">Full Diagnostics Summary</button>
                         <button class="ops-btn" onclick="app.runAdvanced('connectivity_test')">Connectivity Test</button>
@@ -791,7 +791,7 @@
             <div id="adv-health-score" class="sub-tab-content">
                 <div class="section-block">
                     <h4>Detailed Health Score</h4>
-                    <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:12px">Compute a weighted health score across all subsystems.</p>
+                    <p class="section-desc">Compute a weighted health score across all subsystems.</p>
                     <button class="btn btn-primary btn-sm" onclick="app.runAdvanced('health_score')">Calculate Health Score</button>
                 </div>
                 <div id="advHealthResult" class="action-result" style="display:none"></div>
@@ -799,7 +799,7 @@
             <div id="adv-snapshot" class="sub-tab-content">
                 <div class="section-block">
                     <h4>Server Configuration Snapshot</h4>
-                    <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:12px">Capture a full point-in-time snapshot of server state.</p>
+                    <p class="section-desc">Capture a full point-in-time snapshot of server state.</p>
                     <button class="btn btn-primary btn-sm" onclick="app.runAdvanced('server_snapshot')">Take Snapshot</button>
                     <button class="btn btn-outline btn-sm" onclick="app.runAdvanced('server_timeline')">View Timeline</button>
                 </div>
@@ -808,7 +808,7 @@
             <div id="adv-predictive" class="sub-tab-content">
                 <div class="section-block">
                     <h4>Predictive Analytics</h4>
-                    <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:12px">Analyze trends and predict potential failures before they happen.</p>
+                    <p class="section-desc">Analyze trends and predict potential failures before they happen.</p>
                     <button class="btn btn-primary btn-sm" onclick="app.runAdvanced('predictive_analysis')">Run Predictive Analysis</button>
                     <button class="btn btn-outline btn-sm" onclick="app.runAdvanced('firmware_compliance')">Firmware Compliance Report</button>
                 </div>
