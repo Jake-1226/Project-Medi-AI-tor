@@ -264,10 +264,12 @@ class FleetManager {
         const avgHealth = this.calculateAverageHealth();
         const totalAlerts = Array.from(this.servers.values()).reduce((sum, s) => sum + (s.alert_count || 0), 0);
         
-        document.getElementById('totalServers').textContent = totalServers;
-        document.getElementById('onlineServers').textContent = onlineServers;
-        document.getElementById('avgHealth').textContent = avgHealth.toFixed(1);
-        document.getElementById('totalAlerts').textContent = totalAlerts;
+        // Header stats (unique IDs)
+        const el = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+        el('headerTotalServers', totalServers);
+        el('headerOnlineServers', onlineServers);
+        el('headerAvgHealth', avgHealth.toFixed(0) + '%');
+        el('headerTotalAlerts', totalAlerts);
     }
     
     updateOverview() {

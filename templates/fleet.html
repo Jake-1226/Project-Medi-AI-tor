@@ -18,31 +18,31 @@
                     <h1 class="fleet-title">🖥️ Fleet Management</h1>
                     <div class="fleet-stats">
                         <div class="stat-item">
-                            <span class="stat-value" id="totalServers">0</span>
-                            <span class="stat-label">Total Servers</span>
+                            <span class="stat-value" id="headerTotalServers">0</span>
+                            <span class="stat-label">Servers</span>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-value" id="onlineServers">0</span>
+                        <div class="stat-item stat-online">
+                            <span class="stat-value" id="headerOnlineServers">0</span>
                             <span class="stat-label">Online</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-value" id="avgHealth">--</span>
-                            <span class="stat-label">Avg Health</span>
+                            <span class="stat-value" id="headerAvgHealth">--</span>
+                            <span class="stat-label">Health</span>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-value" id="totalAlerts">0</span>
+                        <div class="stat-item stat-alerts">
+                            <span class="stat-value" id="headerTotalAlerts">0</span>
                             <span class="stat-label">Alerts</span>
                         </div>
                     </div>
                 </div>
                 <div class="header-right">
-                    <a href="/technician" class="btn btn-outline" title="Technician Dashboard">🔧 Dashboard</a>
-                    <a href="/" class="btn btn-outline" title="Customer Chat">💬 Chat</a>
-                    <button class="btn btn-primary" id="connectAllBtn">Connect All</button>
-                    <button class="btn btn-secondary" id="disconnectAllBtn">Disconnect All</button>
-                    <button class="btn btn-outline" id="refreshFleetBtn">🔄 Refresh</button>
                     <button class="btn btn-success" id="addServerBtn">➕ Add Server</button>
-                    <button class="btn btn-outline" id="fleetThemeToggle" title="Toggle dark/light theme">🌙</button>
+                    <button class="btn btn-outline" id="refreshFleetBtn" title="Refresh fleet data">🔄</button>
+                    <div class="header-nav">
+                        <a href="/technician" class="btn btn-outline btn-sm" title="Technician Dashboard">🔧</a>
+                        <a href="/" class="btn btn-outline btn-sm" title="Customer Chat">💬</a>
+                        <button class="btn btn-outline btn-sm" id="fleetThemeToggle" title="Toggle theme">🌙</button>
+                    </div>
                 </div>
             </div>
         </header>
@@ -125,44 +125,18 @@
                 <div class="servers-grid">
                     <h2>Server Status</h2>
                     <div class="server-cards" id="serverCards">
-                        <!-- Server cards will be added dynamically -->
+                        <div class="empty-state" id="emptyServerState">
+                            <div class="empty-icon">🖥️</div>
+                            <h3>No servers yet</h3>
+                            <p>Add your first server to start monitoring your fleet.</p>
+                            <button class="btn btn-success" onclick="document.getElementById('addServerBtn').click()">➕ Add Server</button>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Servers Tab -->
             <div class="tab-content" id="serversTab">
-                <div class="overview-stats">
-                    <div class="stat-card">
-                        <div class="stat-icon">🚢</div>
-                        <div class="stat-content">
-                            <h3 id="totalServers">0</h3>
-                            <p>Total Servers</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">🟢</div>
-                        <div class="stat-content">
-                            <h3 id="onlineServers">0</h3>
-                            <p>Online Servers</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">❤️</div>
-                        <div class="stat-content">
-                            <h3 id="averageHealth">0%</h3>
-                            <p>Average Health</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">🚨</div>
-                        <div class="stat-content">
-                            <h3 id="totalAlerts">0</h3>
-                            <p>Total Alerts</p>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="servers-toolbar">
                     <div class="toolbar-left">
                         <input type="text" id="serverSearch" placeholder="Search servers..." class="search-input">
@@ -180,8 +154,10 @@
                         </select>
                     </div>
                     <div class="toolbar-right">
-                        <button class="btn btn-outline" id="exportServersBtn">📊 Export</button>
-                        <button class="btn btn-outline" id="bulkActionsBtn">⚡ Bulk Actions</button>
+                        <button class="btn btn-primary btn-sm" id="connectAllBtn">Connect All</button>
+                        <button class="btn btn-secondary btn-sm" id="disconnectAllBtn">Disconnect All</button>
+                        <button class="btn btn-outline btn-sm" id="bulkActionsBtn">⚡ Bulk Actions</button>
+                        <button class="btn btn-outline btn-sm" id="exportServersBtn">📊 Export</button>
                     </div>
                 </div>
 
@@ -215,7 +191,12 @@
                 </div>
 
                 <div class="groups-grid" id="groupsGrid">
-                    <!-- Group cards will be added dynamically -->
+                    <div class="empty-state" id="emptyGroupsState">
+                        <div class="empty-icon">📁</div>
+                        <h3>No groups created</h3>
+                        <p>Organize your servers into groups for easier management.</p>
+                        <button class="btn btn-primary" onclick="document.getElementById('createGroupBtn').click()">➕ Create Group</button>
+                    </div>
                 </div>
             </div>
 
@@ -243,7 +224,11 @@
                 </div>
 
                 <div class="alerts-container" id="alertsContainer">
-                    <!-- Alert items will be added dynamically -->
+                    <div class="empty-state" id="emptyAlertsState">
+                        <div class="empty-icon">✅</div>
+                        <h3>No alerts</h3>
+                        <p>All servers are operating normally. Alerts will appear here when issues are detected.</p>
+                    </div>
                 </div>
             </div>
 
