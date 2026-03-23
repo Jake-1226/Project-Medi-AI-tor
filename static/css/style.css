@@ -3944,9 +3944,89 @@ table tbody tr:hover { background: rgba(99,102,241,0.05); }
 }
 
 /* Fix button focus states for accessibility */
-.btn:focus-visible, .ops-btn:focus-visible, .qa-btn:focus-visible {
+/* ═══════════════════════════════════════
+   INTERACTION STATES — single source of truth
+   Focus, active, disabled for ALL interactive elements
+   ═══════════════════════════════════════ */
+
+/* ── Focus-visible: keyboard accessibility ring ── */
+.btn:focus-visible,
+.qa-btn:focus-visible,
+.ops-btn:focus-visible,
+.sub-tab:focus-visible,
+.tech-body .sub-tab:focus-visible,
+.sidebar-link:focus-visible,
+.level-pill:focus-visible,
+.chip:focus-visible,
+.agent-suggest-chip:focus-visible,
+.agent-chat-fab:focus-visible,
+.agent-chat-send:focus-visible,
+.topbar-theme-btn:focus-visible,
+.banner-expand-btn:focus-visible,
+.confirm-yes:focus-visible,
+.confirm-no:focus-visible,
+.alert-dismiss:focus-visible,
+.preset-card button:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+}
+
+/* ── Active (pressed) state: subtle scale ── */
+.btn:active,
+.qa-btn:active,
+.ops-btn:active,
+.chip:active,
+.agent-suggest-chip:active,
+.agent-chat-fab:active,
+.agent-chat-send:active,
+.topbar-theme-btn:active,
+.banner-expand-btn:active,
+.confirm-yes:active,
+.confirm-no:active,
+.level-pill:active,
+.alert-dismiss:active,
+.preset-card button:active {
+    transform: scale(0.97);
+}
+/* Override for elements that already use translateY */
+.btn-primary:active { transform: translateY(0); }
+.ops-btn:active { transform: translateY(0); }
+
+/* ── Disabled state: all button types ── */
+.btn:disabled,
+.ops-btn:disabled,
+.chip:disabled,
+.agent-chat-send:disabled,
+.confirm-yes:disabled,
+.level-pill:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ── Form input hover + transition ── */
+.form-input,
+.form-select,
+.form-textarea {
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.form-input:hover,
+.form-select:hover,
+.form-textarea:hover {
+    border-color: var(--text-muted);
+}
+
+/* ── Sub-tab keyboard focus (underline instead of outline) ── */
+.tech-body .sub-tab:focus-visible {
+    outline: none;
+    box-shadow: 0 2px 0 0 var(--accent);
+}
+
+/* ── Sidebar link focus ── */
+.sidebar-link:focus-visible {
+    outline: none;
+    background: rgba(99, 102, 241, 0.12);
+    border-left-color: var(--accent);
 }
 
 /* (ops-btn-grid consolidated — see .tech-body .ops-btn-grid and late-file .ops-btn-grid) */

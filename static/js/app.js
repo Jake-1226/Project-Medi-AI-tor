@@ -404,6 +404,7 @@ class DellAIAgent {
     // ─── F5: Inline confirmation UX ──────────────────────────────
     _showInlineConfirm(anchorEl, message, isDanger, onConfirm) {
         // Remove any existing inline-confirm in the same area
+        const previousFocus = document.activeElement;
         document.querySelectorAll('.inline-confirm').forEach(el => el.remove());
         const div = document.createElement('div');
         div.className = `inline-confirm${isDanger ? '' : ' inline-confirm-warn'}`;
@@ -411,15 +412,19 @@ class DellAIAgent {
             <span class="confirm-msg">${isDanger ? '⚠️ ' : ''}${message}</span>
             <button class="confirm-yes">${isDanger ? 'Yes, proceed' : 'Confirm'}</button>
             <button class="confirm-no">Cancel</button>`;
-        div.querySelector('.confirm-yes').addEventListener('click', () => { div.remove(); onConfirm(); });
-        div.querySelector('.confirm-no').addEventListener('click', () => div.remove());
+        const yesBtn = div.querySelector('.confirm-yes');
+        const noBtn = div.querySelector('.confirm-no');
+        // Double-click prevention: disable after first click
+        yesBtn.addEventListener('click', () => { yesBtn.disabled = true; div.remove(); onConfirm(); });
+        noBtn.addEventListener('click', () => { div.remove(); if (previousFocus) previousFocus.focus(); });
         if (anchorEl) {
             anchorEl.style.display = 'block';
             anchorEl.innerHTML = '';
             anchorEl.appendChild(div);
             anchorEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            // Focus the cancel button for keyboard users (safer default)
+            requestAnimationFrame(() => noBtn.focus());
         } else {
-            // Fallback: append to alert container
             const alert = document.getElementById('alertContainer');
             if (alert) alert.appendChild(div);
         }
@@ -933,6 +938,7 @@ class DellAIAgent {
 
     async sendChatMessage() {
         const input = document.getElementById('agentChatInput');
+        const sendBtn = document.getElementById('agentChatSend');
         const msg = input?.value?.trim();
         if (!msg || !this.currentServer) {
             if (!this.currentServer) this.addChatMsg('system', 'Please connect to a server first.');
@@ -941,6 +947,10 @@ class DellAIAgent {
 
         const container = document.getElementById('agentChatMessages');
         input.value = '';
+
+        // Disable input during send to prevent concurrent messages
+        if (input) input.disabled = true;
+        if (sendBtn) sendBtn.disabled = true;
 
         // Hide suggestion chips after first message
         const sug = document.getElementById('agentChatSuggestions');
@@ -1068,8 +1078,12 @@ class DellAIAgent {
             }
         } catch (error) {
             document.getElementById(typingId)?.remove();
-            this.addChatMsg('system', `Network error: ${error.message}`);
+            this.addChatMsg('system', `Network error: ${this._friendlyError(error)}`);
             if (subtitle) subtitle.textContent = 'Error';
+        } finally {
+            // Re-enable input after send completes
+            if (input) { input.disabled = false; input.focus(); }
+            if (sendBtn) sendBtn.disabled = false;
         }
         if (container) container.scrollTop = container.scrollHeight;
     }
