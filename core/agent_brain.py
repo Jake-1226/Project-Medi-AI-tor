@@ -1360,9 +1360,11 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
         if any(w in msg for w in ["why", "explain", "how did you", "what evidence", "reasoning", "how confident"]):
             return "explain"
 
-        # Status check (exclude lifecycle/controller-related)
+        # Status check (exclude subsystem-specific status queries)
         if any(w in msg for w in ["status", "summary", "what do you know", "where are we", "metrics", "business value"]):
-            if not any(w in msg for w in ["lifecycle", "controller", "lc ", "fan ", "boot", "idrac", "certificate"]):
+            if not any(w in msg for w in ["lifecycle", "controller", "lc ", "fan", "boot", "idrac", "certificate",
+                                          "storage", "disk", "drive", "network", "nic", "power", "psu",
+                                          "memory", "dimm", "temperature", "thermal", "firmware"]):
                 return "status"
 
         # Part dispatch
@@ -1381,32 +1383,39 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
         # Fan speed / threshold queries (targeted, not full investigation)
         if any(w in msg for w in ["fan speed", "fan rpm", "fan threshold", "below threshold",
                                    "above threshold", "tell me what the fan", "how fast are the fan",
-                                   "are the fans", "check fan", "fan status"]):
+                                   "are the fans", "check fan", "fan status", "show fan",
+                                   "how many fan", "fan health"]):
             return "dig_deeper"
 
         # Temperature queries (targeted)
         if any(w in msg for w in ["temperature reading", "how hot", "temp reading", "cpu temp",
-                                   "inlet temp", "check temp", "temperature status"]):
+                                   "inlet temp", "check temp", "temperature status", "show temp",
+                                   "thermal status"]):
             return "dig_deeper"
 
         # Power supply queries (targeted, not full investigation)
         if any(w in msg for w in ["power supply", "power supplie", "psu status", "check power", "check psu",
-                                   "power budget", "wattage", "psu health", "power redundancy"]):
+                                   "power budget", "wattage", "psu health", "power redundancy",
+                                   "show power", "power status"]):
             return "dig_deeper"
 
         # Memory queries (targeted)
         if any(w in msg for w in ["check memory", "dimm status", "ecc error", "memory health",
-                                   "check ram", "check dimm"]):
+                                   "check ram", "check dimm", "show memory", "show dimm",
+                                   "memory status", "show ram", "how many dimm"]):
             return "dig_deeper"
 
         # Storage queries (targeted)
         if any(w in msg for w in ["check storage", "check disk", "check drive", "disk health",
-                                   "drive status", "storage health", "raid status"]):
+                                   "drive status", "storage health", "raid status", "show storage",
+                                   "show disk", "show drive", "storage status", "list drive",
+                                   "how many drive", "how many disk"]):
             return "dig_deeper"
 
         # Network queries (targeted)
         if any(w in msg for w in ["check network", "nic status", "link status", "network health",
-                                   "check nic", "ethernet status"]):
+                                   "check nic", "ethernet status", "show network", "show nic",
+                                   "network status", "network interface"]):
             return "dig_deeper"
 
         # Firmware check (targeted, not full investigation)
