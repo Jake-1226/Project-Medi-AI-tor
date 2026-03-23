@@ -1790,10 +1790,17 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
 
         # Determine what the user is asking about
         if any(w in msg for w in ["model", "what server", "which server", "what is this"]):
-            return f"This server is a **{model}** (Service Tag: **{tag}**).\n\nHostname: {hostname}\nPower State: {power_state}"
+            lines = [f"This server is a **{model}** (Service Tag: **{tag}**)."]
+            if hostname:
+                lines.append(f"Hostname: {hostname}")
+            lines.append(f"Power State: {power_state}")
+            return "\n\n".join(lines)
 
         if any(w in msg for w in ["service tag", "serial number", "asset tag"]):
-            return f"**Service Tag:** {tag}\n**Model:** {model}\n**Hostname:** {hostname}"
+            lines = [f"**Service Tag:** {tag}", f"**Model:** {model}"]
+            if hostname:
+                lines.append(f"**Hostname:** {hostname}")
+            return "\n".join(lines)
 
         if any(w in msg for w in ["express service code", "esc code"]):
             # Convert service tag to express service code (base-36 to decimal)
@@ -1926,21 +1933,19 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
             return "✅ No component issues detected. Run an **overview** for a full check."
 
         # Default: return a comprehensive server identity card
-        lines = [
-            f"**{model}**",
-            f"",
-            f"**Service Tag:** {tag}",
-            f"**Hostname:** {hostname}",
-            f"**Power State:** {power_state}",
-            f"**CPU:** {cpu_model} × {cpu_count}",
-            f"**Memory:** {total_mem} GB",
-            f"**BIOS:** {bios_ver}",
-            f"**iDRAC:** {idrac_ver}",
-        ]
+        lines = [f"**{model}**", ""]
+        lines.append(f"**Service Tag:** {tag}")
+        if hostname:
+            lines.append(f"**Hostname:** {hostname}")
+        lines.append(f"**Power State:** {power_state}")
+        lines.append(f"**CPU:** {cpu_model} × {cpu_count}")
+        lines.append(f"**Memory:** {total_mem} GB")
+        lines.append(f"**BIOS:** {bios_ver}")
+        lines.append(f"**iDRAC:** {idrac_ver}")
         if os_name:
             lines.append(f"**OS:** {os_name} {os_version}")
         lines.append("")
-        lines.append("Ask me anything specific — temperatures, fans, firmware, storage, network, boot order, iDRAC config, and more.")
+        lines.append("Ask about any component, describe an issue, or say **help** for all options.")
         return "\n".join(lines)
 
     # ═══════════════════════════════════════════════════════════════════

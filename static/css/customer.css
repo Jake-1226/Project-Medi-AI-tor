@@ -166,7 +166,7 @@ body {
 .connect-form { display: flex; flex-direction: column; gap: 8px; }
 .connect-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .form-field { display: flex; flex-direction: column; gap: 3px; }
-.form-field-label { font-size: 0.68rem; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; }
+.form-field-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .c-input {
     padding: 8px 10px;
     border: 1.5px solid var(--border);
@@ -443,9 +443,9 @@ body {
 .msg-user .msg-text strong { color: white; }
 
 .msg-system .msg-text {
-    background: var(--yellow-bg);
-    border-color: #fcd34d;
-    color: #92400e;
+    background: #fef3c7;
+    border-color: #f59e0b;
+    color: #78350f;
     font-size: 0.85rem;
 }
 
@@ -509,7 +509,7 @@ body {
     font-weight: 600;
 }
 .thinking-header .thinking-timer { font-weight: 400; opacity: 0.85; font-family: var(--mono); font-size: 0.78rem; }
-.thinking-steps { max-height: 300px; overflow-y: auto; }
+.thinking-steps { max-height: 50vh; overflow-y: auto; }
 .thinking-step {
     padding: 8px 16px;
     font-size: 0.82rem;
@@ -528,9 +528,9 @@ body {
 .thinking-step-text em { color: var(--text-muted); font-style: normal; font-size: 0.78rem; }
 
 /* Hypothesis bars inside thinking */
-.th-hyp-mini { display: flex; align-items: center; gap: 4px; margin: 2px 0; font-size: 0.75rem; }
+.th-hyp-mini { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: 0.78rem; }
 .th-hyp-name { flex: 0 0 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
-.th-hyp-bar { height: 4px; border-radius: 2px; transition: width 0.5s ease; }
+.th-hyp-bar { height: 6px; border-radius: 3px; transition: width 0.5s ease; }
 .th-bar-high { background: var(--green); }
 .th-bar-med { background: var(--yellow); }
 .th-bar-low { background: var(--text-light); }
@@ -757,9 +757,9 @@ body {
     margin: 8px 0;
 }
 .follow-up-chip, .followup-chip {
-    padding: 5px 14px;
+    padding: 7px 16px;
     border-radius: var(--radius-full);
-    font-size: 0.78rem;
+    font-size: 0.82rem;
     font-weight: 500;
     font-family: var(--font);
     border: 1.5px solid rgba(79,70,229,0.2);
@@ -767,6 +767,9 @@ body {
     color: var(--primary);
     cursor: pointer;
     transition: all var(--transition);
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
 }
 .follow-up-chip:hover, .followup-chip:hover {
     background: var(--primary);
@@ -1158,8 +1161,8 @@ body {
 /* ─── Scroll-to-bottom FAB ───────────────────────────── */
 .scroll-bottom-fab {
     position: absolute;
-    bottom: 10px;
-    right: 24px;
+    bottom: 70px;
+    right: 20px;
     width: 40px;
     height: 40px;
     border-radius: 50%;
@@ -1184,17 +1187,19 @@ body {
 
 /* ─── Disabled Input State ───────────────────────────── */
 .chat-input:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
-    background: var(--surface-hover);
+    background: #f1f5f9;
+    color: var(--text-light);
+    border-color: #cbd5e1;
 }
 .chat-send:disabled {
-    opacity: 0.35;
+    opacity: 0.5;
     cursor: not-allowed;
-    background: var(--text-light);
+    background: #cbd5e1;
     box-shadow: none;
 }
-.chat-send:disabled:hover { transform: none; }
+.chat-send:disabled:hover { transform: none; background: #cbd5e1; }
 
 /* ─── Toast Notifications ────────────────────────────── */
 .toast-container {
@@ -1290,6 +1295,22 @@ body {
 }
 .thinking-panel.collapsed .collapse-chevron { transform: rotate(-90deg); }
 
+/* Thinking header hover when collapsible (after investigation complete) */
+.thinking-header[style*="cursor: pointer"]:hover {
+    opacity: 0.9;
+    filter: brightness(1.05);
+}
+.thinking-header[style*="cursor: pointer"]::after {
+    content: ' (click to collapse)';
+    font-size: 0.68rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+    font-weight: 400;
+}
+.thinking-header[style*="cursor: pointer"]:hover::after {
+    opacity: 0.6;
+}
+
 /* ─── Loading Skeleton ───────────────────────────────── */
 .skeleton-line {
     height: 14px;
@@ -1352,9 +1373,10 @@ body {
 .chat-suggestions.hiding {
     opacity: 0;
     max-height: 0;
-    padding: 0 32px;
+    padding: 0;
+    border: 0;
     overflow: hidden;
-    transition: opacity 0.25s, max-height 0.35s ease, padding 0.35s;
+    transition: opacity 0.2s, max-height 0.3s ease, padding 0.3s;
 }
 
 /* ─── Accessibility — focus-visible for all interactive ─ */

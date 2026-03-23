@@ -162,8 +162,20 @@ class CustomerChat {
         // Disable button with loading state
         btn.disabled = true;
         btn.classList.add('connecting');
-        btnContent.innerHTML = '<span class="btn-spinner"></span>Connecting to ' + this._escapeHtml(host) + '...';
+        const safeHostDisplay = this._escapeHtml(host);
+        btnContent.innerHTML = `<span class="btn-spinner"></span>Connecting to ${safeHostDisplay}...`;
         status.innerHTML = '';
+
+        // Show elapsed time in button during connection
+        const connectStart = Date.now();
+        const progressTimer = setInterval(() => {
+            const elapsed = Math.round((Date.now() - connectStart) / 1000);
+            if (btn.disabled && btn.classList.contains('connecting')) {
+                btnContent.innerHTML = `<span class="btn-spinner"></span>Connecting to ${safeHostDisplay}... ${elapsed}s`;
+            } else {
+                clearInterval(progressTimer);
+            }
+        }, 1000);
 
         try {
             const controller = new AbortController();
@@ -178,6 +190,7 @@ class CustomerChat {
             clearTimeout(timeoutId);
             const data = await r.json();
 
+            clearInterval(progressTimer);
             if (r.ok) {
                 this.connected = true;
                 this.serverInfo = { host, username: user, password: pass, port };
@@ -213,6 +226,7 @@ class CustomerChat {
                 </div>`;
             }
         } catch (err) {
+            clearInterval(progressTimer);
             btn.classList.remove('connecting');
             btn.disabled = false;
             btnContent.textContent = 'Connect to iDRAC';
@@ -278,8 +292,8 @@ class CustomerChat {
             if (nav) nav.innerHTML = `<span class="conn-dot conn-on"></span> <span>${safeHost}</span>`;
             
             // Smooth transition: fade out connect, fade in server card
-            if (connectSec) { connectSec.style.opacity = '0'; setTimeout(() => { connectSec.style.display = 'none'; connectSec.style.opacity = '1'; }, 200); }
-            if (serverSec) { serverSec.style.display = 'block'; serverSec.style.opacity = '0'; setTimeout(() => serverSec.style.opacity = '1', 50); }
+            if (connectSec) { connectSec.style.opacity = '0'; setTimeout(() => { connectSec.style.display = 'none'; }, 250); }
+            if (serverSec) { serverSec.style.display = 'block'; serverSec.style.opacity = '0'; requestAnimationFrame(() => { serverSec.style.opacity = '1'; }); }
             
             // Set initial server card content (will be enriched after overview)
             const model = document.getElementById('serverModel');
@@ -293,8 +307,8 @@ class CustomerChat {
             this._enrichServerCard();
         } else {
             if (nav) nav.innerHTML = '<span class="conn-dot conn-off"></span> <span>Not Connected</span>';
-            if (serverSec) { serverSec.style.opacity = '0'; setTimeout(() => { serverSec.style.display = 'none'; serverSec.style.opacity = '1'; }, 200); }
-            if (connectSec) { connectSec.style.display = 'block'; connectSec.style.opacity = '0'; setTimeout(() => connectSec.style.opacity = '1', 50); }
+            if (serverSec) { serverSec.style.opacity = '0'; setTimeout(() => { serverSec.style.display = 'none'; }, 250); }
+            if (connectSec) { connectSec.style.display = 'block'; connectSec.style.opacity = '0'; requestAnimationFrame(() => { connectSec.style.opacity = '1'; }); }
         }
     }
 
@@ -369,7 +383,10 @@ class CustomerChat {
 
         // Hide suggestions with animation after first message
         const sug = document.getElementById('chatSuggestions');
-        if (sug && !sug.classList.contains('hiding')) sug.classList.add('hiding');
+        if (sug && !sug.classList.contains('hiding')) {
+            sug.classList.add('hiding');
+            setTimeout(() => sug.remove(), 350);
+        }
 
         this.addMsg('user', msg);
 
@@ -516,7 +533,7 @@ class CustomerChat {
         this.addMsgHtml('agent', html);
         
         const followUps = this._buildContextualFollowUps(msg, result.data);
-        if (followUps.length) this.addFollowUps(followUps);
+        this.addFollowUps(followUps.length ? followUps : ['Check another component', 'Run full investigation', 'Help']);
         this.updateAgentStatus('Ready');
     }
 
