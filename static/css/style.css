@@ -394,34 +394,62 @@ body.tech-body {
    ═══════════════════════════════════════ */
 .quick-actions-bar {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    align-items: flex-start;
+    gap: 0;
     margin: 0 20px 20px;
-    padding: 14px 16px;
+    padding: 12px 16px;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 12px;
 }
-.qa-btn {
-    padding: 7px 14px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background: rgba(255,255,255,0.03);
-    color: var(--text-secondary);
-    font-size: 0.82rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    display: inline-flex;
-    align-items: center;
+.qa-group { flex: 1; min-width: 0; }
+.qa-group-label {
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    padding-left: 2px;
+}
+.qa-group-btns {
+    display: flex;
+    flex-wrap: wrap;
     gap: 6px;
 }
+.qa-divider {
+    width: 1px;
+    align-self: stretch;
+    background: var(--border-color);
+    margin: 0 14px;
+    flex-shrink: 0;
+}
+.qa-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+.qa-btn:active { transform: scale(0.97); }
 .qa-btn:hover { border-color: var(--info-blue); color: var(--info-blue); background: rgba(59,130,246,0.06); }
-.qa-btn-green:hover { border-color: var(--success-green); color: var(--success-green); background: rgba(34,197,94,0.06); }
+.qa-btn-green { border-color: rgba(34,197,94,0.3); color: var(--success-green); }
+.qa-btn-green:hover { border-color: var(--success-green); background: rgba(34,197,94,0.08); }
 .qa-btn-amber:hover { border-color: var(--warning-yellow); color: var(--warning-yellow); background: rgba(245,158,11,0.06); }
-.qa-btn-warn { color: var(--text-muted); }
-.qa-btn-warn:hover { border-color: var(--warning-yellow); color: var(--warning-yellow); background: rgba(245,158,11,0.06); }
-.qa-btn-danger:hover { border-color: var(--danger-red); color: var(--danger-red); background: rgba(239,68,68,0.06); }
+.qa-btn-warn { border-color: rgba(245,158,11,0.2); color: var(--warning-yellow); }
+.qa-btn-warn:hover { background: rgba(245,158,11,0.08); border-color: var(--warning-yellow); }
+.qa-btn-danger { border-color: rgba(239,68,68,0.3); color: var(--danger-red); }
+.qa-btn-danger:hover { background: rgba(239,68,68,0.08); border-color: var(--danger-red); }
 
 /* ═══════════════════════════════════════
    AI INPUT CARD
@@ -4179,24 +4207,7 @@ table tbody tr:hover { background: rgba(99,102,241,0.05); }
     font-style: italic;
 }
 
-/* ─── Quick action buttons polish ─── */
-.qa-btn {
-    border-radius: 8px;
-    font-weight: 600;
-    transition: all 0.15s;
-    position: relative;
-    overflow: hidden;
-}
-.qa-btn::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: currentColor;
-    opacity: 0;
-    transition: opacity 0.15s;
-    border-radius: inherit;
-}
-.qa-btn:active::after { opacity: 0.08; }
+/* (qa-btn polish merged into main .qa-btn block above) */
 
 /* ─── Operation buttons: more compact grid ─── */
 .ops-btn-grid {

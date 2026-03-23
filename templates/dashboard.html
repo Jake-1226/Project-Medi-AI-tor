@@ -150,14 +150,25 @@
 
             <!-- Quick Actions Bar -->
             <div class="quick-actions-bar">
-                <button id="getServerInfoBtn" class="qa-btn"><span>ℹ️</span> Full Inventory</button>
-                <button id="collectLogsBtn" class="qa-btn"><span>📋</span> Collect Logs</button>
-                <button id="healthCheckBtn" class="qa-btn qa-btn-green"><span>❤️</span> Health Check</button>
-                <button id="performanceAnalysisBtn" class="qa-btn qa-btn-amber"><span>📊</span> Performance</button>
-                <button id="gracefulShutdownBtn" class="qa-btn qa-btn-warn" title="Graceful shutdown"><span>⏻</span> Shutdown</button>
-                <button id="powerCycleBtn" class="qa-btn qa-btn-warn" title="Force restart"><span>🔄</span> Power Cycle</button>
-                <button id="vacCycleBtn" class="qa-btn qa-btn-warn" title="Virtual AC cycle"><span>⚡</span> VAC Drain</button>
-                <button id="resetIdracBtn" class="qa-btn qa-btn-danger" title="Reset iDRAC"><span>🔁</span> Reset iDRAC</button>
+                <div class="qa-group">
+                    <span class="qa-group-label">Diagnostics</span>
+                    <div class="qa-group-btns">
+                        <button id="healthCheckBtn" class="qa-btn qa-btn-green">❤️ Health Check</button>
+                        <button id="getServerInfoBtn" class="qa-btn">🔄 Refresh Data</button>
+                        <button id="collectLogsBtn" class="qa-btn">📋 Collect Logs</button>
+                        <button id="performanceAnalysisBtn" class="qa-btn qa-btn-amber">📊 Performance</button>
+                    </div>
+                </div>
+                <div class="qa-divider"></div>
+                <div class="qa-group">
+                    <span class="qa-group-label">Power</span>
+                    <div class="qa-group-btns">
+                        <button id="gracefulShutdownBtn" class="qa-btn qa-btn-warn" title="Graceful OS shutdown">⏻ Shutdown</button>
+                        <button id="powerCycleBtn" class="qa-btn qa-btn-warn" title="Immediate restart">🔄 Power Cycle</button>
+                        <button id="vacCycleBtn" class="qa-btn qa-btn-warn" title="Drain flea power">⚡ VAC Drain</button>
+                        <button id="resetIdracBtn" class="qa-btn qa-btn-danger" title="Reset iDRAC controller">🔁 Reset iDRAC</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Server Info + Metrics -->
