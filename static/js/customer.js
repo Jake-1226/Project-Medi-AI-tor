@@ -166,17 +166,27 @@ class CustomerChat {
 
     // ─── Connection ───────────────────────────────────────
     async connect() {
-        const host = document.getElementById('cHost')?.value?.trim();
-        const user = document.getElementById('cUser')?.value?.trim();
-        const pass = document.getElementById('cPass')?.value?.trim();
+        const hostEl = document.getElementById('cHost');
+        const userEl = document.getElementById('cUser');
+        const passEl = document.getElementById('cPass');
+        const host = hostEl?.value?.trim();
+        const user = userEl?.value?.trim();
+        const pass = passEl?.value?.trim();
         const port = parseInt(document.getElementById('cPort')?.value) || 443;
 
+        // Clear previous validation
+        [hostEl, userEl, passEl].forEach(el => { if (el) el.style.borderColor = ''; });
+
         if (!host || !user || !pass) {
+            // Highlight empty fields with red border
+            if (!host && hostEl) hostEl.style.borderColor = '#ef4444';
+            if (!user && userEl) userEl.style.borderColor = '#ef4444';
+            if (!pass && passEl) passEl.style.borderColor = '#ef4444';
             this.showToast('Please fill in all fields', 'warning');
             // Focus the first empty field
-            if (!host) document.getElementById('cHost')?.focus();
-            else if (!user) document.getElementById('cUser')?.focus();
-            else document.getElementById('cPass')?.focus();
+            if (!host) hostEl?.focus();
+            else if (!user) userEl?.focus();
+            else passEl?.focus();
             return;
         }
 

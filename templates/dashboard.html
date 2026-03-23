@@ -93,16 +93,16 @@
                         <form id="connectionForm" class="connect-panel-form" role="form" aria-label="iDRAC Connection">
                             <div class="connect-field">
                                 <label for="serverHost">iDRAC Address</label>
-                                <input type="text" id="serverHost" class="form-input" placeholder="IP or hostname" required aria-label="iDRAC Host or IP">
+                                <input type="text" id="serverHost" class="form-input" placeholder="IP or hostname" required autocomplete="off" aria-label="iDRAC Host or IP">
                             </div>
                             <div class="connect-field-row">
                                 <div class="connect-field">
                                     <label for="username">Username</label>
-                                    <input type="text" id="username" class="form-input" placeholder="Username" required aria-label="iDRAC Username">
+                                    <input type="text" id="username" class="form-input" placeholder="Username" required autocomplete="username" aria-label="iDRAC Username">
                                 </div>
                                 <div class="connect-field">
                                     <label for="password">Password</label>
-                                    <input type="password" id="password" class="form-input" placeholder="Password" required aria-label="iDRAC Password">
+                                    <input type="password" id="password" class="form-input" placeholder="Password" required autocomplete="current-password" aria-label="iDRAC Password">
                                 </div>
                             </div>
                             <input type="hidden" id="port" value="443">
@@ -125,16 +125,16 @@
                         <form id="osConnectionForm" class="connect-panel-form" role="form" aria-label="OS SSH Connection">
                             <div class="connect-field">
                                 <label for="osHost">OS Address</label>
-                                <input type="text" id="osHost" class="form-input" placeholder="IP (often same as iDRAC)" aria-label="OS Host or IP">
+                                <input type="text" id="osHost" class="form-input" placeholder="IP (often same as iDRAC)" autocomplete="off" aria-label="OS Host or IP">
                             </div>
                             <div class="connect-field-row">
                                 <div class="connect-field">
                                     <label for="osUsername">Username</label>
-                                    <input type="text" id="osUsername" class="form-input" placeholder="Username" aria-label="OS Username">
+                                    <input type="text" id="osUsername" class="form-input" placeholder="Username" autocomplete="username" aria-label="OS Username">
                                 </div>
                                 <div class="connect-field">
                                     <label for="osPassword">Password</label>
-                                    <input type="password" id="osPassword" class="form-input" placeholder="Password" aria-label="OS Password">
+                                    <input type="password" id="osPassword" class="form-input" placeholder="Password" autocomplete="current-password" aria-label="OS Password">
                                 </div>
                             </div>
                             <input type="hidden" id="osPort" value="22">
