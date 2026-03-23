@@ -27,7 +27,16 @@ class DellAIAgent {
         this.lastDataRefresh = null;
         this._tabScrollPositions = {};
         
+        // Cache frequently accessed DOM elements to reduce getElementById calls
+        this._dom = {};
+        
         this.init();
+    }
+    
+    /** Get a cached DOM element by ID. Lazily caches on first access. */
+    _el(id) {
+        if (!this._dom[id]) this._dom[id] = document.getElementById(id);
+        return this._dom[id];
     }
     
     init() {

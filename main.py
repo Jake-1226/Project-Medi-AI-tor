@@ -2225,38 +2225,38 @@ async def get_quick_status():
         
         host = agent.current_session.server_host if agent.current_session else "unknown"
         
-        # Try to get basic info from a single Redfish call
-        result = {}
+        # Fetch server info and health in PARALLEL (not sequential)
+        result = {"connected": True, "host": host}
         try:
-            si = await agent.execute_action(ActionLevel.READ_ONLY, "get_server_info", {})
-            info = si.get("server_info", {})
-            result = {
-                "connected": True,
-                "host": host,
-                "model": info.get("model", "Unknown"),
-                "service_tag": info.get("service_tag", ""),
-                "power_state": info.get("power_state", "Unknown"),
-                "bios_version": info.get("bios_version", ""),
-                "idrac_version": info.get("idrac_version", ""),
-                "cpu_model": info.get("cpu_model", ""),
-                "cpu_count": info.get("cpu_count", 0),
-                "total_memory_gb": info.get("total_memory_gb", 0),
-            }
+            si_task = agent.execute_action(ActionLevel.READ_ONLY, "get_server_info", {})
+            health_task = agent.execute_action(ActionLevel.READ_ONLY, "health_check", {})
+            si, health = await asyncio.gather(si_task, health_task, return_exceptions=True)
+            
+            # Process server info
+            if not isinstance(si, Exception):
+                info = si.get("server_info", {})
+                result.update({
+                    "model": info.get("model", "Unknown"),
+                    "service_tag": info.get("service_tag", ""),
+                    "power_state": info.get("power_state", "Unknown"),
+                    "bios_version": info.get("bios_version", ""),
+                    "idrac_version": info.get("idrac_version", ""),
+                    "cpu_model": info.get("cpu_model", ""),
+                    "cpu_count": info.get("cpu_count", 0),
+                    "total_memory_gb": info.get("total_memory_gb", 0),
+                })
+            
+            # Process health
+            if not isinstance(health, Exception):
+                hs = health.get("health_status", {})
+                overall = hs.get("overall_status", "unknown")
+                if hasattr(overall, 'value'):
+                    overall = overall.value
+                result["health"] = str(overall)
+                result["critical_count"] = len(hs.get("critical_issues", []))
+                result["warning_count"] = len(hs.get("warnings", []))
         except Exception as e:
-            result = {"connected": True, "host": host, "error": str(e)}
-        
-        # Quick health check (just the overall status, no deep scan)
-        try:
-            health = await agent.execute_action(ActionLevel.READ_ONLY, "health_check", {})
-            hs = health.get("health_status", {})
-            overall = hs.get("overall_status", "unknown")
-            if hasattr(overall, 'value'):
-                overall = overall.value
-            result["health"] = str(overall)
-            result["critical_count"] = len(hs.get("critical_issues", []))
-            result["warning_count"] = len(hs.get("warnings", []))
-        except Exception:
-            pass
+            result["error"] = str(e)
         
         return {"status": "success", "data": result}
     except Exception as e:
