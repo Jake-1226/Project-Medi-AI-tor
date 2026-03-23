@@ -2206,14 +2206,14 @@ class DellAIAgent {
                 (importantRows ? `<div style="margin:8px 0;padding:8px;background:var(--bg-input);border-radius:6px"><strong style="font-size:0.75rem">⭐ Key Settings</strong>${tbl(importantRows)}</div>` : '') +
                 `<details style="margin-top:8px"><summary style="cursor:pointer;font-size:0.78rem;color:var(--accent)">Show all ${keys.length} attributes</summary>${tbl(allRows)}</details>`;
         }
-        if (op === 'bios_set' && data.bios_set !== undefined) {
+        if ((op === 'bios_set' || op.startsWith('thermal_profile')) && data.bios_set !== undefined) {
             return data.bios_set
-                ? `<div class="ops-result-title">✅ BIOS Changes Staged</div><p>Changes will take effect on next reboot.</p>`
-                : `<div class="ops-result-title">⚠️ BIOS Set Failed</div><p>The server did not accept the attribute changes. Check action level and attribute names.</p>`;
+                ? `<div class="ops-result-title">✅ BIOS Changes Staged</div><p>Changes will take effect on next reboot. A server reboot is required to apply.</p>`
+                : `<div class="ops-result-title">⚠️ BIOS Set Failed</div><p>The server did not accept the attribute changes. The attribute may not exist on this server model, or the value may be invalid.</p>`;
         }
 
         // ── Storage / RAID / Drives ──
-        if ((op === 'raid_list_vd' || op === 'raid_controller_info' || op === 'drive_list' || op === 'drive_smart_data') && data.storage_devices) {
+        if ((op.startsWith('raid_') || op.startsWith('drive_')) && data.storage_devices) {
             const devs = data.storage_devices;
             let html = `<div class="ops-result-title">💾 Storage Inventory (${devs.length} device${devs.length!==1?'s':''})</div>`;
             if (devs.length === 0) return html + '<p>No storage devices found.</p>';
@@ -2236,7 +2236,7 @@ class DellAIAgent {
         }
 
         // ── Power supplies ──
-        if (op === 'power_read_budget' && data.power_supplies) {
+        if ((op.startsWith('power_') && !['power_on','power_graceful_shutdown','power_cycle','power_force_off','power_vac_cycle','power_nmi'].includes(op)) && data.power_supplies) {
             const ps = data.power_supplies;
             let html = `<div class="ops-result-title">⚡ Power Supplies (${ps.length})</div>`;
             let totalWatts = 0;
@@ -2304,7 +2304,7 @@ class DellAIAgent {
         }
 
         // ── iDRAC Network ──
-        if (op === 'idrac_get_network' && data.idrac_network) {
+        if ((op.startsWith('idrac_') && (op.includes('network') || op.includes('static') || op.includes('dhcp') || op.includes('vlan'))) && data.idrac_network) {
             const net = data.idrac_network;
             if (net.interfaces && net.interfaces.length) {
                 let html = `<div class="ops-result-title">🌐 iDRAC Network Interfaces (${net.interfaces.length})</div>`;
@@ -2329,7 +2329,7 @@ class DellAIAgent {
         }
 
         // ── iDRAC Users ──
-        if (op === 'idrac_list_users' && data.idrac_users) {
+        if ((op.startsWith('idrac_') && (op.includes('user') || op.includes('password'))) && data.idrac_users) {
             const users = data.idrac_users;
             let html = `<div class="ops-result-title">👤 iDRAC User Accounts (${users.length})</div>`;
             if (users.length === 0) return html + '<p>No user accounts found.</p>';
@@ -2343,7 +2343,7 @@ class DellAIAgent {
         }
 
         // ── SSL Certs ──
-        if (op === 'idrac_view_cert' && data.ssl_certificates) {
+        if ((op.startsWith('idrac_') && (op.includes('cert') || op.includes('csr'))) && data.ssl_certificates) {
             const certs = data.ssl_certificates;
             if (!certs.available) return `<div class="ops-result-title">🔒 SSL Certificates</div><p>Certificate service not available.</p>`;
             let html = `<div class="ops-result-title">🔒 SSL Certificates (${(certs.certificates||[]).length})</div>`;
@@ -2363,12 +2363,12 @@ class DellAIAgent {
         }
 
         // ── iDRAC reset / clear SEL / export SCP ──
-        if (op === 'idrac_reset') return data.idrac_reset ? `<div class="ops-result-title">✅ iDRAC Reset</div><p>iDRAC is rebooting. It will be unavailable for ~2 minutes.</p>` : `<div class="ops-result-title">⚠️ iDRAC Reset</div><p>Reset command may not have been accepted.</p>`;
-        if (op === 'idrac_clear_sel' && data.clear_sel) return data.clear_sel.success ? `<div class="ops-result-title">✅ SEL Cleared</div><p>${data.clear_sel.message}</p>` : `<div class="ops-result-title">⚠️ Clear SEL Failed</div><p>${data.clear_sel.error}</p>`;
-        if (op === 'idrac_export_config' && data.scp_export) return data.scp_export.success ? `<div class="ops-result-title">✅ SCP Export Initiated</div><p>${data.scp_export.message}</p>` : `<div class="ops-result-title">⚠️ SCP Export Failed</div><p>${data.scp_export.error}</p>`;
+        if ((op === 'idrac_reset' || op === 'idrac_factory_reset') && data.idrac_reset !== undefined) return data.idrac_reset ? `<div class="ops-result-title">✅ iDRAC Reset</div><p>iDRAC is rebooting. It will be unavailable for ~2 minutes.</p>` : `<div class="ops-result-title">⚠️ iDRAC Reset</div><p>Reset command may not have been accepted.</p>`;
+        if ((op === 'idrac_clear_sel' || op === 'idrac_clear_lc_log') && data.clear_sel) return data.clear_sel.success ? `<div class="ops-result-title">✅ Log Cleared</div><p>${data.clear_sel.message}</p>` : `<div class="ops-result-title">⚠️ Clear Log Failed</div><p>${data.clear_sel.error}</p>`;
+        if ((op === 'idrac_export_config' || op === 'idrac_import_config') && data.scp_export) return data.scp_export.success ? `<div class="ops-result-title">✅ Server Config Operation</div><p>${data.scp_export.message}</p>` : `<div class="ops-result-title">⚠️ Config Operation Failed</div><p>${data.scp_export.error}</p>`;
 
         // ── Firmware inventory ──
-        if (op === 'fw_check_catalog' && data.firmware_inventory) {
+        if ((op === 'fw_check_catalog' || op === 'fw_compliance_report' || op.startsWith('fw_update_') || op === 'fw_rollback' || op === 'fw_download_catalog') && data.firmware_inventory) {
             const fw = data.firmware_inventory;
             let html = `<div class="ops-result-title">📦 Firmware Inventory (${fw.length} components)</div>`;
             if (fw.length === 0) return html + '<p>No firmware data returned.</p>';
@@ -2399,7 +2399,7 @@ class DellAIAgent {
         if (op === 'fw_cancel_jobs' && data.delete_jobs) return data.delete_jobs.success ? `<div class="ops-result-title">✅ Jobs Cleared</div><p>${data.delete_jobs.message}</p>` : `<div class="ops-result-title">⚠️ Clear Jobs Failed</div><p>${data.delete_jobs.error}</p>`;
 
         // ── Network interfaces ──
-        if ((op === 'nic_inventory' || op === 'nic_statistics') && data.network_interfaces) {
+        if ((op.startsWith('nic_')) && data.network_interfaces) {
             const nics = data.network_interfaces;
             let html = `<div class="ops-result-title">🔌 Network Interfaces (${nics.length})</div>`;
             for (const n of nics) {
@@ -2433,10 +2433,10 @@ class DellAIAgent {
             }
             return html;
         }
-        if (op === 'boot_set_next' && data.next_boot) return data.next_boot.success ? `<div class="ops-result-title">✅ Next Boot Set</div><p>${data.next_boot.message}</p>` : `<div class="ops-result-title">⚠️ Set Next Boot Failed</div><p>${data.next_boot.error}</p>`;
+        if ((op === 'boot_set_next' || op.startsWith('boot_set_')) && data.next_boot) return data.next_boot.success ? `<div class="ops-result-title">✅ Next Boot Set</div><p>${data.next_boot.message}</p>` : `<div class="ops-result-title">⚠️ Set Next Boot Failed</div><p>${data.next_boot.error}</p>`;
 
         // ── Lifecycle Controller status ──
-        if ((op === 'lc_get_status' || op === 'lc_get_remote_services') && data.lifecycle_status) {
+        if ((op.startsWith('lc_') || op === 'os_unattended_install') && data.lifecycle_status) {
             const lc = data.lifecycle_status;
             let html = `<div class="ops-result-title">🔄 Lifecycle Controller Status</div>`;
             const healthBadge = (lc.manager_status || '').toLowerCase() === 'ok' ? badge('Healthy','#10b981') : badge(v(lc.manager_status),'#f59e0b');
@@ -2457,8 +2457,42 @@ class DellAIAgent {
         // ── VAC cycle ──
         if (op === 'power_vac_cycle' && data.vac_result) return data.vac_result.success ? `<div class="ops-result-title">✅ Virtual AC Cycle</div><p>${data.vac_result.message}</p>` : `<div class="ops-result-title">⚠️ VAC Cycle Failed</div><p>${data.vac_result.error}</p>`;
 
+        // ── iDRAC info (catch-all for idrac operations returning idrac_info) ──
+        if (data.idrac_info && typeof data.idrac_info === 'object') {
+            const info = data.idrac_info;
+            let html = `<div class="ops-result-title">🖥️ iDRAC Information</div>`;
+            html += tbl(
+                row('Firmware', v(info.firmware_version)) +
+                row('Model', v(info.model)) +
+                row('Status', v(info.status || info.state)) +
+                row('Service Tag', v(info.service_tag))
+            );
+            return html;
+        }
+
+        // ── System info (for os_get_drivers etc) ──
+        if (data.system_info && typeof data.system_info === 'object') {
+            const si = data.system_info;
+            let html = `<div class="ops-result-title">🖥️ System Information</div>`;
+            html += tbl(
+                row('Model', v(si.model)) +
+                row('Manufacturer', v(si.manufacturer)) +
+                row('Serial', v(si.serial_number)) +
+                row('BIOS', v(si.bios_version)) +
+                row('Power State', v(si.power_state))
+            );
+            return html;
+        }
+
+        // ── Success/fail for operations that return a simple result ──
+        if (data.success !== undefined) {
+            const icon = data.success ? '✅' : '⚠️';
+            const msg = data.message || data.error || (data.success ? 'Operation completed successfully.' : 'Operation did not succeed.');
+            return `<div class="ops-result-title">${icon} ${op.replace(/_/g, ' ')}</div><p>${msg}</p>`;
+        }
+
         // ── Generic fallback ──
-        return `<div class="ops-result-title">✅ ${op}</div><pre style="max-height:300px;overflow:auto">${JSON.stringify(data, null, 2)}</pre>`;
+        return `<div class="ops-result-title">📋 ${op.replace(/_/g, ' ')}</div><pre style="max-height:300px;overflow:auto;font-size:0.78rem;background:var(--bg-input);padding:12px;border-radius:8px">${JSON.stringify(data, null, 2)}</pre>`;
     }
 
     // ─── Overview: Connection Info ──────────────────────────────
