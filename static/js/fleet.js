@@ -1697,8 +1697,36 @@ class FleetManager {
         }
     }
     
-    viewAlertDetails(alertId) {
-        this.showToast('Alert details coming soon', 'info');
+    viewAlertDetails(alertIndex) {
+        const alert = this.alerts[alertIndex];
+        if (!alert) {
+            this.showToast('Alert not found', 'warning');
+            return;
+        }
+        // Show alert details in a modal
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:500px">
+                <div class="modal-header">
+                    <h3>Alert Details</h3>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="margin-bottom:12px">
+                        <span class="status-badge ${alert.type || 'warning'}">${(alert.type || 'warning').toUpperCase()}</span>
+                    </div>
+                    <p><strong>Server:</strong> ${alert.server_name || 'Unknown'}</p>
+                    <p><strong>Metric:</strong> ${alert.metric || 'N/A'}</p>
+                    <p><strong>Message:</strong> ${alert.message || 'No details'}</p>
+                    <p><strong>Time:</strong> ${alert.timestamp ? new Date(alert.timestamp).toLocaleString() : 'Unknown'}</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary btn-sm" onclick="fleetManager.acknowledgeAlert(${alertIndex}); this.closest('.modal').remove();">Acknowledge</button>
+                    <button class="btn btn-secondary btn-sm" onclick="this.closest('.modal').remove()">Close</button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
     }
     
     // New integration methods

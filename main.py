@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Dell Server AI Agent - Hackathon Project
+Medi-AI-tor — Dell Server AI Diagnostics Agent
 A lightweight AI agent that acts as an intermediary between Virtual Assistants 
 and Dell servers, leveraging Redfish API and RACADM for comprehensive server management.
 """
@@ -192,8 +192,8 @@ async def _require_permission(request: Request, perm: str) -> Dict[str, Any]:
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Dell Server AI Agent",
-    description="AI-powered Dell server management and troubleshooting agent",
+    title="Medi-AI-tor",
+    description="AI-powered Dell server diagnostics and management",
     version="1.0.0"
 )
 
@@ -329,7 +329,7 @@ async def startup_event():
     except ImportError:
         third_party_api = None
     
-    logger.info("Dell AI Agent and all components initialized successfully")
+    logger.info("Medi-AI-tor and all components initialized successfully")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -793,6 +793,13 @@ async def api_chat_with_agent(msg: ChatMessage):
 async def chat_with_agent(msg: ChatMessage):
     """Multi-turn conversational interface with the AI agent."""
     try:
+        if not msg.message or not msg.message.strip():
+            return {
+                "type": "error",
+                "message": "Please type a message. Try asking about server health, temperatures, or describe an issue you're seeing.",
+                "chat_history": [],
+            }
+        
         if not agent.is_connected():
             return {
                 "type": "error",
@@ -1153,7 +1160,7 @@ async def api_health_check():
     """API health check endpoint"""
     return {
         "status": "healthy",
-        "agent": "Dell Server AI Agent v1.0.0",
+        "agent": "Medi-AI-tor v1.0.0",
         "demo_mode": agent.config.demo_mode if agent else False,
     }
 
@@ -1162,7 +1169,7 @@ async def health_check():
     """API health check endpoint"""
     return {
         "status": "healthy",
-        "agent": "Dell Server AI Agent v1.0.0",
+        "agent": "Medi-AI-tor v1.0.0",
         "demo_mode": agent.config.demo_mode if agent else False,
     }
 
@@ -1480,11 +1487,25 @@ async def add_fleet_server(server_data: dict, request: Request):
     """Add a new server to the fleet"""
     user = await _get_current_user(request)
     try:
+        name = (server_data.get('name') or '').strip()
+        host = (server_data.get('host') or '').strip()
+        username = (server_data.get('username') or '').strip()
+        password = server_data.get('password') or ''
+        
+        if not name:
+            raise HTTPException(status_code=400, detail="Server name is required")
+        if not host:
+            raise HTTPException(status_code=400, detail="Host is required")
+        if not username or not password:
+            raise HTTPException(status_code=400, detail="Username and password are required")
+        
+        host = _validate_host(host)
+        
         server_id = fleet_manager.add_server(
-            name=server_data.get('name'),
-            host=server_data.get('host'),
-            username=server_data.get('username'),
-            password=server_data.get('password'),
+            name=name,
+            host=host,
+            username=username,
+            password=password,
             port=server_data.get('port', 443),
             model=server_data.get('model'),
             service_tag=server_data.get('service_tag'),

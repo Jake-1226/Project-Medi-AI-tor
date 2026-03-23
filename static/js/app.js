@@ -184,7 +184,7 @@ class DellAIAgent {
                 this.log(data.message, 'error');
                 break;
             default:
-                console.log('Unknown WebSocket message type:', data.type);
+                // Unknown WebSocket message type — silently ignore
         }
     }
     

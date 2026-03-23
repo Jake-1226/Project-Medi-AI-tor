@@ -513,8 +513,8 @@ class MobileApp {
     }
     
     showLogs() {
-        // Would show logs modal or navigate to logs page
-        this.showToast('Logs feature coming soon', 'info');
+        // Navigate to the technician dashboard logs tab
+        window.open('/technician', '_blank');
     }
     
     async connectToServer() {

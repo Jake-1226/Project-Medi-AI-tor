@@ -79,11 +79,11 @@ class RealtimeMonitor {
             this.websocket = new WebSocket(wsUrl);
             
             this.websocket.onopen = () => {
-                console.log('WebSocket connected');
                 this.isConnected = true;
                 this.reconnectAttempts = 0;
                 this.updateConnectionStatus(true);
                 this.showNotification('Connected to real-time monitoring', 'success');
+                this._stopPolling();
             };
             
             this.websocket.onmessage = (event) => {
@@ -91,7 +91,6 @@ class RealtimeMonitor {
             };
             
             this.websocket.onclose = () => {
-                console.log('WebSocket disconnected');
                 this.isConnected = false;
                 this.updateConnectionStatus(false);
                 this.attemptReconnect();
@@ -121,7 +120,6 @@ class RealtimeMonitor {
     attemptReconnect() {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
-            console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
             
             setTimeout(() => {
                 this.connectWebSocket();
@@ -173,7 +171,7 @@ class RealtimeMonitor {
                     this.updateConnectionStatus(data.connected);
                     break;
                 default:
-                    console.log('Unknown message type:', data.type);
+                    break; // Unknown message type
             }
         } catch (error) {
             console.error('Error parsing WebSocket message:', error);
