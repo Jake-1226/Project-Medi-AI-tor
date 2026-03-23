@@ -43,7 +43,7 @@
                 <input type="text" id="monitorUser" placeholder="Username" class="input-sm">
                 <input type="password" id="monitorPass" placeholder="Password" class="input-sm">
                 <input type="number" id="monitorPort" placeholder="Port" value="443" class="input-sm" style="width:80px">
-                <button class="btn btn-primary btn-sm" id="monitorConnectBtn" onclick="connectAndMonitor()">Connect & Monitor</button>
+                <button class="btn btn-primary btn-sm" id="monitorConnectBtn">Connect & Monitor</button>
             </div>
         </div>
 
@@ -340,47 +340,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="/static/js/app.js"></script>
     <script src="/static/js/realtime.js"></script>
-    <script>
-        async function connectAndMonitor() {
-            const host = document.getElementById('monitorHost').value;
-            const user = document.getElementById('monitorUser').value;
-            const pass = document.getElementById('monitorPass').value;
-            const port = parseInt(document.getElementById('monitorPort').value) || 443;
-            const btn = document.getElementById('monitorConnectBtn');
-            
-            if (!host || !user || !pass) { alert('Please fill in all fields'); return; }
-            
-            btn.disabled = true;
-            btn.textContent = 'Connecting...';
-            
-            try {
-                const res = await fetch('/connect', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ host, username: user, password: pass, port })
-                });
-                const data = await res.json();
-                
-                if (data.status === 'success') {
-                    btn.textContent = 'Connected';
-                    btn.style.background = '#22c55e';
-                    // Start monitoring via WebSocket
-                    if (typeof connectWebSocket === 'function') connectWebSocket();
-                    else if (typeof window.realtimeMonitor !== 'undefined' && typeof window.realtimeMonitor.connect === 'function') window.realtimeMonitor.connect();
-                } else {
-                    btn.textContent = 'Failed - Retry';
-                    btn.style.background = '#ef4444';
-                    btn.disabled = false;
-                }
-            } catch (err) {
-                console.error('Connection error:', err);
-                btn.textContent = 'Error - Retry';
-                btn.style.background = '#ef4444';
-                btn.disabled = false;
-            }
-        }
-    </script>
 </body>
 </html>
