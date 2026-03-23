@@ -12,6 +12,10 @@
 9. [Remediation & Safety](#remediation--safety)
 10. [Data Flow Example](#data-flow-example)
 11. [Business Value](#business-value)
+12. [Security Architecture](#security-architecture)
+13. [Fleet Management Architecture](#fleet-management-architecture)
+14. [Real-time Monitoring Architecture](#real-time-monitoring-architecture)
+15. [Testing Architecture](#testing-architecture)
 
 ---
 
@@ -312,4 +316,112 @@ Frontend: live thinking animation → diagnosis card → business metrics
 ---
 
 *Built for Dell Technologies Hackathon 2026*
-*Medi-AI-tor — AI-powered server diagnostics that think like an engineer*
+*Medi-AI-tor -- AI-powered server diagnostics that think like an engineer*
+
+---
+
+## Security Architecture
+
+### Authentication & Authorization
+```
+Browser → POST /api/auth/login {username, password}
+  → AuthManager.authenticate()
+  → JWT token + HTTP-only SameSite cookie
+  → All subsequent API calls: Authorization: Bearer <token>
+  → WebSocket: ?token=<jwt> query parameter
+```
+
+Three roles with cascading permissions:
+- **admin**: read_only + diagnostic + full_control + audit log + session management
+- **operator**: read_only + diagnostic
+- **viewer**: read_only
+
+### Security Middleware Stack
+Every request passes through:
+1. **RateLimitMiddleware** — per-IP rate limiting (10-120 req/min depending on endpoint)
+2. **CORSMiddleware** — configurable origins (wildcard only in development)
+3. **SecurityHeadersMiddleware** — CSP, X-Frame-Options: DENY, X-Content-Type-Options: nosniff
+
+### Credential Protection
+- iDRAC passwords: never in localStorage, never in API responses, never logged
+- Fleet server passwords: stored in memory only, excluded from `to_dict()` serialization
+- OS command execution: whitelist-based, `custom_command` requires admin role
+
+---
+
+## Fleet Management Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Fleet Manager (core/fleet_manager.py)                   │
+│  ┌───────────┐  ┌──────────────┐  ┌─────────────────┐  │
+│  │ ServerInfo │  │ ServerGroup  │  │ ActiveConnections│  │
+│  │ (per host) │  │ (named sets) │  │ (Redfish clients)│  │
+│  └─────┬─────┘  └──────────────┘  └────────┬────────┘  │
+│        │                                     │           │
+│  Health Scoring ←── _collect_server_metrics ──┘           │
+│  (thermal + power + memory + storage + system)            │
+│        │                                                  │
+│  Alert Detection ←── _check_server_alerts                 │
+│  (temp thresholds + PSU status)                           │
+│        │                                                  │
+│  Fleet Overview ←── get_fleet_overview                    │
+│  (aggregated stats + per-server health)                   │
+└─────────────────────────────────────────────────────────┘
+```
+
+Health score computation: 5 subsystem scores averaged (0-100%):
+- Thermal: 100 if max_temp < 65C, 80 if < 75C, 60 if < 85C, 20 if >= 85C
+- Power: (healthy PSUs / total PSUs) * 100
+- Memory: (healthy DIMMs / populated DIMMs) * 100
+- Storage: (healthy drives / total drives) * 100
+- System: 100 if OK, 70 if Warning, 30 if Critical
+
+---
+
+## Real-time Monitoring Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  RealtimeMonitor (core/realtime_monitor.py)               │
+│                                                           │
+│  _monitoring_loop (every 30 seconds):                     │
+│    1. _collect_metrics() → Redfish API queries            │
+│    2. _update_metric() → MetricSeries + threshold check   │
+│    3. _broadcast_updates() → WebSocket to all clients     │
+│                                                           │
+│  11 Metrics: inlet_temp, cpu_temp, max_temp,              │
+│    avg_fan_speed, max_fan_speed, power_consumption,       │
+│    power_efficiency, memory_health, storage_health,       │
+│    overall_health                                         │
+│                                                           │
+│  MetricSeries: 100-point deque per metric                 │
+│    → trend calculation (linear regression)                │
+│    → 10-min avg/max/min                                   │
+│    → status: normal/warning/critical                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+Frontend fallback: if WebSocket fails after 5 retries, the monitoring page polls `/monitoring/metrics` every 10 seconds.
+
+---
+
+## Testing Architecture
+
+```
+tests/
+├── conftest.py              Shared fixtures (sample data, mock clients)
+├── test_config.py           26 unit tests — config loading, permissions
+├── test_security.py         31 tests — 25 unit + 6 integration
+├── test_fleet_manager.py    33 unit tests — fleet operations
+├── test_api_auth.py         22 integration tests — auth flow
+├── test_api_endpoints.py    28 integration tests — all endpoints
+├── test_cache_manager.py    18 unit tests — caching
+├── test_health_scorer.py    15 unit tests — scoring
+└── test_predictive_analytics.py  15 unit tests — prediction
+```
+
+Total: 188 tests (124 unit + 54 integration + 10 existing), 100% pass rate.
+
+Run: `python -m pytest tests/ -m "not integration" -v` (unit, ~6 seconds)
+Run: `RUN_INTEGRATION_TESTS=true python -m pytest tests/ -m "integration" -v` (requires server)
