@@ -13,8 +13,17 @@ class RealtimeMonitor {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 5000;
+        this._authToken = sessionStorage.getItem('auth_token') || '';
+        this._pollTimer = null;
         
         this.init();
+    }
+    
+    /** Get auth headers for fetch calls */
+    _headers() {
+        const h = {};
+        if (this._authToken) h['Authorization'] = `Bearer ${this._authToken}`;
+        return h;
     }
     
     init() {
@@ -63,7 +72,8 @@ class RealtimeMonitor {
         }
         
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws/monitoring`;
+        const token = this._authToken;
+        const wsUrl = `${protocol}//${window.location.host}/ws/monitoring${token ? '?token=' + token : ''}`;
         
         try {
             this.websocket = new WebSocket(wsUrl);
@@ -117,8 +127,35 @@ class RealtimeMonitor {
                 this.connectWebSocket();
             }, this.reconnectDelay);
         } else {
-            this.showNotification('Failed to reconnect after multiple attempts', 'error');
+            this.showNotification('WebSocket unavailable — falling back to polling', 'info');
+            this._startPolling();
         }
+    }
+    
+    /** Fallback: poll /monitoring/metrics every 10 seconds when WebSocket fails */
+    _startPolling() {
+        if (this._pollTimer) return;
+        this._pollTimer = setInterval(async () => {
+            try {
+                const r = await fetch('/monitoring/metrics', { headers: this._headers() });
+                if (r.ok) {
+                    const data = await r.json();
+                    const metrics = data.data?.metrics || data.metrics || {};
+                    if (Object.keys(metrics).length > 0) {
+                        this.updateMetrics(metrics);
+                    }
+                }
+            } catch (e) { /* silent */ }
+        }, 10000);
+        // Immediate first poll
+        fetch('/monitoring/metrics', { headers: this._headers() })
+            .then(r => r.json())
+            .then(data => { const m = data.data?.metrics || data.metrics || {}; if (Object.keys(m).length) this.updateMetrics(m); })
+            .catch(() => {});
+    }
+    
+    _stopPolling() {
+        if (this._pollTimer) { clearInterval(this._pollTimer); this._pollTimer = null; }
     }
     
     handleWebSocketMessage(event) {
@@ -162,10 +199,10 @@ class RealtimeMonitor {
         const card = document.querySelector(`[data-metric="${metricName}"]`);
         if (!card) return;
         
-        // Update value
-        const valueElement = card.querySelector('.metric-value');
-        if (valueElement) {
-            valueElement.innerHTML = `${metricData.current_value.toFixed(1)}<span class="metric-unit">${metricData.unit}</span>`;
+        // Update value — target the .value span inside .metric-value
+        const valueSpan = card.querySelector('.metric-value .value');
+        if (valueSpan) {
+            valueSpan.textContent = metricData.current_value != null ? metricData.current_value.toFixed(1) : '--';
         }
         
         // Update status
@@ -196,15 +233,15 @@ class RealtimeMonitor {
         const maxElement = card.querySelector('.stat-max');
         const minElement = card.querySelector('.stat-min');
         
-        if (avgElement) avgElement.textContent = metricData.average_10min.toFixed(1);
-        if (maxElement) maxElement.textContent = metricData.max_10min.toFixed(1);
-        if (minElement) minElement.textContent = metricData.min_10min.toFixed(1);
+        if (avgElement) avgElement.textContent = metricData.average_10min?.toFixed(1) || '--';
+        if (maxElement) maxElement.textContent = metricData.max_10min?.toFixed(1) || '--';
+        if (minElement) minElement.textContent = metricData.min_10min?.toFixed(1) || '--';
         
         // Add animation for value changes
-        if (valueElement) {
-            valueElement.style.animation = 'none';
+        if (valueSpan) {
+            valueSpan.style.animation = 'none';
             setTimeout(() => {
-                valueElement.style.animation = 'pulse 0.5s ease';
+                valueSpan.style.animation = 'pulse 0.5s ease';
             }, 10);
         }
     }
@@ -665,9 +702,60 @@ document.addEventListener('DOMContentLoaded', () => {
     window.realtimeMonitor = new RealtimeMonitor();
 });
 
+// Global function called by the Connect & Monitor button in realtime.html
+async function connectAndMonitor() {
+    const host = document.getElementById('monitorHost')?.value?.trim();
+    const user = document.getElementById('monitorUser')?.value?.trim();
+    const pass = document.getElementById('monitorPass')?.value;
+    const port = parseInt(document.getElementById('monitorPort')?.value) || 443;
+    
+    if (!host || !user || !pass) {
+        window.realtimeMonitor?.showNotification('Host, username, and password are required', 'error');
+        return;
+    }
+    
+    const btn = document.getElementById('monitorConnectBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Connecting...'; }
+    
+    const token = sessionStorage.getItem('auth_token') || '';
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    
+    try {
+        // Connect to server via API
+        const r = await fetch('/api/connect', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ host, username: user, password: pass, port })
+        });
+        if (!r.ok) {
+            const err = await r.json().catch(() => ({}));
+            throw new Error(err.detail || `Connection failed (${r.status})`);
+        }
+        
+        // Start monitoring
+        const r2 = await fetch('/monitoring/start', { method: 'POST', headers });
+        if (!r2.ok) {
+            const err = await r2.json().catch(() => ({}));
+            throw new Error(err.detail || 'Failed to start monitoring');
+        }
+        
+        window.realtimeMonitor?.showNotification(`Connected to ${host} — monitoring started`, 'success');
+        
+        // Re-establish WebSocket with auth
+        window.realtimeMonitor?.connectWebSocket();
+        
+    } catch (e) {
+        window.realtimeMonitor?.showNotification(e.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Connect & Monitor'; }
+    }
+}
+
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {
     if (window.realtimeMonitor) {
         window.realtimeMonitor.disconnectWebSocket();
+        window.realtimeMonitor._stopPolling();
     }
 });

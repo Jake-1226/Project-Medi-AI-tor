@@ -264,26 +264,67 @@ class RealtimeMonitor:
                 await asyncio.sleep(interval)
     
     async def _collect_metrics(self):
-        """Collect metrics from server"""
+        """Collect metrics from server — handles parsed Redfish objects"""
         if not self.redfish_client:
             return
         
+        def _get(obj, key, default=None):
+            """Get attribute from dataclass or dict."""
+            if isinstance(obj, dict):
+                return obj.get(key, default)
+            return getattr(obj, key, default)
+        
         try:
-            # Collect thermal data
+            # Collect thermal data (returns List[TemperatureInfo])
             thermal_data = await self.redfish_client.get_temperature_sensors()
-            await self._process_thermal_data(thermal_data)
+            if isinstance(thermal_data, list) and thermal_data:
+                readings = [(t, _get(t, 'reading_celsius')) for t in thermal_data if _get(t, 'reading_celsius') is not None]
+                if readings:
+                    # Inlet temp
+                    inlet = [v for t, v in readings if 'inlet' in str(_get(t, 'name', '')).lower()]
+                    if inlet:
+                        await self._update_metric("inlet_temp", inlet[0])
+                    # CPU temps
+                    cpus = [v for t, v in readings if 'cpu' in str(_get(t, 'name', '')).lower()]
+                    if cpus:
+                        await self._update_metric("cpu_temp", sum(cpus) / len(cpus))
+                    # Max temp
+                    await self._update_metric("max_temp", max(v for _, v in readings))
             
-            # Collect power data
+            # Collect fan data (returns List[FanInfo])
+            try:
+                fan_data = await self.redfish_client.get_fans()
+                if isinstance(fan_data, list) and fan_data:
+                    speeds = [_get(f, 'speed_rpm') for f in fan_data if _get(f, 'speed_rpm') is not None]
+                    if speeds:
+                        await self._update_metric("avg_fan_speed", sum(speeds) / len(speeds))
+                        await self._update_metric("max_fan_speed", max(speeds))
+            except Exception:
+                pass  # Fans may be included in thermal data on some servers
+            
+            # Collect power data (returns List[PowerSupplyInfo])
             power_data = await self.redfish_client.get_power_supplies()
-            await self._process_power_data(power_data)
+            if isinstance(power_data, list) and power_data:
+                total_watts = sum(_get(p, 'power_watts') or 0 for p in power_data)
+                await self._update_metric("power_consumption", total_watts)
+                # Efficiency: count healthy PSUs
+                total = len(power_data)
+                ok = sum(1 for p in power_data if 'ok' in str(_get(p, 'status', '')).lower() or 'enabled' in str(_get(p, 'status', '')).lower())
+                await self._update_metric("power_efficiency", (ok / total) * 100 if total else 100)
             
-            # Collect memory data
+            # Collect memory data (returns List[MemoryInfo])
             memory_data = await self.redfish_client.get_memory()
-            await self._process_memory_data(memory_data)
+            if isinstance(memory_data, list) and memory_data:
+                populated = [m for m in memory_data if (_get(m, 'size_gb') or 0) > 0]
+                if populated:
+                    ok = sum(1 for m in populated if 'ok' in str(_get(m, 'status', '')).lower() or 'enabled' in str(_get(m, 'status', '')).lower())
+                    await self._update_metric("memory_health", (ok / len(populated)) * 100)
             
-            # Collect storage data
+            # Collect storage data (returns List[StorageInfo])
             storage_data = await self.redfish_client.get_storage_devices()
-            await self._process_storage_data(storage_data)
+            if isinstance(storage_data, list) and storage_data:
+                ok = sum(1 for d in storage_data if 'ok' in str(_get(d, 'status', '')).lower() or 'enabled' in str(_get(d, 'status', '')).lower())
+                await self._update_metric("storage_health", (ok / len(storage_data)) * 100)
             
             # Calculate overall health
             await self._calculate_overall_health()
@@ -416,23 +457,35 @@ class RealtimeMonitor:
         await self._update_metric("overall_health", overall_score)
     
     async def _update_metric(self, metric_name: str, value: float):
-        """Update metric with new value"""
+        """Update metric with new value — handles inverted thresholds for health/efficiency"""
         if metric_name not in self.metrics:
             return
         
         metric = self.metrics[metric_name]
         
-        # Determine status based on thresholds
-        if value >= metric.threshold_critical:
-            status = "critical"
-        elif value >= metric.threshold_warning:
-            status = "warning"
+        # For health/efficiency metrics, lower value = worse (inverted thresholds)
+        inverted = metric_name in ('power_efficiency', 'memory_health', 'storage_health', 'overall_health')
+        
+        if inverted:
+            # Lower is worse: critical < warning
+            if value <= metric.threshold_critical:
+                status = "critical"
+            elif value <= metric.threshold_warning:
+                status = "warning"
+            else:
+                status = "normal"
         else:
-            status = "normal"
+            # Higher is worse: critical > warning (temperatures, fan speeds, power draw)
+            if value >= metric.threshold_critical:
+                status = "critical"
+            elif value >= metric.threshold_warning:
+                status = "warning"
+            else:
+                status = "normal"
         
         point = MetricPoint(
             timestamp=datetime.now(),
-            value=value,
+            value=round(value, 1),
             unit=metric.unit,
             status=status
         )

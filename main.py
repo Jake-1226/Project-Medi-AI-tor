@@ -1334,37 +1334,46 @@ async def run_predictive_analysis(request: dict):
 
 # ─── Health Monitoring Endpoints ───────────────────────────────────
 @app.post("/monitoring/start")
-async def start_health_monitoring():
-    """Start automated health monitoring"""
+async def start_health_monitoring(request: Request):
+    """Start automated health monitoring + real-time metrics collection"""
+    user = await _get_current_user(request)
+    _audit("MONITORING_START", user=user.get("username", "?"))
     try:
         from core.health_monitor import health_monitor
         
         if not agent.is_connected():
             raise HTTPException(status_code=400, detail="Not connected to server")
         
-        # Set server info and client
+        # Set server info and client for health_monitor
         server_info = {
-            "hostname": agent.current_session.server_host,
-            "connected_at": datetime.utcnow().isoformat()
+            "hostname": agent.current_session.server_host if agent.current_session else "unknown",
+            "connected_at": datetime.now().isoformat()
         }
         health_monitor.set_server_info(server_info, agent.redfish_client)
-        
         await health_monitor.start_monitoring()
+        
+        # Also start realtime_monitor for WebSocket metric streaming
+        await realtime_monitor.start_monitoring(agent.redfish_client, interval=30)
         
         return {
             "status": "success",
             "message": "Health monitoring started"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Monitoring start error: {str(e)}")
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/monitoring/stop")
-async def stop_health_monitoring():
+async def stop_health_monitoring(request: Request):
     """Stop automated health monitoring"""
+    user = await _get_current_user(request)
+    _audit("MONITORING_STOP", user=user.get("username", "?"))
     try:
         from core.health_monitor import health_monitor
         await health_monitor.stop_monitoring()
+        await realtime_monitor.stop_monitoring()
         
         return {
             "status": "success",
@@ -1756,11 +1765,13 @@ async def websocket_monitoring(websocket: WebSocket):
         if not realtime_monitor.monitoring_active and agent.is_connected():
             await realtime_monitor.start_monitoring(agent.redfish_client)
         
-        # Send initial metrics
+        # Send initial metrics as metrics_update so frontend handles it uniformly
         current_metrics = realtime_monitor.get_current_metrics()
         await websocket.send_text(json.dumps({
-            "type": "initial_metrics",
-            "data": current_metrics
+            "type": "metrics_update",
+            "timestamp": current_metrics.get("timestamp", datetime.now().isoformat()),
+            "metrics": current_metrics.get("metrics", {}),
+            "monitoring_active": current_metrics.get("monitoring_active", False)
         }, ensure_ascii=False))
         
         # Keep connection alive and handle messages

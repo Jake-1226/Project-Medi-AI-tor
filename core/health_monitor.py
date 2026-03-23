@@ -350,7 +350,7 @@ class HealthMonitor:
             pass
         
         # Calculate health score
-        health_result = health_scorer.calculate_overall_health(subsystem_data)
+        health_result = HealthScorer().calculate_overall_health(subsystem_data)
         
         return health_result
     
