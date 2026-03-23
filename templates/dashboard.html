@@ -165,7 +165,7 @@
                     <div class="qa-group-btns">
                         <button id="gracefulShutdownBtn" class="qa-btn qa-btn-warn" title="Graceful OS shutdown">⏻ Shutdown</button>
                         <button id="powerCycleBtn" class="qa-btn qa-btn-warn" title="Immediate restart">🔄 Power Cycle</button>
-                        <button id="vacCycleBtn" class="qa-btn qa-btn-warn" title="Drain flea power">⚡ VAC Drain</button>
+                        <button id="vacCycleBtn" class="qa-btn qa-btn-warn" title="Virtual AC power cycle — drains flea power">⚡ AC Power Cycle</button>
                         <button id="resetIdracBtn" class="qa-btn qa-btn-danger" title="Reset iDRAC controller">🔁 Reset iDRAC</button>
                     </div>
                 </div>
@@ -174,7 +174,7 @@
             <!-- Server Info + Metrics -->
             <div id="connectionInfoContainer" class="section-block"></div>
             <div id="serverInfoContainer">
-                <p class="placeholder-text">Connect to a server to view overview information.</p>
+                <p class="placeholder-text">Connect to a server to view data.</p>
             </div>
             <div id="overviewMetricsContainer"></div>
             <div id="actionResultContainer" class="action-result" style="display:none"></div>
@@ -196,22 +196,22 @@
                 <span class="sub-tab" data-subtab="sys-idrac">iDRAC</span>
             </div>
             <div id="sys-general" class="sub-tab-content active">
-                <div id="systemInfoContainer"><p class="placeholder-text">Connect to a server to view detailed system information.</p></div>
+                <div id="systemInfoContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
             <div id="sys-processors" class="sub-tab-content">
-                <div id="processorsContainer"><p class="placeholder-text">Loading processor data... Connect and click Full Inventory if needed.</p></div>
+                <div id="processorsContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
             <div id="sys-memory" class="sub-tab-content">
-                <div id="memoryContainer"><p class="placeholder-text">Loading memory data... Connect and click Full Inventory if needed.</p></div>
+                <div id="memoryContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
             <div id="sys-storage" class="sub-tab-content">
-                <div id="storageContainer"><p class="placeholder-text">Loading storage data... Connect and click Full Inventory if needed.</p></div>
+                <div id="storageContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
             <div id="sys-network" class="sub-tab-content">
-                <div id="networkContainer"><p class="placeholder-text">Loading network data... Connect and click Full Inventory if needed.</p></div>
+                <div id="networkContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
             <div id="sys-bios" class="sub-tab-content">
-                <div id="biosContainer"><p class="placeholder-text">No BIOS data loaded.</p></div>
+                <div id="biosContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
             <div id="sys-bios-presets" class="sub-tab-content">
                 <div class="section-block">
@@ -229,10 +229,10 @@
                 <div id="biosPresetResult" class="action-result" style="display:none;margin-top:12px"></div>
             </div>
             <div id="sys-firmware" class="sub-tab-content">
-                <div id="firmwareContainer"><p class="placeholder-text">No firmware data loaded.</p></div>
+                <div id="firmwareContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
             <div id="sys-idrac" class="sub-tab-content">
-                <div id="idracContainer"><p class="placeholder-text">No iDRAC data loaded.</p></div>
+                <div id="idracContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
         </div>
 
@@ -247,16 +247,16 @@
                 <span class="sub-tab" data-subtab="health-issues">Issues &amp; Warnings</span>
             </div>
             <div id="health-overview" class="sub-tab-content active">
-                <div id="healthStatusContainer"><p class="placeholder-text">Connect to a server to view health status.</p></div>
+                <div id="healthStatusContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
             <div id="health-thermal" class="sub-tab-content">
-                <div id="thermalContainer"><p class="placeholder-text">Loading thermal data... Temperature sensors will appear after data fetch.</p></div>
+                <div id="thermalContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
             <div id="health-power" class="sub-tab-content">
-                <div id="powerContainer"><p class="placeholder-text">Loading power supply data...</p></div>
+                <div id="powerContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
             <div id="health-issues" class="sub-tab-content">
-                <div id="issuesContainer"><p class="placeholder-text">No issue data loaded.</p></div>
+                <div id="issuesContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
         </div>
 
@@ -278,7 +278,7 @@
                 <div id="logStatsBar" class="log-stats-bar"></div>
             </div>
             <div class="log-container" id="logsContainer">
-                <p class="placeholder-text">Connect to a server and collect logs to view them here.</p>
+                <p class="placeholder-text">Connect to a server to view logs.</p>
             </div>
         </div>
 
@@ -337,10 +337,10 @@
                 </div>
             </div>
             <div id="ts-jobs" class="sub-tab-content">
-                <div id="jobsContainer"><p class="placeholder-text">No job queue data loaded.</p></div>
+                <div id="jobsContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
             <div id="ts-postcode" class="sub-tab-content">
-                <div id="postCodeContainer"><p class="placeholder-text">No POST code data loaded.</p></div>
+                <div id="postCodeContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
             <div id="ts-diagnostics" class="sub-tab-content">
                 <div class="section-block">
@@ -550,7 +550,7 @@
                         <button class="ops-btn ops-btn-warn" onclick="app.runOperation('power_cycle')" title="Power Cycle"><span class="ops-btn-icon">🔄</span><span class="ops-btn-label">Power Cycle</span><span class="ops-btn-desc">Hard restart (immediate)</span></button>
                         <button class="ops-btn ops-btn-danger" onclick="app.runOperation('power_force_off')" title="Force Off"><span class="ops-btn-icon">🔴</span><span class="ops-btn-label">Force Off</span><span class="ops-btn-desc">Immediate power off (like pulling plug)</span></button>
                         <button class="ops-btn ops-btn-warn" onclick="app.runOperation('power_nmi')" title="NMI (Non-Maskable Interrupt)"><span class="ops-btn-icon">🚨</span><span class="ops-btn-label">Send NMI</span><span class="ops-btn-desc">Trigger memory dump / crash</span></button>
-                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('power_vac_cycle')" title="Virtual AC Cycle"><span class="ops-btn-icon">⚡</span><span class="ops-btn-label">VAC Drain</span><span class="ops-btn-desc">Virtual AC power cycle (flea power)</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('power_vac_cycle')" title="AC Power Cycle"><span class="ops-btn-icon">⚡</span><span class="ops-btn-label">AC Power Cycle</span><span class="ops-btn-desc">Virtual AC power cycle (flea power)</span></button>
                     </div>
                 </div>
                 <div class="ops-category">
@@ -756,7 +756,7 @@
                         <button id="refreshLcLogsBtn" class="btn btn-sm btn-info">Refresh</button>
                     </div>
                 </div>
-                <div class="log-container" id="lifecycleLogsContainer"><p class="placeholder-text">No lifecycle logs loaded.</p></div>
+                <div class="log-container" id="lifecycleLogsContainer"><p class="placeholder-text">Connect to a server to view data.</p></div>
             </div>
             <div id="adv-monitoring" class="sub-tab-content">
                 <div class="monitoring-controls">
