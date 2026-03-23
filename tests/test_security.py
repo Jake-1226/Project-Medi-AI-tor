@@ -96,9 +96,9 @@ class TestOSCommandWhitelist:
 
     def test_whitelist_contains_safe_commands(self):
         from main import _OS_COMMAND_WHITELIST
-        assert "system_info" in _OS_COMMAND_WHITELIST
-        assert "cpu_info" in _OS_COMMAND_WHITELIST
-        assert "memory_info" in _OS_COMMAND_WHITELIST
+        assert "os_info" in _OS_COMMAND_WHITELIST
+        assert "system_resources" in _OS_COMMAND_WHITELIST
+        assert "network_info" in _OS_COMMAND_WHITELIST
 
     def test_whitelist_contains_custom_command(self):
         from main import _OS_COMMAND_WHITELIST

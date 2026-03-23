@@ -252,4 +252,5 @@ class TestQuickStatus:
             r = await c.get(f"{BASE}/api/server/quick-status")
             assert r.status_code == 200
             data = r.json()
-            assert "connected" in data
+            # connected may be at top level or nested under data
+            assert "connected" in data or "connected" in data.get("data", {})

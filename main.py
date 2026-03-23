@@ -110,11 +110,11 @@ def _validate_host(host: str) -> str:
 
 # OS command whitelist — only these actions are allowed via /api/os/execute
 _OS_COMMAND_WHITELIST = {
-    'system_info', 'cpu_info', 'memory_info', 'disk_info', 'network_info',
-    'process_list', 'service_list', 'uptime', 'kernel_info', 'dmesg',
-    'journal_logs', 'syslog', 'hardware_info', 'pci_devices', 'usb_devices',
-    'temperature', 'smart_status', 'raid_status', 'network_stats',
-    'docker_status', 'custom_command',  # custom_command only for admin role
+    # Match the actual action names used by the /api/os/execute handler
+    'os_info', 'system_resources', 'running_processes', 'services',
+    'network_info', 'os_logs', 'storage_info', 'installed_packages',
+    'hardware_info', 'service_status', 'restart_service',
+    'custom_command',  # custom_command only for admin role
 }
 
 # ─── Security Headers Middleware ─────────────────────────────
