@@ -663,14 +663,32 @@ class AgentBrain:
             # ── Power hypotheses ──────────────────────────────
             elif hyp.category == HypothesisCategory.POWER:
                 if tool.name == "check_power_supplies":
-                    if has_critical:
-                        hyp.adjust_confidence(+0.3)
-                        hyp.supporting_evidence.append(Evidence(
-                            fact_id="psu_critical", description="PSU failure detected",
-                            supports=True, strength=EvidenceStrength.STRONG,
-                        ))
+                    # Check for specific PSU failures (not just generic critical flag)
+                    psu_facts = result.facts
+                    failed_psus = [f for f in psu_facts if f.status == "critical"]
+                    
+                    if failed_psus:
+                        # Direct evidence of PSU failure — very high confidence
+                        boost = 0.5 if len(failed_psus) >= 1 else 0.3
+                        hyp.adjust_confidence(boost)
+                        for pf in failed_psus[:2]:
+                            desc = getattr(pf, 'description', 'PSU failure')
+                            hyp.supporting_evidence.append(Evidence(
+                                fact_id=f"psu_{getattr(pf, 'id', 'unknown')}", 
+                                description=desc,
+                                supports=True, strength=EvidenceStrength.STRONG,
+                            ))
+                        # If PSU is explicitly offline/unavailable, this is near-definitive
+                        for pf in failed_psus:
+                            desc_lower = getattr(pf, 'description', '').lower()
+                            if 'unavailable' in desc_lower or 'offline' in desc_lower or 'absent' in desc_lower:
+                                hyp.adjust_confidence(0.25)  # Extra boost for definitive failure
                     else:
-                        hyp.adjust_confidence(-0.25)
+                        hyp.adjust_confidence(-0.30)
+                        hyp.refuting_evidence.append(Evidence(
+                            fact_id="psu_ok", description="All PSUs healthy and operational",
+                            supports=False, strength=EvidenceStrength.STRONG,
+                        ))
                         if hyp.confidence < 0.15:
                             self.memory.rule_out(hyp.id, "All PSUs healthy")
 
@@ -679,29 +697,49 @@ class AgentBrain:
                 if tool.name == "check_memory":
                     failed_dimms = [f for f in result.facts if f.status == "critical"]
                     if failed_dimms:
-                        hyp.adjust_confidence(+0.3)
-                        hyp.supporting_evidence.append(Evidence(
-                            fact_id="dimm_failed", description=f"{len(failed_dimms)} DIMM(s) failed",
-                            supports=True, strength=EvidenceStrength.STRONG,
-                        ))
+                        hyp.adjust_confidence(+0.5)
+                        for fd in failed_dimms[:2]:
+                            hyp.supporting_evidence.append(Evidence(
+                                fact_id=f"dimm_{getattr(fd, 'id', '?')}", 
+                                description=getattr(fd, 'description', 'DIMM failure'),
+                                supports=True, strength=EvidenceStrength.STRONG,
+                            ))
                     elif hyp.id == "memory_dimm_failure":
-                        hyp.adjust_confidence(-0.2)
+                        hyp.adjust_confidence(-0.25)
+                        hyp.refuting_evidence.append(Evidence(
+                            fact_id="dimms_ok", description="All DIMMs healthy",
+                            supports=False, strength=EvidenceStrength.STRONG,
+                        ))
                         if hyp.confidence < 0.15:
                             self.memory.rule_out(hyp.id, "All DIMMs healthy")
 
                 elif tool.name == "check_logs":
-                    # Check for memory-related log entries
-                    mem_facts = [f for f in result.facts if "memory" in f.description.lower() or "ecc" in f.description.lower() or "dimm" in f.description.lower()]
+                    mem_facts = [f for f in result.facts if any(kw in getattr(f, 'description', '').lower() for kw in ["memory", "ecc", "dimm"])]
                     if mem_facts and hyp.id == "memory_ecc_accumulation":
                         hyp.adjust_confidence(+0.2)
+                        hyp.supporting_evidence.append(Evidence(
+                            fact_id="ecc_in_logs", description=f"{len(mem_facts)} memory-related log entries",
+                            supports=True, strength=EvidenceStrength.MODERATE,
+                        ))
 
             # ── Storage hypotheses ────────────────────────────
             elif hyp.category == HypothesisCategory.STORAGE:
                 if tool.name == "check_storage":
-                    if has_critical:
-                        hyp.adjust_confidence(+0.3)
+                    failed_drives = [f for f in result.facts if f.status == "critical"]
+                    if failed_drives:
+                        hyp.adjust_confidence(+0.5)
+                        for fd in failed_drives[:2]:
+                            hyp.supporting_evidence.append(Evidence(
+                                fact_id=f"drive_{getattr(fd, 'id', '?')}",
+                                description=getattr(fd, 'description', 'Drive failure'),
+                                supports=True, strength=EvidenceStrength.STRONG,
+                            ))
                     else:
-                        hyp.adjust_confidence(-0.2)
+                        hyp.adjust_confidence(-0.25)
+                        hyp.refuting_evidence.append(Evidence(
+                            fact_id="storage_ok", description="All storage devices healthy",
+                            supports=False, strength=EvidenceStrength.STRONG,
+                        ))
                         if hyp.confidence < 0.15:
                             self.memory.rule_out(hyp.id, "All storage devices healthy")
 
@@ -2246,6 +2284,21 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
 
     def _explain(self, msg: str) -> str:
         """Explain reasoning or specific findings, with conversational context awareness."""
+        # Direct "why" questions about health/status — answer from findings, not context
+        if any(w in msg for w in ["why is the health", "why is it critical", "why is the server critical",
+                                   "what caused", "root cause", "main issue", "main problem"]):
+            crit_facts = self.memory.get_facts_by_status("critical")
+            if crit_facts:
+                lines = [f"The server health is **Critical** because of these findings:"]
+                for f in crit_facts[:5]:
+                    lines.append(f"  🔴 {getattr(f, 'description', str(f))}")
+                if self._last_diagnosis:
+                    lines.append(f"\n**Root cause:** {self._last_diagnosis.get('root_cause', 'Run an investigation for diagnosis')}")
+                else:
+                    lines.append(f"\nSay **\"investigate\"** for a full root cause analysis.")
+                return "\n".join(lines)
+            return "The server health appears normal. Run an **overview** to check all components."
+
         # Check if this is a conversational follow-up (e.g. "is that a lot?" after RAM answer)
         if self._chat_history and len(self._chat_history) >= 2:
             last_agent_text = ""
