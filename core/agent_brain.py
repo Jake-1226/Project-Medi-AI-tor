@@ -1869,6 +1869,8 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
             if self._is_tool_cached(tool_name):
                 result = self._get_cached_result(tool_name)
                 if result:
+                    # Re-observe cached results to ensure facts are in memory for grid
+                    self._observe(tool, result)
                     await self._stream("action_result", result.to_dict())
                     continue
 
@@ -1885,15 +1887,20 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
         tag = si.get("service_tag") or si.get("serial_number", "?")
         bios_ver = si.get("bios_version", "?")
         idrac_ver = si.get("idrac_version", "?")
-        hostname = si.get("hostname", "?")
+        hostname = si.get("hostname") or None
         power_state = si.get("power_state", "?")
         cpu_model = si.get("cpu_model", "?")
         cpu_count = si.get("cpu_count", 0)
         total_mem = si.get("total_memory_gb", 0)
 
-        # Header
+        # Header — clean, no empty fields
+        header_parts = [f"Service Tag: **{tag}**"]
+        if hostname:
+            header_parts.append(f"Host: {hostname}")
+        header_parts.append(f"Power: {power_state}")
+        
         lines.append(f"**{model}** — Server Overview")
-        lines.append(f"Service Tag: **{tag}** | Hostname: {hostname} | Power: {power_state}")
+        lines.append(" | ".join(header_parts))
         lines.append(f"CPU: {cpu_model} × {cpu_count} | RAM: {total_mem} GB | BIOS: {bios_ver} | iDRAC: {idrac_ver}")
         lines.append("")
 
@@ -1901,12 +1908,18 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
         lines.append(self._build_component_health_summary() or "No component data collected.")
         lines.append("")
 
-        # Quick stats
+        # Quick stats — filter out noise
         crit_facts = self.memory.get_facts_by_status("critical")
         warn_facts = self.memory.get_facts_by_status("warning")
+        
+        # Filter out noisy warnings (NICs with OK status showing as warning due to link-down)
+        warn_facts = [f for f in warn_facts if not (
+            hasattr(f, 'description') and 'status=OK' in getattr(f, 'description', '')
+        )]
 
         if crit_facts:
-            lines.append(f"🔴 **{len(crit_facts)} Critical Issues:**")
+            label = "Critical Issue" if len(crit_facts) == 1 else "Critical Issues"
+            lines.append(f"🔴 **{len(crit_facts)} {label}:**")
             for f in crit_facts[:5]:
                 desc = getattr(f, 'description', str(f))
                 lines.append(f"  • {desc}")
@@ -1915,7 +1928,8 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
             lines.append("")
 
         if warn_facts:
-            lines.append(f"🟡 **{len(warn_facts)} Warnings:**")
+            label = "Warning" if len(warn_facts) == 1 else "Warnings"
+            lines.append(f"🟡 **{len(warn_facts)} {label}:**")
             for f in warn_facts[:5]:
                 desc = getattr(f, 'description', str(f))
                 lines.append(f"  • {desc}")
@@ -1924,12 +1938,11 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
             lines.append("")
 
         if not crit_facts and not warn_facts:
-            lines.append("✅ **All subsystems healthy** — no critical issues or warnings detected.")
+            lines.append("✅ **All subsystems healthy** — no issues detected.")
             lines.append("")
 
-        # Suggestions
-        lines.append("**What would you like to explore?**")
-        lines.append("Ask about: firmware versions, BIOS settings, boot order, iDRAC config, system logs, or describe an issue to investigate.")
+        # Compact suggestion
+        lines.append("Ask about any component, or describe an issue to investigate.")
 
         return "\n".join(lines)
 
@@ -2104,18 +2117,19 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
     def _build_component_health_summary(self) -> str:
         """Build a component-by-component health grid from collected data."""
         lines = []
+        # (label, tool_key, data_key, fact_id_patterns)
         components = [
-            ("Temperatures", "check_temperatures", "temperatures"),
-            ("Fans", "check_fans", "fans"),
-            ("Power Supplies", "check_power_supplies", "power_supplies"),
-            ("Memory (DIMMs)", "check_memory", "memory"),
-            ("Storage", "check_storage", "storage_devices"),
-            ("Network", "check_network", "network_interfaces"),
-            ("Firmware", "check_firmware", "firmware"),
-            ("System Logs", "check_logs", "logs"),
+            ("Temperatures", "check_temperatures", "temperatures", ["temp_", "temperature"]),
+            ("Fans", "check_fans", "fans", ["fan_"]),
+            ("Power Supplies", "check_power_supplies", "power_supplies", ["psu_"]),
+            ("Memory (DIMMs)", "check_memory", "memory", ["dimm_", "memory"]),
+            ("Storage", "check_storage", "storage_devices", ["storage_", "disk_", "drive_"]),
+            ("Network", "check_network", "network_interfaces", ["nic_", "network"]),
+            ("Firmware", "check_firmware", "firmware", ["firmware_"]),
+            ("System Logs", "check_logs", "logs", ["log_", "mca_", "pcie_"]),
         ]
 
-        for label, tool_key, data_key in components:
+        for label, tool_key, data_key, fact_patterns in components:
             raw = self.memory.raw_data.get(tool_key, {})
             if not raw:
                 continue
@@ -2126,9 +2140,10 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
                 items = list(items.values()) if items else []
             count = len(items) if isinstance(items, list) else 0
 
-            # Count facts by status for this tool
-            tool_facts = [f for f in self.memory.facts
-                          if not isinstance(f, str) and hasattr(f, 'id') and tool_key.replace("check_", "") in getattr(f, 'id', '')]
+            # Count facts by status using fact ID patterns
+            tool_facts = [f for f in self.memory.facts.values()
+                          if hasattr(f, 'id') 
+                          and any(p in getattr(f, 'id', '') for p in fact_patterns)]
             crit_count = sum(1 for f in tool_facts if getattr(f, 'status', '') == 'critical')
             warn_count = sum(1 for f in tool_facts if getattr(f, 'status', '') == 'warning')
 
