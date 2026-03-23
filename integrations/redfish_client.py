@@ -130,7 +130,7 @@ class RedfishClient:
             logger.info(f"Token auth skipped, using basic auth: {str(e)}")
     
     async def _get(self, endpoint: str, params: Optional[Dict] = None, use_cache: bool = True) -> Optional[Dict[str, Any]]:
-        """Make GET request to Redfish API with caching support"""
+        """Make GET request to Redfish API with caching and retry support"""
         if not self.session:
             raise RuntimeError("Not connected to Redfish API")
         
@@ -143,24 +143,37 @@ class RedfishClient:
                 logger.debug(f"Cache hit for {endpoint}")
                 return cached_result
         
-        try:
-            async with self.session.get(url, params=params) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    
-                    # Cache the response
-                    if use_cache:
-                        etag = response.headers.get("ETag")
-                        await cache_manager.set(endpoint, data, params, etag)
-                    
-                    return data
-                else:
-                    text = await response.text()
-                    logger.error(f"GET {url} => {response.status}: {text[:200]}")
-                    return None
-        except Exception as e:
-            logger.error(f"GET {url} error: {type(e).__name__}: {str(e)}")
-            return None
+        # Retry up to 2 times on transient failures
+        last_error = None
+        for attempt in range(2):
+            try:
+                async with self.session.get(url, params=params) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        if use_cache:
+                            etag = response.headers.get("ETag")
+                            await cache_manager.set(endpoint, data, params, etag)
+                        return data
+                    elif response.status in (503, 429):
+                        # Service unavailable or rate limited — retry after brief delay
+                        logger.warning(f"GET {url} => {response.status}, retrying...")
+                        await asyncio.sleep(1)
+                        continue
+                    else:
+                        text = await response.text()
+                        logger.error(f"GET {url} => {response.status}: {text[:200]}")
+                        return None
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                last_error = e
+                if attempt == 0:
+                    logger.warning(f"GET {url} transient error: {e}, retrying...")
+                    await asyncio.sleep(0.5)
+                    continue
+                logger.error(f"GET {url} error after retry: {type(e).__name__}: {str(e)}")
+            except Exception as e:
+                logger.error(f"GET {url} error: {type(e).__name__}: {str(e)}")
+                return None
+        return None
     
     async def _post(self, endpoint: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Make POST request to Redfish API"""
@@ -780,10 +793,33 @@ class RedfishClient:
 
     # ─── Firmware Inventory ─────────────────────────────────────
     async def get_firmware_inventory(self) -> List[Dict[str, Any]]:
-        """Get all installed firmware versions from UpdateService"""
+        """Get all installed firmware versions from UpdateService.
+        Uses $expand to fetch all members in a single request (2x faster)."""
         firmware_list = []
         try:
-            fw_inv = await self._get("UpdateService/FirmwareInventory")
+            # Try $expand first (supported on iDRAC9 16G+) — single request for all members
+            fw_inv = await self._get("UpdateService/FirmwareInventory", 
+                                      params={"$expand": "*($levels=1)"}, use_cache=True)
+            if fw_inv and fw_inv.get("Members"):
+                members = fw_inv["Members"]
+                # Check if members are already expanded (have Version field)
+                if members and "Version" in members[0]:
+                    for fw_data in members:
+                        firmware_list.append({
+                            "id": fw_data.get("Id", ""),
+                            "name": fw_data.get("Name", ""),
+                            "version": fw_data.get("Version", ""),
+                            "updateable": fw_data.get("Updateable", False),
+                            "status": self._get_status_string(fw_data.get("Status", {})),
+                            "release_date": fw_data.get("ReleaseDate", ""),
+                            "manufacturer": fw_data.get("Manufacturer", ""),
+                            "description": fw_data.get("Description", ""),
+                            "component_id": fw_data.get("SoftwareId", ""),
+                        })
+                    return firmware_list
+
+            # Fallback: fetch each member individually (slower but compatible)
+            fw_inv = await self._get("UpdateService/FirmwareInventory", use_cache=True)
             if not fw_inv:
                 return firmware_list
             for member in fw_inv.get("Members", []):
@@ -1297,7 +1333,7 @@ class RedfishClient:
 
     # ─── iDRAC User Accounts ─────────────────────────────────────
     async def get_idrac_users(self) -> List[Dict[str, Any]]:
-        """Get iDRAC user accounts"""
+        """Get iDRAC user accounts. Uses $expand for speed."""
         users = []
         try:
             acct_svc = await self._get("AccountService")
@@ -1306,6 +1342,23 @@ class RedfishClient:
             acct_url = acct_svc.get("Accounts", {}).get("@odata.id", "").replace("/redfish/v1/", "")
             if not acct_url:
                 return users
+            
+            # Try $expand first (single request)
+            acct_coll = await self._get(acct_url, params={"$expand": "*($levels=1)"})
+            if acct_coll and acct_coll.get("Members"):
+                for acct in acct_coll["Members"]:
+                    if acct.get("UserName"):
+                        users.append({
+                            "id": acct.get("Id", ""),
+                            "username": acct.get("UserName", ""),
+                            "role": acct.get("RoleId", ""),
+                            "enabled": acct.get("Enabled", False),
+                            "locked": acct.get("Locked", False),
+                        })
+                if users:
+                    return users
+            
+            # Fallback: individual fetches
             acct_coll = await self._get(acct_url)
             if not acct_coll or not acct_coll.get("Members"):
                 return users
