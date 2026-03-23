@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Browser Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Simple Browser Test</h1>
+        <p>Test basic browser functionality</p>
+        
+        <button onclick="testBasicConnection()">Test Basic Connection</button>
+        <button onclick="testJavaScript()">Test JavaScript Loading</button>
+        <button onclick="testConnectionForm()">Test Connection Form</button>
+        <button onclick="testManualConnection()">Test Manual Connection</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+        }
+
+        function testBasicConnection() {
+            addResult('Testing basic connection...', 'info');
+            
+            fetch('/')
+                .then(response => {
+                    if (response.ok) {
+                        addResult('✅ Basic connection successful', 'success');
+                    } else {
+                        addResult(`❌ Basic connection failed: ${response.status}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    addResult(`❌ Basic connection error: ${error.message}`, 'error');
+                });
+        }
+
+        function testJavaScript() {
+            addResult('Testing JavaScript loading...', 'info');
+            
+            // Test if we can make fetch requests
+            fetch('/static/js/app.js')
+                .then(response => {
+                    if (response.ok) {
+                        addResult('✅ JavaScript file accessible', 'success');
+                        
+                        // Test if we can parse it
+                        return response.text();
+                    } else {
+                        addResult(`❌ JavaScript file not accessible: ${response.status}`, 'error');
+                    }
+                })
+                .then(jsContent => {
+                    if (jsContent && jsContent.includes('connectToServer')) {
+                        addResult('✅ JavaScript contains connectToServer function', 'success');
+                    } else {
+                        addResult('❌ JavaScript missing connectToServer function', 'error');
+                    }
+                })
+                .catch(error => {
+                    addResult(`❌ JavaScript test error: ${error.message}`, 'error');
+                });
+        }
+
+        function testConnectionForm() {
+            addResult('Testing connection form...', 'info');
+            
+            // Check if form elements exist
+            const form = document.createElement('div');
+            form.innerHTML = `
+                <form id="testForm">
+                    <input type="text" id="testHost" value="100.71.148.195" placeholder="Host">
+                    <input type="text" id="testUsername" value="root" placeholder="Username">
+                    <input type="password" id="testPassword" value="calvin" placeholder="Password">
+                    <input type="number" id="testPort" value="443" placeholder="Port">
+                    <button type="button" onclick="testFormSubmit()">Test Submit</button>
+                </form>
+            `;
+            
+            document.body.appendChild(form);
+            addResult('✅ Connection form created', 'success');
+        }
+
+        function testFormSubmit() {
+            const host = document.getElementById('testHost').value;
+            const username = document.getElementById('testUsername').value;
+            const password = document.getElementById('testPassword').value;
+            const port = document.getElementById('testPort').value;
+            
+            addResult(`Testing form submission with: ${host}:${port}`, 'info');
+            
+            const data = {
+                serverHost: host,
+                username: username,
+                password: password,
+                port: port
+            };
+            
+            fetch('/api/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.status === 'success') {
+                        addResult('✅ Form submission successful', 'success');
+                        addResult(`Connected to: ${host}:${port}`, 'success');
+                        
+                        // Test disconnect
+                        fetch('/api/disconnect', { method: 'POST' })
+                            .then(() => addResult('✅ Disconnect successful', 'success'));
+                    } else {
+                        addResult(`❌ Form submission failed: ${result.detail}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    addResult(`❌ Form submission error: ${error.message}`, 'error');
+                });
+        }
+
+        function testManualConnection() {
+            addResult('Testing manual connection...', 'info');
+            
+            // Test the exact same data that should work
+            const data = {
+                serverHost: '100.71.148.195',
+                username: 'root',
+                password: 'calvin',
+                port: '443'
+            };
+            
+            fetch('/api/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+                .then(response => {
+                    addResult(`Manual connection status: ${response.status}`, 'info');
+                    return response.json();
+                })
+                .then(result => {
+                    if (result.status === 'success') {
+                        addResult('✅ Manual connection successful', 'success');
+                        addResult(`Server: ${data.serverHost}:${data.port}`, 'success');
+                    } else {
+                        addResult(`❌ Manual connection failed: ${result.detail}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    addResult(`❌ Manual connection error: ${error.message}`, 'error');
+                });
+        }
+
+        // Auto-run basic test
+        window.addEventListener('load', function() {
+            addResult('Simple Browser Test loaded', 'info');
+            addResult('Click buttons above to test functionality', 'info');
+        });
+    </script>
+</body>
+</html>

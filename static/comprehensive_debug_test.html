@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; color: #856404; }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-success { background: #d4edda; color: #155724; }
+        .log-error { background: #f8d7da; color: #721c24; }
+        .log-info { background: #d1ecf1; color: #0c5460; }
+        .log-warning { background: #fff3cd; color: #856404; }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        .comparison-table th, .comparison-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .comparison-table th {
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Comprehensive Debug Test</h1>
+        <p>This will help identify exactly why the technician dashboard connection isn't working</p>
+    </div>
+
+    <div class="container">
+        <h2>1. Customer vs Technician Comparison</h2>
+        <div class="test-section info">
+            <table class="comparison-table">
+                <tr>
+                    <th>Aspect</th>
+                    <th>Customer Dashboard (Working)</th>
+                    <th>Technician Dashboard (Broken)</th>
+                </tr>
+                <tr>
+                    <td>Endpoint</td>
+                    <td>/connect</td>
+                    <td>/connect (updated)</td>
+                </tr>
+                <tr>
+                    <td>Field Names</td>
+                    <td>host, username, password, port</td>
+                    <td>host, username, password, port (updated)</td>
+                </tr>
+                <tr>
+                    <td>Port Type</td>
+                    <td>parseInt()</td>
+                    <td>parseInt() (updated)</td>
+                </tr>
+                <tr>
+                    <td>Response Check</td>
+                    <td>result.ok</td>
+                    <td>result.ok (updated)</td>
+                </tr>
+            </table>
+            <button onclick="testCustomerConnection()">Test Customer Connection</button>
+            <button onclick="testTechnicianConnection()">Test Technician Connection</button>
+            <div id="comparisonResults"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>2. Step-by-Step Connection Test</h2>
+        <div class="test-section info">
+            <p>Test each step of the connection process</p>
+            
+            <div class="form-group">
+                <label for="testHost">Server Host/IP:</label>
+                <input type="text" id="testHost" value="100.71.148.195">
+            </div>
+            
+            <div class="form-group">
+                <label for="testUsername">Username:</label>
+                <input type="text" id="testUsername" value="root">
+            </div>
+            
+            <div class="form-group">
+                <label for="testPassword">Password:</label>
+                <input type="password" id="testPassword" value="calvin">
+            </div>
+            
+            <div class="form-group">
+                <label for="testPort">Port:</label>
+                <input type="number" id="testPort" value="443">
+            </div>
+            
+            <button onclick="testStep1()">Step 1: Form Validation</button>
+            <button onclick="testStep2()">Step 2: API Request</button>
+            <button onclick="testStep3()">Step 3: Response Handling</button>
+            <button onclick="testStep4()">Step 4: UI Update</button>
+            
+            <div id="stepResults"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>3. Real Technician Dashboard Test</h2>
+        <div class="test-section info">
+            <p>Test the actual technician dashboard connection</p>
+            <button onclick="testRealTechnicianDashboard()">Test Real Technician Dashboard</button>
+            <div id="realDashboardResults"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>4. Manual JavaScript Test</h2>
+        <div class="test-section info">
+            <p>Run manual JavaScript commands to debug</p>
+            <button onclick="runManualTests()">Run Manual Tests</button>
+            <div id="manualResults"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>5. Console Log</h2>
+        <div class="test-section info">
+            <p>Real-time debugging output</p>
+            <button onclick="clearConsole()">Clear Console</button>
+            <div id="consoleLog" style="max-height: 300px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Console logging
+        function log(message, type = 'info') {
+            const consoleDiv = document.getElementById('consoleLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            consoleDiv.appendChild(logEntry);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            
+            // Also log to browser console
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function clearConsole() {
+            document.getElementById('consoleLog').innerHTML = '';
+        }
+
+        // Test 1: Customer Connection
+        async function testCustomerConnection() {
+            const results = document.getElementById('comparisonResults');
+            results.innerHTML = 'Testing customer connection...';
+            
+            try {
+                const data = {
+                    host: '100.71.148.195',
+                    username: 'root',
+                    password: 'calvin',
+                    port: 443
+                };
+                
+                log('Testing customer connection method', 'info');
+                
+                const response = await fetch('/connect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                log(`Customer connection status: ${response.status}`, 'info');
+                log(`Customer connection response: ${JSON.stringify(result)}`, 'info');
+                
+                if (response.ok) {
+                    results.innerHTML = '✅ Customer connection works!';
+                    results.className = 'test-section success';
+                    log('Customer connection successful', 'success');
+                } else {
+                    results.innerHTML = `❌ Customer connection failed: ${result.detail}`;
+                    results.className = 'test-section error';
+                    log(`Customer connection failed: ${result.detail}`, 'error');
+                }
+                
+            } catch (error) {
+                results.innerHTML = `❌ Customer connection error: ${error.message}`;
+                results.className = 'test-section error';
+                log(`Customer connection error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test 2: Technician Connection
+        async function testTechnicianConnection() {
+            const results = document.getElementById('comparisonResults');
+            results.innerHTML = 'Testing technician connection...';
+            
+            try {
+                const data = {
+                    host: '100.71.148.195',
+                    username: 'root',
+                    password: 'calvin',
+                    port: 443
+                };
+                
+                log('Testing technician connection method', 'info');
+                
+                const response = await fetch('/connect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                log(`Technician connection status: ${response.status}`, 'info');
+                log(`Technician connection response: ${JSON.stringify(result)}`, 'info');
+                
+                if (result.ok) {
+                    results.innerHTML = '✅ Technician connection works!';
+                    results.className = 'test-section success';
+                    log('Technician connection successful', 'success');
+                } else {
+                    results.innerHTML = `❌ Technician connection failed: ${result.detail}`;
+                    results.className = 'test-section error';
+                    log(`Technician connection failed: ${result.detail}`, 'error');
+                }
+                
+            } catch (error) {
+                results.innerHTML = `❌ Technician connection error: ${error.message}`;
+                results.className = 'test-section error';
+                log(`Technician connection error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test 3: Step-by-Step Connection
+        function testStep1() {
+            const results = document.getElementById('stepResults');
+            const host = document.getElementById('testHost').value;
+            const username = document.getElementById('testUsername').value;
+            const password = document.getElementById('testPassword').value;
+            const port = document.getElementById('testPort').value;
+            
+            log('Step 1: Form Validation', 'info');
+            
+            if (!host || !username || !password) {
+                results.innerHTML = '❌ Step 1 Failed: Missing required fields';
+                results.className = 'test-section error';
+                log('Missing required fields', 'error');
+                return;
+            }
+            
+            const portNum = parseInt(port) || 443;
+            
+            results.innerHTML = `✅ Step 1 Passed: Form validation successful<br>
+Host: ${host}<br>
+Username: ${username}<br>
+Password: [hidden]<br>
+Port: ${portNum}`;
+            results.className = 'test-section success';
+            
+            log('Form validation passed', 'success');
+        }
+
+        async function testStep2() {
+            const results = document.getElementById('stepResults');
+            const host = document.getElementById('testHost').value;
+            const username = document.getElementById('testUsername').value;
+            const password = document.getElementById('testPassword').value;
+            const port = parseInt(document.getElementById('testPort').value) || 443;
+            
+            log('Step 2: API Request', 'info');
+            
+            try {
+                const data = { host, username, password, port };
+                
+                const response = await fetch('/connect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                log(`API request status: ${response.status}`, 'info');
+                
+                results.innerHTML = `✅ Step 2 Passed: API request sent<br>
+Status: ${response.status}<br>
+Data: ${JSON.stringify(data)}`;
+                results.className = 'test-section success';
+                
+                // Store response for next step
+                window.lastResponse = response;
+                window.lastResult = await response.json();
+                
+                log('API request successful', 'success');
+                
+            } catch (error) {
+                results.innerHTML = `❌ Step 2 Failed: ${error.message}`;
+                results.className = 'test-section error';
+                log(`API request error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testStep3() {
+            const results = document.getElementById('stepResults');
+            
+            log('Step 3: Response Handling', 'info');
+            
+            if (!window.lastResponse) {
+                results.innerHTML = '❌ Step 3 Failed: No response from Step 2';
+                results.className = 'test-section error';
+                log('No response from Step 2', 'error');
+                return;
+            }
+            
+            const response = window.lastResponse;
+            const result = window.lastResult;
+            
+            log(`Response status: ${response.status}`, 'info');
+            log(`Response ok: ${response.ok}`, 'info');
+            log(`Result: ${JSON.stringify(result)}`, 'info');
+            
+            if (result.ok) {
+                results.innerHTML = `✅ Step 3 Passed: Response handling successful<br>
+Response OK: ${response.ok}<br>
+Result: ${JSON.stringify(result)}`;
+                results.className = 'test-section success';
+                log('Response handling successful', 'success');
+            } else {
+                results.innerHTML = `❌ Step 3 Failed: Response not ok<br>
+Error: ${result.detail}`;
+                results.className = 'test-section error';
+                log(`Response handling failed: ${result.detail}`, 'error');
+            }
+        }
+
+        function testStep4() {
+            const results = document.getElementById('stepResults');
+            
+            log('Step 4: UI Update', 'info');
+            
+            if (!window.lastResult || !window.lastResult.ok) {
+                results.innerHTML = '❌ Step 4 Failed: No successful connection from previous steps';
+                results.className = 'test-section error';
+                log('No successful connection from previous steps', 'error');
+                return;
+            }
+            
+            // Simulate UI update
+            const host = document.getElementById('testHost').value;
+            
+            results.innerHTML = `✅ Step 4 Passed: UI update successful<br>
+Connected to: ${host}<br>
+Status: Connected<br>
+Time: ${new Date().toLocaleTimeString()}`;
+            results.className = 'test-section success';
+            
+            log('UI update successful', 'success');
+        }
+
+        // Test 4: Real Technician Dashboard
+        async function testRealTechnicianDashboard() {
+            const results = document.getElementById('realDashboardResults');
+            results.innerHTML = 'Testing real technician dashboard...';
+            
+            try {
+                // Open technician dashboard in new tab
+                const dashboardWindow = window.open('/technician', '_blank');
+                
+                if (dashboardWindow) {
+                    results.innerHTML = '✅ Technician dashboard opened in new tab<br>Check the new tab for connection issues';
+                    results.className = 'test-section success';
+                    log('Technician dashboard opened in new tab', 'success');
+                    
+                    // Try to interact with it after a delay
+                    setTimeout(() => {
+                        try {
+                            dashboardWindow.close();
+                            log('Technician dashboard tab closed', 'info');
+                        } catch (e) {
+                            log('Could not close dashboard tab (user may have closed it)', 'warning');
+                        }
+                    }, 5000);
+                } else {
+                    results.innerHTML = '❌ Could not open technician dashboard (popup blocked)';
+                    results.className = 'test-section error';
+                    log('Could not open dashboard (popup blocked)', 'error');
+                }
+                
+            } catch (error) {
+                results.innerHTML = `❌ Error testing dashboard: ${error.message}`;
+                results.className = 'test-section error';
+                log(`Error testing dashboard: ${error.message}`, 'error');
+            }
+        }
+
+        // Test 5: Manual JavaScript Tests
+        function runManualTests() {
+            const results = document.getElementById('manualResults');
+            results.innerHTML = 'Running manual JavaScript tests...';
+            
+            log('Running manual JavaScript tests', 'info');
+            
+            const tests = [
+                'typeof fetch !== "undefined"',
+                'typeof JSON !== "undefined"',
+                'typeof Promise !== "undefined"',
+                'document.getElementById("serverHost") !== null',
+                'document.getElementById("connectBtn") !== null',
+                'typeof app !== "undefined"',
+                'typeof app?.connectToServer === "function"'
+            ];
+            
+            let passedTests = 0;
+            let failedTests = 0;
+            
+            tests.forEach((test, index) => {
+                try {
+                    const result = eval(test);
+                    if (result) {
+                        passedTests++;
+                        log(`✅ Test ${index + 1}: ${test}`, 'success');
+                    } else {
+                        failedTests++;
+                        log(`❌ Test ${index + 1}: ${test}`, 'error');
+                    }
+                } catch (error) {
+                    failedTests++;
+                    log(`❌ Test ${index + 1}: ${test} - ${error.message}`, 'error');
+                }
+            });
+            
+            results.innerHTML = `Manual Tests Complete:<br>
+✅ Passed: ${passedTests}<br>
+❌ Failed: ${failedTests}<br>
+Total: ${tests.length}`;
+            
+            results.className = failedTests === 0 ? 'test-section success' : 'test-section error';
+            
+            log(`Manual tests complete: ${passedTests}/${tests.length} passed`, 'info');
+        }
+
+        // Initialize
+        window.addEventListener('load', function() {
+            log('Comprehensive Debug Test loaded', 'info');
+            log('Ready to run debugging tests', 'info');
+        });
+
+        // Error handling
+        window.addEventListener('error', function(e) {
+            log(`JavaScript Error: ${e.error.message}`, 'error');
+        });
+
+        window.addEventListener('unhandledrejection', function(e) {
+            log(`Unhandled Promise Rejection: ${e.reason}`, 'error');
+        });
+    </script>
+</body>
+</html>

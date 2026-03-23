@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Browser Connection Test</h1>
+        <p>Test your server connection in the browser</p>
+        
+        <form id="connectionForm">
+            <div class="form-group">
+                <label for="serverHost">Server Host/IP:</label>
+                <input type="text" id="serverHost" value="100.71.148.195" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" value="root" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" value="calvin" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="port">Port:</label>
+                <input type="number" id="port" value="443" required>
+            </div>
+            
+            <button type="submit" id="connectBtn">🔗 Connect</button>
+            <button type="button" id="disconnectBtn" disabled>🔌 Disconnect</button>
+            <button type="button" id="testBtn">🧪 Test API</button>
+        </form>
+        
+        <div id="result" class="result info" style="display: none;">
+            Results will appear here...
+        </div>
+    </div>
+
+    <script>
+        let currentConnection = null;
+        
+        function showResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = message;
+            resultDiv.className = `result ${type}`;
+            resultDiv.style.display = 'block';
+        }
+        
+        function setLoading(loading) {
+            document.getElementById('connectBtn').disabled = loading;
+            document.getElementById('disconnectBtn').disabled = loading;
+            document.getElementById('testBtn').disabled = loading;
+            
+            if (loading) {
+                document.getElementById('connectBtn').textContent = '⏳ Connecting...';
+            } else {
+                document.getElementById('connectBtn').textContent = '🔗 Connect';
+            }
+        }
+        
+        async function connectToServer() {
+            const host = document.getElementById('serverHost').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const port = document.getElementById('port').value;
+            
+            if (!host || !username || !password) {
+                showResult('Please fill in all fields', 'error');
+                return;
+            }
+            
+            setLoading(true);
+            showResult('Connecting to server...', 'info');
+            
+            try {
+                const response = await fetch('/api/connect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        serverHost: host,
+                        username: username,
+                        password: password,
+                        port: port
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    currentConnection = { host, username, password, port };
+                    showResult(`✅ Connected successfully!\n\nServer: ${host}:${port}\nResponse: ${JSON.stringify(result, null, 2)}`, 'success');
+                    document.getElementById('disconnectBtn').disabled = false;
+                } else {
+                    showResult(`❌ Connection failed!\n\nStatus: ${response.status}\nError: ${result.detail}\n\nFull Response: ${JSON.stringify(result, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Network error!\n\n${error.message}`, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        async function disconnectFromServer() {
+            setLoading(true);
+            showResult('Disconnecting from server...', 'info');
+            
+            try {
+                const response = await fetch('/api/disconnect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    currentConnection = null;
+                    showResult(`✅ Disconnected successfully!\n\nResponse: ${JSON.stringify(result, null, 2)}`, 'success');
+                    document.getElementById('disconnectBtn').disabled = true;
+                } else {
+                    showResult(`❌ Disconnect failed!\n\nStatus: ${response.status}\nError: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult(`❌ Network error!\n\n${error.message}`, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        async function testAPI() {
+            showResult('Testing API endpoints...', 'info');
+            
+            const tests = [
+                { name: 'Health Check', url: '/api/health' },
+                { name: 'Connection Status', url: '/api/connect', method: 'POST', body: {} }
+            ];
+            
+            let results = [];
+            
+            for (const test of tests) {
+                try {
+                    const options = {
+                        method: test.method || 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    };
+                    
+                    if (test.body) {
+                        options.body = JSON.stringify(test.body);
+                    }
+                    
+                    const response = await fetch(test.url, options);
+                    const result = await response.json();
+                    
+                    results.push(`✅ ${test.name}: ${response.status} - ${JSON.stringify(result).substring(0, 100)}...`);
+                } catch (error) {
+                    results.push(`❌ ${test.name}: ${error.message}`);
+                }
+            }
+            
+            showResult(`🧪 API Test Results:\n\n${results.join('\n\n')}`, 'info');
+        }
+        
+        // Event listeners
+        document.getElementById('connectionForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            connectToServer();
+        });
+        
+        document.getElementById('disconnectBtn').addEventListener('click', disconnectFromServer);
+        document.getElementById('testBtn').addEventListener('click', testAPI);
+        
+        // Auto-test on load
+        window.addEventListener('load', () => {
+            showResult('🔧 Browser Connection Test Ready\n\nFill in your server details and click Connect to test the connection.', 'info');
+        });
+    </script>
+</body>
+</html>

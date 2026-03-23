@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 JavaScript Debug Test</h1>
+        <p>Debug JavaScript loading and connection issues</p>
+        
+        <div class="test-section info">
+            <h3>1. JavaScript Loading Test</h3>
+            <p>Testing if JavaScript loads correctly...</p>
+            <div id="jsTest">Loading...</div>
+        </div>
+        
+        <div class="test-section info">
+            <h3>2. API Endpoint Test</h3>
+            <p>Testing API endpoints directly...</p>
+            <button onclick="testAPIEndpoints()">Test API Endpoints</button>
+            <div id="apiTest">Click to test...</div>
+        </div>
+        
+        <div class="test-section info">
+            <h3>3. Connection Test</h3>
+            <p>Testing connection with exact browser simulation...</p>
+            <button onclick="testConnection()">Test Connection</button>
+            <div id="connectionTest">Click to test...</div>
+        </div>
+        
+        <div class="test-section info">
+            <h3>4. Console Log</h3>
+            <p>Browser console output...</p>
+            <div id="consoleLog">Console output will appear here...</div>
+        </div>
+    </div>
+
+    <script>
+        // Override console.log to capture output
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        function addToConsole(message, type = 'log') {
+            const consoleDiv = document.getElementById('consoleLog');
+            const timestamp = new Date().toLocaleTimeString();
+            consoleDiv.innerHTML += `<div>[${timestamp}] ${type.toUpperCase()}: ${message}</div>`;
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addToConsole(args.join(' '), 'log');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addToConsole(args.join(' '), 'error');
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addToConsole(args.join(' '), 'warn');
+        };
+        
+        // Test 1: JavaScript Loading
+        window.addEventListener('load', function() {
+            const jsTest = document.getElementById('jsTest');
+            jsTest.innerHTML = '✅ JavaScript loaded successfully';
+            jsTest.parentElement.className = 'test-section success';
+            
+            console.log('JavaScript loaded successfully');
+            console.log('Document ready state:', document.readyState);
+            console.log('User agent:', navigator.userAgent);
+        });
+        
+        // Test 2: API Endpoints
+        async function testAPIEndpoints() {
+            const apiTest = document.getElementById('apiTest');
+            apiTest.innerHTML = 'Testing...';
+            
+            try {
+                console.log('Testing API endpoints...');
+                
+                // Test health endpoint
+                const healthResponse = await fetch('/api/health');
+                const healthData = await healthResponse.json();
+                console.log('Health endpoint:', healthResponse.status, healthData);
+                
+                // Test connection endpoint (should fail with 400)
+                const connectResponse = await fetch('/api/connect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                console.log('Connect endpoint:', connectResponse.status);
+                
+                apiTest.innerHTML = `✅ API endpoints working<br>
+Health: ${healthResponse.status}<br>
+Connect: ${connectResponse.status}`;
+                apiTest.parentElement.className = 'test-section success';
+                
+            } catch (error) {
+                console.error('API test error:', error);
+                apiTest.innerHTML = `❌ API test failed: ${error.message}`;
+                apiTest.parentElement.className = 'test-section error';
+            }
+        }
+        
+        // Test 3: Connection Test
+        async function testConnection() {
+            const connectionTest = document.getElementById('connectionTest');
+            connectionTest.innerHTML = 'Testing connection...';
+            
+            try {
+                console.log('Testing connection...');
+                
+                const connectionData = {
+                    serverHost: '100.71.148.195',
+                    username: 'root',
+                    password: 'calvin',
+                    port: '443'
+                };
+                
+                console.log('Connection data:', connectionData);
+                
+                const response = await fetch('/api/connect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(connectionData)
+                });
+                
+                console.log('Response status:', response.status);
+                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+                
+                const result = await response.json();
+                console.log('Response body:', result);
+                
+                if (response.ok) {
+                    connectionTest.innerHTML = `✅ Connection successful!<br>
+Status: ${response.status}<br>
+Message: ${result.message}<br>
+Server: ${connectionData.serverHost}:${connectionData.port}`;
+                    connectionTest.parentElement.className = 'test-section success';
+                    
+                    // Disconnect
+                    const disconnectResponse = await fetch('/api/disconnect', { method: 'POST' });
+                    console.log('Disconnect status:', disconnectResponse.status);
+                    
+                } else {
+                    connectionTest.innerHTML = `❌ Connection failed!<br>
+Status: ${response.status}<br>
+Error: ${result.detail}`;
+                    connectionTest.parentElement.className = 'test-section error';
+                }
+                
+            } catch (error) {
+                console.error('Connection test error:', error);
+                connectionTest.innerHTML = `❌ Connection test failed: ${error.message}`;
+                connectionTest.parentElement.className = 'test-section error';
+            }
+        }
+        
+        // Test 4: Check for common issues
+        window.addEventListener('error', function(e) {
+            console.error('JavaScript error:', e.error);
+        });
+        
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('Unhandled promise rejection:', e.reason);
+        });
+        
+        // Log initial state
+        console.log('Debug test page loaded');
+        console.log('Location:', window.location.href);
+        console.log('Ready to test...');
+    </script>
+</body>
+</html>

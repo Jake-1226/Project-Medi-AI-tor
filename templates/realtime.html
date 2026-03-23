@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Monitoring - Medi-AI-tor</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/realtime.css">
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .connection-bar { background: var(--bg-card, #1e293b); padding: 12px 20px; border-radius: 8px; margin-bottom: 16px; display:flex; align-items:center; gap:8px; }
+        .connection-form-inline { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+        .input-sm { padding:6px 10px; border-radius:6px; border:1px solid var(--border, #334155); background: var(--bg-body, #0f172a); color: var(--text-primary, #f1f5f9); font-size:13px; }
+        .btn-sm { padding:6px 14px; font-size:13px; }
+    </style>
+</head>
+<body>
+    <div class="realtime-dashboard">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-content">
+                <h1 class="dashboard-title">
+                    <span class="status-indicator" id="monitoring-status"></span>
+                    Real-time Server Monitoring
+                </h1>
+                <div class="header-controls">
+                    <div class="connection-status" id="connection-status">
+                        <span class="connection-dot" id="connection-dot"></span>
+                        <span id="connection-text">Connecting...</span>
+                    </div>
+                    <button id="connect-btn" class="btn btn-primary">Connect</button>
+                    <button id="disconnect-btn" class="btn btn-secondary" disabled>Disconnect</button>
+                    <button id="export-data" class="btn btn-outline">Export Data</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Connection Bar -->
+        <div class="connection-bar" id="connectionBar">
+            <div class="connection-form-inline">
+                <input type="text" id="monitorHost" placeholder="Server IP" value="100.71.148.195" class="input-sm">
+                <input type="text" id="monitorUser" placeholder="Username" value="root" class="input-sm">
+                <input type="password" id="monitorPass" placeholder="Password" value="calvin" class="input-sm">
+                <input type="number" id="monitorPort" placeholder="Port" value="443" class="input-sm" style="width:80px">
+                <button class="btn btn-primary btn-sm" id="monitorConnectBtn" onclick="connectAndMonitor()">Connect & Monitor</button>
+            </div>
+        </div>
+
+        <!-- Metrics Grid -->
+        <section class="metrics-grid">
+            <!-- Temperature Metrics -->
+            <div class="metric-card" data-metric="inlet_temp">
+                <div class="metric-header">
+                    <h3 class="metric-title">Inlet Temperature</h3>
+                    <span class="metric-status normal">Normal</span>
+                </div>
+                <div class="metric-value">
+                    <span class="value">--</span><span class="metric-unit">°C</span>
+                </div>
+                <div class="metric-trend">
+                    <span class="trend-indicator stable">→</span>
+                    <span class="trend-text">Stable</span>
+                </div>
+                <div class="metric-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">10min Avg</div>
+                        <div class="stat-value stat-avg">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Max</div>
+                        <div class="stat-value stat-max">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Min</div>
+                        <div class="stat-value stat-min">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card" data-metric="cpu_temp">
+                <div class="metric-header">
+                    <h3 class="metric-title">CPU Temperature</h3>
+                    <span class="metric-status normal">Normal</span>
+                </div>
+                <div class="metric-value">
+                    <span class="value">--</span><span class="metric-unit">°C</span>
+                </div>
+                <div class="metric-trend">
+                    <span class="trend-indicator stable">→</span>
+                    <span class="trend-text">Stable</span>
+                </div>
+                <div class="metric-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">10min Avg</div>
+                        <div class="stat-value stat-avg">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Max</div>
+                        <div class="stat-value stat-max">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Min</div>
+                        <div class="stat-value stat-min">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fan Metrics -->
+            <div class="metric-card" data-metric="avg_fan_speed">
+                <div class="metric-header">
+                    <h3 class="metric-title">Average Fan Speed</h3>
+                    <span class="metric-status normal">Normal</span>
+                </div>
+                <div class="metric-value">
+                    <span class="value">--</span><span class="metric-unit">RPM</span>
+                </div>
+                <div class="metric-trend">
+                    <span class="trend-indicator stable">→</span>
+                    <span class="trend-text">Stable</span>
+                </div>
+                <div class="metric-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">10min Avg</div>
+                        <div class="stat-value stat-avg">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Max</div>
+                        <div class="stat-value stat-max">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Min</div>
+                        <div class="stat-value stat-min">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Power Metrics -->
+            <div class="metric-card" data-metric="power_consumption">
+                <div class="metric-header">
+                    <h3 class="metric-title">Power Consumption</h3>
+                    <span class="metric-status normal">Normal</span>
+                </div>
+                <div class="metric-value">
+                    <span class="value">--</span><span class="metric-unit">W</span>
+                </div>
+                <div class="metric-trend">
+                    <span class="trend-indicator stable">→</span>
+                    <span class="trend-text">Stable</span>
+                </div>
+                <div class="metric-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">10min Avg</div>
+                        <div class="stat-value stat-avg">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Max</div>
+                        <div class="stat-value stat-max">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Min</div>
+                        <div class="stat-value stat-min">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card" data-metric="power_efficiency">
+                <div class="metric-header">
+                    <h3 class="metric-title">Power Efficiency</h3>
+                    <span class="metric-status normal">Normal</span>
+                </div>
+                <div class="metric-value">
+                    <span class="value">--</span><span class="metric-unit">%</span>
+                </div>
+                <div class="metric-trend">
+                    <span class="trend-indicator stable">→</span>
+                    <span class="trend-text">Stable</span>
+                </div>
+                <div class="metric-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">10min Avg</div>
+                        <div class="stat-value stat-avg">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Max</div>
+                        <div class="stat-value stat-max">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Min</div>
+                        <div class="stat-value stat-min">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Health Metrics -->
+            <div class="metric-card" data-metric="memory_health">
+                <div class="metric-header">
+                    <h3 class="metric-title">Memory Health</h3>
+                    <span class="metric-status normal">Normal</span>
+                </div>
+                <div class="metric-value">
+                    <span class="value">--</span><span class="metric-unit">%</span>
+                </div>
+                <div class="metric-trend">
+                    <span class="trend-indicator stable">→</span>
+                    <span class="trend-text">Stable</span>
+                </div>
+                <div class="metric-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">10min Avg</div>
+                        <div class="stat-value stat-avg">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Max</div>
+                        <div class="stat-value stat-max">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Min</div>
+                        <div class="stat-value stat-min">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card" data-metric="storage_health">
+                <div class="metric-header">
+                    <h3 class="metric-title">Storage Health</h3>
+                    <span class="metric-status normal">Normal</span>
+                </div>
+                <div class="metric-value">
+                    <span class="value">--</span><span class="metric-unit">%</span>
+                </div>
+                <div class="metric-trend">
+                    <span class="trend-indicator stable">→</span>
+                    <span class="trend-text">Stable</span>
+                </div>
+                <div class="metric-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">10min Avg</div>
+                        <div class="stat-value stat-avg">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Max</div>
+                        <div class="stat-value stat-max">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Min</div>
+                        <div class="stat-value stat-min">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metric-card" data-metric="overall_health">
+                <div class="metric-header">
+                    <h3 class="metric-title">Overall Health</h3>
+                    <span class="metric-status normal">Normal</span>
+                </div>
+                <div class="metric-value">
+                    <span class="value">--</span><span class="metric-unit">%</span>
+                </div>
+                <div class="metric-trend">
+                    <span class="trend-indicator stable">→</span>
+                    <span class="trend-text">Stable</span>
+                </div>
+                <div class="metric-stats">
+                    <div class="stat-item">
+                        <div class="stat-label">10min Avg</div>
+                        <div class="stat-value stat-avg">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Max</div>
+                        <div class="stat-value stat-max">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">10min Min</div>
+                        <div class="stat-value stat-min">--</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section">
+            <div class="chart-container" data-chart="temperature">
+                <div class="chart-header">
+                    <h3 class="chart-title">Temperature Trends</h3>
+                    <div class="chart-controls">
+                        <button class="chart-button active" data-action="refresh" data-chart="temperature">Refresh</button>
+                        <button class="chart-button" data-action="export" data-chart="temperature">Export</button>
+                        <button class="chart-button" data-action="fullscreen" data-chart="temperature">Fullscreen</button>
+                    </div>
+                </div>
+                <canvas id="temperature-chart" class="chart-canvas"></canvas>
+            </div>
+
+            <div class="chart-container" data-chart="power">
+                <div class="chart-header">
+                    <h3 class="chart-title">Power Metrics</h3>
+                    <div class="chart-controls">
+                        <button class="chart-button active" data-action="refresh" data-chart="power">Refresh</button>
+                        <button class="chart-button" data-action="export" data-chart="power">Export</button>
+                        <button class="chart-button" data-action="fullscreen" data-chart="power">Fullscreen</button>
+                    </div>
+                </div>
+                <canvas id="power-chart" class="chart-canvas"></canvas>
+            </div>
+
+            <div class="chart-container" data-chart="health">
+                <div class="chart-header">
+                    <h3 class="chart-title">Health Score</h3>
+                    <div class="chart-controls">
+                        <button class="chart-button active" data-action="refresh" data-chart="health">Refresh</button>
+                        <button class="chart-button" data-action="export" data-chart="health">Export</button>
+                        <button class="chart-button" data-action="fullscreen" data-chart="health">Fullscreen</button>
+                    </div>
+                </div>
+                <canvas id="health-chart" class="chart-canvas"></canvas>
+            </div>
+        </section>
+
+        <!-- Alerts Panel -->
+        <section class="alerts-panel">
+            <div class="alerts-header">
+                <h3 class="alerts-title">
+                    Alerts & Notifications
+                    <span class="alerts-count" id="alerts-count">0</span>
+                </h3>
+                <div class="alerts-controls">
+                    <button id="clear-alerts" class="btn btn-outline">Clear Alerts</button>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="auto-refresh" checked>
+                        Auto-refresh
+                    </label>
+                </div>
+            </div>
+            <div class="alerts-list" id="alerts-list">
+                <!-- Alerts will be dynamically added here -->
+                <div class="no-alerts">No active alerts</div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/realtime.js"></script>
+    <script>
+        async function connectAndMonitor() {
+            const host = document.getElementById('monitorHost').value;
+            const user = document.getElementById('monitorUser').value;
+            const pass = document.getElementById('monitorPass').value;
+            const port = parseInt(document.getElementById('monitorPort').value) || 443;
+            const btn = document.getElementById('monitorConnectBtn');
+            
+            if (!host || !user || !pass) { alert('Please fill in all fields'); return; }
+            
+            btn.disabled = true;
+            btn.textContent = 'Connecting...';
+            
+            try {
+                const res = await fetch('/connect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ host, username: user, password: pass, port })
+                });
+                const data = await res.json();
+                
+                if (data.status === 'success') {
+                    btn.textContent = 'Connected';
+                    btn.style.background = '#22c55e';
+                    // Start monitoring via WebSocket
+                    if (typeof connectWebSocket === 'function') connectWebSocket();
+                    else if (typeof window.realtimeMonitor !== 'undefined' && typeof window.realtimeMonitor.connect === 'function') window.realtimeMonitor.connect();
+                } else {
+                    btn.textContent = 'Failed - Retry';
+                    btn.style.background = '#ef4444';
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                console.error('Connection error:', err);
+                btn.textContent = 'Error - Retry';
+                btn.style.background = '#ef4444';
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  dell-ai-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dell-ai-agent
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - SECURITY_LEVEL=medium
+      - REQUIRE_HTTPS=false
+      - VERIFY_SSL=false
+      - LOG_LEVEL=INFO
+      - ENABLE_AI_RECOMMENDATIONS=true
+      - CONFIDENCE_THRESHOLD=0.7
+      - DEBUG=false
+      - DEVELOPMENT_MODE=false
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./backups:/app/backups
+    networks:
+      - dell-ai-agent-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    container_name: dell-ai-agent-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - dell-ai-agent-network
+    command: redis-server --appendonly yes --appendfilename "appendonly.aof"
+
+  postgres:
+    image: postgres:13-alpine
+    container_name: dell-ai-agent-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dell_ai_agent
+      POSTGRES_USER: agent_user
+      POSTGRES_PASSWORD: secure_password_change_in_production
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - dell-ai-agent-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent_user -d dell_ai_agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    image: nginx:alpine
+    container_name: dell-ai-agent-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - dell-ai-agent
+    networks:
+      - dell-ai-agent-network
+
+volumes:
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local
+
+networks:
+  dell-ai-agent-network:
+    driver: bridge

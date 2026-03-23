@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript Loading Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .pass { background: #d4edda; }
+        .fail { background: #f8d7da; }
+        button { padding: 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>JavaScript Loading Test</h1>
+    
+    <div id="results"></div>
+    
+    <button onclick="testConnection()">Test Connection</button>
+    
+    <script>
+        function addResult(test, passed, message) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test ${passed ? 'pass' : 'fail'}`;
+            div.innerHTML = `<strong>${test}:</strong> ${message}`;
+            results.appendChild(div);
+        }
+        
+        // Test if app.js loads
+        fetch('/static/js/app.js')
+            .then(response => response.text())
+            .then(jsContent => {
+                if (jsContent.includes('connectToServer')) {
+                    addResult('JavaScript Loading', true, 'app.js loaded successfully');
+                } else {
+                    addResult('JavaScript Loading', false, 'app.js missing connectToServer function');
+                }
+                
+                // Load the script
+                const script = document.createElement('script');
+                script.src = '/static/js/app.js';
+                script.onload = function() {
+                    addResult('Script Execution', true, 'app.js executed successfully');
+                    
+                    // Test if app object exists
+                    setTimeout(() => {
+                        if (typeof app !== 'undefined') {
+                            addResult('App Object', true, 'app object exists');
+                            
+                            if (typeof app.connectToServer === 'function') {
+                                addResult('Connect Function', true, 'connectToServer function exists');
+                            } else {
+                                addResult('Connect Function', false, 'connectToServer function missing');
+                            }
+                        } else {
+                            addResult('App Object', false, 'app object does not exist');
+                        }
+                    }, 1000);
+                };
+                script.onerror = function() {
+                    addResult('Script Execution', false, 'app.js failed to execute');
+                };
+                document.head.appendChild(script);
+            })
+            .catch(error => {
+                addResult('JavaScript Loading', false, `Failed to load app.js: ${error.message}`);
+            });
+        
+        async function testConnection() {
+            try {
+                const connectionData = {
+                    host: '100.71.148.195',
+                    username: 'root',
+                    password: 'calvin',
+                    port: 443
+                };
+                
+                const response = await fetch('/connect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(connectionData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    addResult('Connection Test', true, 'Connection successful');
+                } else {
+                    addResult('Connection Test', false, `Connection failed: ${result.detail}`);
+                }
+                
+            } catch (error) {
+                addResult('Connection Test', false, `Connection error: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>

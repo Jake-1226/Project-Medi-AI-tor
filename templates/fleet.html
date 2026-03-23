@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fleet Management - Medi-AI-tor</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/fleet.css">
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="fleet-dashboard">
+        <!-- Header -->
+        <header class="fleet-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="fleet-title">🖥️ Fleet Management</h1>
+                    <div class="fleet-stats">
+                        <div class="stat-item">
+                            <span class="stat-value" id="totalServers">0</span>
+                            <span class="stat-label">Total Servers</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="onlineServers">0</span>
+                            <span class="stat-label">Online</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="avgHealth">--</span>
+                            <span class="stat-label">Avg Health</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="totalAlerts">0</span>
+                            <span class="stat-label">Alerts</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <a href="/technician" class="btn btn-outline" title="Technician Dashboard">🔧 Dashboard</a>
+                    <a href="/" class="btn btn-outline" title="Customer Chat">💬 Chat</a>
+                    <button class="btn btn-primary" id="connectAllBtn">Connect All</button>
+                    <button class="btn btn-secondary" id="disconnectAllBtn">Disconnect All</button>
+                    <button class="btn btn-outline" id="refreshFleetBtn">🔄 Refresh</button>
+                    <button class="btn btn-success" id="addServerBtn">➕ Add Server</button>
+                    <button class="btn btn-outline" id="fleetThemeToggle" title="Toggle dark/light theme">🌙</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <div class="fleet-tabs">
+            <button class="tab-btn active" data-tab="overview">Overview</button>
+            <button class="tab-btn" data-tab="servers">Servers</button>
+            <button class="tab-btn" data-tab="groups">Groups</button>
+            <button class="tab-btn" data-tab="alerts">Alerts</button>
+            <button class="tab-btn" data-tab="analytics">Analytics</button>
+        </div>
+
+        <!-- Main Content -->
+        <main class="fleet-main">
+            <!-- Overview Tab -->
+            <div class="tab-content active" id="overviewTab">
+                <div class="overview-grid">
+                    <!-- Fleet Health Overview -->
+                    <div class="overview-card">
+                        <h3>Fleet Health</h3>
+                        <div class="health-summary">
+                            <div class="health-chart">
+                                <div class="health-circle" id="fleetHealthCircle">
+                                    <div class="health-value" id="fleetHealthValue">--</div>
+                                    <div class="health-label">Fleet Health</div>
+                                </div>
+                            </div>
+                            <div class="health-breakdown">
+                                <div class="health-metric">
+                                    <span class="metric-label">Excellent</span>
+                                    <div class="metric-bar">
+                                        <div class="metric-fill excellent" id="excellentBar" style="width: 0%"></div>
+                                    </div>
+                                    <span class="metric-value" id="excellentCount">0</span>
+                                </div>
+                                <div class="health-metric">
+                                    <span class="metric-label">Good</span>
+                                    <div class="metric-bar">
+                                        <div class="metric-fill good" id="goodBar" style="width: 0%"></div>
+                                    </div>
+                                    <span class="metric-value" id="goodCount">0</span>
+                                </div>
+                                <div class="health-metric">
+                                    <span class="metric-label">Warning</span>
+                                    <div class="metric-bar">
+                                        <div class="metric-fill warning" id="warningBar" style="width: 0%"></div>
+                                    </div>
+                                    <span class="metric-value" id="warningCount">0</span>
+                                </div>
+                                <div class="health-metric">
+                                    <span class="metric-label">Critical</span>
+                                    <div class="metric-bar">
+                                        <div class="metric-fill critical" id="criticalBar" style="width: 0%"></div>
+                                    </div>
+                                    <span class="metric-value" id="criticalCount">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Environment Distribution -->
+                    <div class="overview-card">
+                        <h3>Environment Distribution</h3>
+                        <div class="env-chart" id="envChart">
+                            <!-- Environment bars will be added dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Recent Alerts -->
+                    <div class="overview-card">
+                        <h3>Recent Alerts</h3>
+                        <div class="alerts-list" id="recentAlerts">
+                            <div class="no-alerts">No recent alerts</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Server Status Grid -->
+                <div class="servers-grid">
+                    <h2>Server Status</h2>
+                    <div class="server-cards" id="serverCards">
+                        <!-- Server cards will be added dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Servers Tab -->
+            <div class="tab-content" id="serversTab">
+                <div class="overview-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">🚢</div>
+                        <div class="stat-content">
+                            <h3 id="totalServers">0</h3>
+                            <p>Total Servers</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🟢</div>
+                        <div class="stat-content">
+                            <h3 id="onlineServers">0</h3>
+                            <p>Online Servers</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">❤️</div>
+                        <div class="stat-content">
+                            <h3 id="averageHealth">0%</h3>
+                            <p>Average Health</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🚨</div>
+                        <div class="stat-content">
+                            <h3 id="totalAlerts">0</h3>
+                            <p>Total Alerts</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="servers-toolbar">
+                    <div class="toolbar-left">
+                        <input type="text" id="serverSearch" placeholder="Search servers..." class="search-input">
+                        <select id="environmentFilter" class="filter-select">
+                            <option value="">All Environments</option>
+                            <option value="production">Production</option>
+                            <option value="staging">Staging</option>
+                            <option value="development">Development</option>
+                        </select>
+                        <select id="statusFilter" class="filter-select">
+                            <option value="">All Status</option>
+                            <option value="online">Online</option>
+                            <option value="offline">Offline</option>
+                            <option value="error">Error</option>
+                        </select>
+                    </div>
+                    <div class="toolbar-right">
+                        <button class="btn btn-outline" id="exportServersBtn">📊 Export</button>
+                        <button class="btn btn-outline" id="bulkActionsBtn">⚡ Bulk Actions</button>
+                    </div>
+                </div>
+
+                <div class="servers-table-container">
+                    <table class="servers-table" id="serversTable">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAllServers"></th>
+                                <th>Name</th>
+                                <th>Host</th>
+                                <th>Environment</th>
+                                <th>Status</th>
+                                <th>Health</th>
+                                <th>Alerts</th>
+                                <th>Last Seen</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="serversTableBody">
+                            <!-- Server rows will be added dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Groups Tab -->
+            <div class="tab-content" id="groupsTab">
+                <div class="groups-toolbar">
+                    <button class="btn btn-primary" id="createGroupBtn">➕ Create Group</button>
+                    <button class="btn btn-outline" id="manageGroupsBtn">⚙️ Manage Groups</button>
+                </div>
+
+                <div class="groups-grid" id="groupsGrid">
+                    <!-- Group cards will be added dynamically -->
+                </div>
+            </div>
+
+            <!-- Alerts Tab -->
+            <div class="tab-content" id="alertsTab">
+                <div class="alerts-toolbar">
+                    <div class="toolbar-left">
+                        <select id="alertTimeFilter" class="filter-select">
+                            <option value="1">Last Hour</option>
+                            <option value="6">Last 6 Hours</option>
+                            <option value="24" selected>Last 24 Hours</option>
+                            <option value="168">Last Week</option>
+                        </select>
+                        <select id="alertTypeFilter" class="filter-select">
+                            <option value="">All Types</option>
+                            <option value="critical">Critical</option>
+                            <option value="warning">Warning</option>
+                            <option value="info">Info</option>
+                        </select>
+                    </div>
+                    <div class="toolbar-right">
+                        <button class="btn btn-outline" id="exportAlertsBtn">📊 Export</button>
+                        <button class="btn btn-outline" id="clearAlertsBtn">🗑️ Clear Resolved</button>
+                    </div>
+                </div>
+
+                <div class="alerts-container" id="alertsContainer">
+                    <!-- Alert items will be added dynamically -->
+                </div>
+            </div>
+
+            <!-- Analytics Tab -->
+            <div class="tab-content" id="analyticsTab">
+                <div class="analytics-toolbar">
+                    <div class="toolbar-left">
+                        <select id="analyticsTimeRange" class="filter-select">
+                            <option value="24">Last 24 Hours</option>
+                            <option value="168">Last Week</option>
+                            <option value="720">Last Month</option>
+                        </select>
+                        <select id="analyticsMetric" class="filter-select">
+                            <option value="health">Health Scores</option>
+                            <option value="alerts">Alert Trends</option>
+                            <option value="uptime">Uptime</option>
+                            <option value="performance">Performance</option>
+                        </select>
+                    </div>
+                    <div class="toolbar-right">
+                        <button class="btn btn-outline" id="generateReportBtn">📄 Generate Report</button>
+                    </div>
+                </div>
+
+                <div class="analytics-content">
+                    <div class="analytics-charts">
+                        <div class="chart-container">
+                            <h3>Fleet Health Trends</h3>
+                            <canvas id="healthTrendsChart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3>Alert Trends</h3>
+                            <canvas id="alertTrendsChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="analytics-summary">
+                        <h3>Performance Summary</h3>
+                        <div class="summary-grid" id="analyticsSummary">
+                            <!-- Summary items will be added dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Server Modal -->
+    <div class="modal" id="addServerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Server</h2>
+                <button class="modal-close" id="closeAddServerModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="addServerForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="serverName">Server Name *</label>
+                            <input type="text" id="serverName" required placeholder="Production Server 1">
+                        </div>
+                        <div class="form-group">
+                            <label for="serverHost">Host/IP *</label>
+                            <input type="text" id="serverHost" required placeholder="192.168.1.100">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="serverUsername">Username *</label>
+                            <input type="text" id="serverUsername" required placeholder="root">
+                        </div>
+                        <div class="form-group">
+                            <label for="serverPassword">Password *</label>
+                            <input type="password" id="serverPassword" required placeholder="•••••••••">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="serverPort">Port</label>
+                            <input type="number" id="serverPort" value="443" min="1" max="65535">
+                        </div>
+                        <div class="form-group">
+                            <label for="serverEnvironment">Environment</label>
+                            <select id="serverEnvironment">
+                                <option value="">Select Environment</option>
+                                <option value="production">Production</option>
+                                <option value="staging">Staging</option>
+                                <option value="development">Development</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="serverLocation">Location</label>
+                            <input type="text" id="serverLocation" placeholder="Data Center A">
+                        </div>
+                        <div class="form-group">
+                            <label for="serverTags">Tags (comma-separated)</label>
+                            <input type="text" id="serverTags" placeholder="critical,web,primary">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label for="serverNotes">Notes</label>
+                            <textarea id="serverNotes" rows="3" placeholder="Additional notes about this server..."></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelAddServer">Cancel</button>
+                <button class="btn btn-primary" id="saveAddServer">Add Server</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Server Details Modal -->
+    <div class="modal" id="serverDetailModal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2 id="serverDetailTitle">Server Details</h2>
+                <button class="modal-close" onclick="document.getElementById('serverDetailModal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body" id="serverDetailBody">
+                <!-- Populated dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="document.getElementById('serverDetailModal').classList.remove('active')">Close</button>
+                <button class="btn btn-primary" id="serverDetailConnect">Connect</button>
+                <button class="btn btn-danger" id="serverDetailDelete">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Group Modal -->
+    <div class="modal" id="createGroupModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create Server Group</h2>
+                <button class="modal-close" onclick="document.getElementById('createGroupModal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="createGroupForm">
+                    <div class="form-group">
+                        <label for="groupName">Group Name *</label>
+                        <input type="text" id="groupName" required placeholder="e.g., Web Servers">
+                    </div>
+                    <div class="form-group">
+                        <label for="groupDescription">Description</label>
+                        <textarea id="groupDescription" rows="2" placeholder="Description of this group..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Select Servers</label>
+                        <div class="server-checklist" id="groupServerChecklist">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="document.getElementById('createGroupModal').classList.remove('active')">Cancel</button>
+                <button class="btn btn-primary" id="saveGroupBtn">Create Group</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Actions Modal -->
+    <div class="modal" id="bulkActionsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Bulk Actions</h2>
+                <button class="modal-close" onclick="document.getElementById('bulkActionsModal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body">
+                <p id="bulkActionCount">0 servers selected</p>
+                <div class="bulk-actions-grid">
+                    <button class="btn btn-primary bulk-action-btn" onclick="fleetManager.bulkConnect()">Connect Selected</button>
+                    <button class="btn btn-secondary bulk-action-btn" onclick="fleetManager.bulkDisconnect()">Disconnect Selected</button>
+                    <button class="btn btn-info bulk-action-btn" onclick="fleetManager.bulkHealthCheck()">Health Check</button>
+                    <button class="btn btn-danger bulk-action-btn" onclick="fleetManager.bulkDelete()">Delete Selected</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Modal -->
+    <div class="modal" id="reportModal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>Fleet Report</h2>
+                <button class="modal-close" onclick="document.getElementById('reportModal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body" id="reportBody">
+                <!-- Report content populated dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="document.getElementById('reportModal').classList.remove('active')">Close</button>
+                <button class="btn btn-primary" onclick="fleetManager.downloadReport()">Download PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading...</div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="/static/js/fleet.js"></script>
+    <script>
+        // Dark theme toggle for fleet page
+        document.getElementById('fleetThemeToggle')?.addEventListener('click', () => {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            document.getElementById('fleetThemeToggle').textContent = next === 'dark' ? '☀️' : '🌙';
+            localStorage.setItem('fleet-theme', next);
+        });
+        // Load saved theme
+        const savedTheme = localStorage.getItem('fleet-theme');
+        if (savedTheme) {
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const btn = document.getElementById('fleetThemeToggle');
+            if (btn) btn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,354 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dell-ai-agent
+  labels:
+    app: dell-ai-agent
+    version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dell-ai-agent
+  template:
+    metadata:
+      labels:
+        app: dell-ai-agent
+    spec:
+      containers:
+      - name: dell-ai-agent
+        image: dell-ai-agent:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: SECURITY_LEVEL
+          value: "medium"
+        - name: REQUIRE_HTTPS
+          value: "false"
+        - name: VERIFY_SSL
+          value: "false"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: ENABLE_AI_RECOMMENDATIONS
+          value: "true"
+        - name: CONFIDENCE_THRESHOLD
+          value: "0.7"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        - name: logs-volume
+          mountPath: /app/logs
+        - name: data-volume
+          mountPath: /app/data
+      imagePullPolicy: Always
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dell-ai-agent-service
+  labels:
+    app: dell-ai-agent
+    version: "1.0.0"
+spec:
+  selector:
+    matchLabels:
+      app: dell-ai-agent
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
+  sessionAffinity: None
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dell-ai-agent-config
+  labels:
+    app: dell-ai-agent
+data:
+  SECURITY_LEVEL: "medium"
+  REQUIRE_HTTPS: "false"
+  VERIFY_SSL: "false"
+  LOG_LEVEL: "INFO"
+  ENABLE_AI_RECOMMENDATIONS: "true"
+  CONFIDENCE_THRESHOLD: "0.7"
+  DEBUG: "false"
+  DEVELOPMENT_MODE: "false"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dell-ai-agent-secrets
+  labels:
+    app: dell-ai-agent
+type: Opaque
+data:
+  SECRET_KEY: "your-secret-key-here-change-in-production"
+  JWT_EXPIRY_HOURS: "24"
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: config-pvc
+  labels:
+    app: dell-ai-agent
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: fast-ssd
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: logs-pvc
+  labels:
+    app: dell-ai-agent
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: fast-ssd
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-pvc
+  labels:
+    app: dell-ai-agent
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: fast-ssd
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dell-ai-agent-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - your-domain.com
+    secretName: dell-ai-agent-tls
+  rules:
+  - host: your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dell-ai-agent-service
+            port:
+              number: 8000
+  tls:
+  - hosts:
+    - your-domain.com
+    secretName: dell-ai-agent-tls
+    hosts:
+    - your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dell-ai-agent-service
+            port:
+              number: 8000
+
+---
+apiVersion: apps/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: dell-ai-agent-hpa
+  labels:
+    app: dell-ai-agent
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: dell-ai-agent
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+    - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dell-ai-agent-pdb
+  labels:
+    app: dell-ai-agent
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: dell-ai-agent
+
+---
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: dell-ai-agent
+  labels:
+    app: dell-ai-agent
+spec:
+  selector:
+    matchLabels:
+      app: dell-ai-agent
+  endpoints:
+  - port: http
+    path: /api/health
+    interval: 30s
+    timeout: 10s
+  - port: http
+    path: /api/metrics
+    interval: 60s
+    timeout: 15s
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dell-ai-agent-test
+  labels:
+    app: dell-ai-agent
+    test: "true"
+spec:
+  containers:
+  - name: dell-ai-agent
+    image: dell-ai-agent:latest
+    command: ["python", "-c", "python main.py & sleep 3600"]
+    env:
+    - name: TESTING_MODE
+      value: "true"
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "250m"
+    volumeMounts:
+    - name: config-volume
+      mountPath: /app/config
+    - name: logs-volume
+      mountPath: /app/logs
+    - name: data-volume
+      mountPath: /app/data
+  restartPolicy: OnFailure
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dell-ai-agent-health-check
+  labels:
+    app: dell-ai-agent
+spec:
+  template:
+    metadata:
+      labels:
+        app: dell-ai-agent
+        job: health-check
+    spec:
+      template:
+        spec:
+          containers:
+          - name: health-check
+            image: curlimages/curl
+            command:
+            - /bin/sh
+            - -c
+            - |
+              curl -f http://dell-ai-agent-service:8000/api/health || exit 1
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "50m"
+              limits:
+                  memory: "128Mi"
+                  cpu: "100m"
+          restartPolicy: OnFailure
+      restartPolicy: OnFailure
+  backoffLimit: 4
+  activeDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+
+---
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: dell-ai-agent-metrics
+  labels:
+    app: dell-ai-agent
+spec:
+  selector:
+    matchLabels:
+      app: dell-ai-agent
+  endpoints:
+  - port: http
+    path: /api/metrics
+    interval: 30s
+    timeout: 10s
+    path: /api/health
+    interval: 10s
+    timeout: 5s

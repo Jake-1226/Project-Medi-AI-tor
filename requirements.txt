@@ -1,17 +1,31 @@
+# --- Web framework & ASGI ---
 fastapi==0.104.1
-uvicorn==0.24.0
+uvicorn[standard]==0.24.0
+
+# --- Data validation ---
 pydantic==2.5.0
+
+# --- HTTP/Async ---
 requests==2.31.0
 aiohttp==3.9.1
-python-redfish==0.8.0
-paramiko==3.3.1
 websockets==12.0
+
+# --- Redfish client (official DMTF) ---
+redfish==3.2.1
+
+# --- SSH / crypto ---
+paramiko==3.3.1
+cryptography==41.0.7
+
+# --- Forms / Templating / Env ---
 python-multipart==0.0.6
 jinja2==3.1.2
 python-dotenv==1.0.0
-cryptography==41.0.7
 pyyaml==6.0.1
-asyncio==3.4.3
-logging==0.4.9.6
+
+# --- Numerical / ML ---
+numpy>=1.24.0
+
+# --- Validation / Utils ---
 jsonschema==4.20.0
 psutil==5.9.6
