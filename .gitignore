@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+agent.log
+
+# Credentials (never commit)
+.env
+
+# Test/debug files (development artifacts)
+test_*.py
+debug_*.py
+check_*.py
+final_*.py
+*_test.py
+*_debug.py
+connection_*.py
+comprehensive_test.py
+functionality_expansion_test.py
+interface_functionality_test.py
+quality_of_life_test.py
+show_fleet_status.py
+error_diagnosis_tool.py
+add_test_servers.py
+real_server_connection_test.py
+js_validation_test.py
+ui_button_test.py
+wait_for_health.py
+technician_dashboard_debug.py
+browser_endpoint_test.py
+browser_connection_test.html
+js_debug_test.html
+static/browser_debug_tool.html
+static/comprehensive_debug_test.html
+static/simple_browser_test.html
+static/test_js_loading.html
+
+# Debug documentation
+debugging_guide.md
+STEP_BY_STEP_DEBUG.md
+TECHNICIAN_DASHBOARD_FIXED.md
+CONNECTION_STATUS.md

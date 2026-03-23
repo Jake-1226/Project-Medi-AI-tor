@@ -1432,7 +1432,9 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
 
         # Error / log queries (targeted log check, not full investigation)
         if any(w in msg for w in ["error", "any error", "system error", "errors in", "check error",
-                                   "any issue", "any problem", "what's wrong", "anything wrong"]):
+                                   "any issue", "any problem", "what's wrong", "anything wrong",
+                                   "check log", "system log", "show log", "event log", "sel log",
+                                   "check sel", "show sel", "log entries"]):
             return "dig_deeper"
 
         # If it looks like a problem description or explicit investigate request
