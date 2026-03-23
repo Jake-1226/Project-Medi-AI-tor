@@ -153,8 +153,17 @@ body.tech-body {
     font-weight: 600;
 }
 .sidebar-icon { font-size: 1.05rem; width: 22px; text-align: center; }
-.sidebar-action { font-size: 0.82rem; color: var(--text-muted); }
-.sidebar-action:hover { color: var(--warning-yellow); }
+
+/* External links get a subtle arrow badge */
+.sidebar-external { position: relative; }
+.sidebar-ext-badge {
+    margin-left: auto;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.sidebar-external:hover .sidebar-ext-badge { opacity: 1; }
 
 .sidebar-footer {
     padding: 14px 18px;
@@ -4415,13 +4424,7 @@ table tbody tr:hover { background: rgba(99,102,241,0.05); }
 
 /* ─── Connect banner responsive ─── */
 
-/* ─── Sidebar link active state ─── */
-.sidebar-link.active {
-    background: rgba(99, 102, 241, 0.12);
-    color: var(--accent);
-    border-left-color: var(--accent);
-    font-weight: 600;
-}
+/* (duplicate sidebar-link.active removed — defined at line 149) */
 
 /* ─── Activity log compact ─── */
 .activity-log-section {
