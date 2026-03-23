@@ -78,50 +78,78 @@
              OVERVIEW TAB
              ══════════════════════════════════════════════════════════ -->
         <div id="overviewContent" class="tab-content active">
-            <!-- Connection Card (compact) -->
+            <!-- Connection Panel -->
             <div class="connect-banner" id="connectBanner">
-                <div class="connect-banner-left">
-                    <h2>🔗 Connect to Server</h2>
-                    <p>Connect via iDRAC (Redfish) and/or OS (SSH) for maximum functionality</p>
-                </div>
-                <!-- iDRAC Connection -->
-                <div class="connect-section">
-                    <div class="connect-section-header">
-                        <span class="connect-badge idrac">iDRAC</span>
-                        <span class="connect-status-dot" id="idracStatusDot"></span>
+                <div class="connect-banner-header">
+                    <h2>Connect to Server</h2>
+                    <div class="connection-mode-bar" id="connectionModeBar" style="display:none">
+                        <span class="mode-badge" id="connectionModeBadge">Disconnected</span>
+                        <span class="mode-features" id="connectionModeFeatures"></span>
                     </div>
-                    <form id="connectionForm" class="connect-form" role="form" aria-label="iDRAC Connection">
-                        <input type="text" id="serverHost" class="form-input" placeholder="iDRAC IP or Hostname" required aria-label="iDRAC Host or IP">
-                        <input type="text" id="username" class="form-input" placeholder="Username" required aria-label="iDRAC Username">
-                        <input type="password" id="password" class="form-input" placeholder="Password" required aria-label="iDRAC Password">
-                        <input type="number" id="port" class="form-input" placeholder="443" value="443" style="width:70px" aria-label="iDRAC Port">
-                        <button type="button" id="connectBtn" class="btn btn-primary" aria-label="Connect to iDRAC">Connect iDRAC</button>
-                        <button type="button" id="checkIdracBtn" class="btn btn-info" aria-label="Check iDRAC">📡</button>
-                        <button type="button" id="disconnectBtn" class="btn btn-secondary" disabled aria-label="Disconnect iDRAC">Disconnect</button>
-                    </form>
-                    <div id="idracCheckResult" style="display:none;margin-top:8px;grid-column:1/-1"></div>
                 </div>
-                <!-- OS Connection -->
-                <div class="connect-section">
-                    <div class="connect-section-header">
-                        <span class="connect-badge os">OS (SSH)</span>
-                        <span class="connect-status-dot" id="osStatusDot"></span>
+
+                <div class="connect-panels">
+                    <!-- iDRAC (Primary) -->
+                    <div class="connect-panel connect-panel-primary" id="idracPanel">
+                        <div class="connect-panel-header">
+                            <span class="connect-badge idrac">iDRAC / Redfish</span>
+                            <span class="connect-status-dot" id="idracStatusDot"></span>
+                        </div>
+                        <form id="connectionForm" class="connect-panel-form" role="form" aria-label="iDRAC Connection">
+                            <div class="connect-field">
+                                <label for="serverHost">iDRAC Address</label>
+                                <input type="text" id="serverHost" class="form-input" placeholder="IP or hostname" required aria-label="iDRAC Host or IP">
+                            </div>
+                            <div class="connect-field-row">
+                                <div class="connect-field">
+                                    <label for="username">Username</label>
+                                    <input type="text" id="username" class="form-input" placeholder="Username" required aria-label="iDRAC Username">
+                                </div>
+                                <div class="connect-field">
+                                    <label for="password">Password</label>
+                                    <input type="password" id="password" class="form-input" placeholder="Password" required aria-label="iDRAC Password">
+                                </div>
+                            </div>
+                            <input type="hidden" id="port" value="443">
+                            <div class="connect-actions">
+                                <button type="button" id="connectBtn" class="btn btn-primary" aria-label="Connect to iDRAC">Connect iDRAC</button>
+                                <button type="button" id="checkIdracBtn" class="btn btn-outline btn-sm" aria-label="Check iDRAC" title="Test iDRAC reachability">Check</button>
+                                <button type="button" id="disconnectBtn" class="btn btn-secondary btn-sm" disabled aria-label="Disconnect iDRAC">Disconnect</button>
+                            </div>
+                        </form>
+                        <div id="idracCheckResult" class="connect-result" style="display:none"></div>
                     </div>
-                    <form id="osConnectionForm" class="connect-form" role="form" aria-label="OS SSH Connection">
-                        <input type="text" id="osHost" class="form-input" placeholder="OS IP (or same as iDRAC host)" aria-label="OS Host or IP">
-                        <input type="text" id="osUsername" class="form-input" placeholder="OS Username (e.g. root)" aria-label="OS Username">
-                        <input type="password" id="osPassword" class="form-input" placeholder="OS Password" aria-label="OS Password">
-                        <input type="number" id="osPort" class="form-input" placeholder="22" value="22" style="width:70px" aria-label="SSH Port">
-                        <button type="button" id="osConnectBtn" class="btn btn-primary" aria-label="Connect to OS via SSH">Connect OS</button>
-                        <button type="button" id="osDisconnectBtn" class="btn btn-secondary" disabled aria-label="Disconnect SSH">Disconnect</button>
-                    </form>
-                    <div id="osConnectResult" style="display:none;margin-top:8px;grid-column:1/-1"></div>
-                </div>
-                <!-- Connection Mode Indicator -->
-                <div class="connection-mode-bar" id="connectionModeBar" style="display:none">
-                    <span class="mode-label">Mode:</span>
-                    <span class="mode-badge" id="connectionModeBadge">Disconnected</span>
-                    <span class="mode-features" id="connectionModeFeatures"></span>
+
+                    <!-- OS SSH (Secondary) -->
+                    <div class="connect-panel connect-panel-secondary" id="osPanel">
+                        <div class="connect-panel-header">
+                            <span class="connect-badge os">OS / SSH</span>
+                            <span class="connect-status-dot" id="osStatusDot"></span>
+                            <span class="connect-optional">Optional</span>
+                        </div>
+                        <form id="osConnectionForm" class="connect-panel-form" role="form" aria-label="OS SSH Connection">
+                            <div class="connect-field">
+                                <label for="osHost">OS Address</label>
+                                <input type="text" id="osHost" class="form-input" placeholder="IP (often same as iDRAC)" aria-label="OS Host or IP">
+                            </div>
+                            <div class="connect-field-row">
+                                <div class="connect-field">
+                                    <label for="osUsername">Username</label>
+                                    <input type="text" id="osUsername" class="form-input" placeholder="Username" aria-label="OS Username">
+                                </div>
+                                <div class="connect-field">
+                                    <label for="osPassword">Password</label>
+                                    <input type="password" id="osPassword" class="form-input" placeholder="Password" aria-label="OS Password">
+                                </div>
+                            </div>
+                            <input type="hidden" id="osPort" value="22">
+                            <div class="connect-actions">
+                                <button type="button" id="osConnectBtn" class="btn btn-primary btn-sm" aria-label="Connect to OS via SSH">Connect OS</button>
+                                <button type="button" id="osDisconnectBtn" class="btn btn-secondary btn-sm" disabled aria-label="Disconnect SSH">Disconnect</button>
+                            </div>
+                        </form>
+                        <div id="osConnectResult" class="connect-result" style="display:none"></div>
+                    </div>
                 </div>
             </div>
 

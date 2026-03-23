@@ -244,26 +244,114 @@ body.tech-body {
 }
 
 /* ═══════════════════════════════════════
-   CONNECTION BANNER
+   CONNECTION BANNER (Redesigned)
    ═══════════════════════════════════════ */
 .connect-banner {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 20px 24px;
-    margin: 20px;
+    margin: 16px 20px;
 }
-.connect-banner-left h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; }
-.connect-banner-left p { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px; }
-.connect-form {
+.connect-banner-header {
     display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
     align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
 }
-.connect-form .form-input {
-    flex: 1;
-    min-width: 120px;
+.connect-banner-header h2 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+/* Two-panel side-by-side layout */
+.connect-panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.connect-panel {
+    padding: 16px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.015);
+    transition: border-color 0.2s;
+}
+.connect-panel:hover { border-color: rgba(99,102,241,0.3); }
+.connect-panel-primary { border-left: 3px solid #818cf8; }
+.connect-panel-secondary { border-left: 3px solid #4ade80; opacity: 0.85; }
+.connect-panel-secondary:hover { opacity: 1; }
+
+.connect-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.connect-optional {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-left: auto;
+}
+
+/* Form layout: stacked fields with labeled inputs */
+.connect-panel-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.connect-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.connect-field label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.connect-field .form-input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Two fields side by side (username + password) */
+.connect-field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+/* Action buttons row */
+.connect-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+.connect-actions .btn { font-size: 0.82rem; }
+.connect-actions .btn-primary { flex: 1; }
+
+/* Result display area */
+.connect-result {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    background: rgba(99,102,241,0.06);
+    border-left: 3px solid var(--accent);
+}
+
+/* Responsive: stack panels vertically on narrow screens */
+@media (max-width: 900px) {
+    .connect-panels { grid-template-columns: 1fr; }
+    .connect-field-row { grid-template-columns: 1fr; }
 }
 
 /* ═══════════════════════════════════════
@@ -3735,9 +3823,6 @@ table tbody tr:hover { background: rgba(99,102,241,0.05); }
 .ops-result-err { border-left: 4px solid var(--danger-red); }
 .ops-result-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; color: var(--text-primary); }
 
-/* Fix connection banner */
-.connect-banner { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; }
-
 /* Fix form inputs consistently */
 .form-input, .form-select, .form-textarea {
     border-radius: 8px;
@@ -4332,14 +4417,7 @@ table tbody tr:hover { background: rgba(99,102,241,0.05); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* ─── Connect banner polish ─── */
-.connect-banner {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 16px 20px;
-    margin: 16px;
-}
+/* ─── Connect banner responsive ─── */
 
 /* ─── Sidebar link active state ─── */
 .sidebar-link.active {
