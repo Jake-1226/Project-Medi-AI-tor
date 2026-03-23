@@ -95,6 +95,27 @@ class CustomerChat {
         // Load saved connection
         this.loadSaved();
         this.setInputEnabled(false);
+        
+        // Check if server is already connected (e.g. from technician dashboard session)
+        this._checkExistingConnection();
+    }
+
+    async _checkExistingConnection() {
+        try {
+            const r = await fetch('/api/server/quick-status');
+            const data = await r.json();
+            const d = data.data || data;
+            if (d.connected === true && d.model) {
+                // Server is already connected from another page/session
+                this.connected = true;
+                this.serverInfo = { host: d.host || 'Server' };
+                this.setInputEnabled(true);
+                this.updateConnectionUI(true, d.host || d.model);
+                this.addMsg('agent', `Already connected to **${this._escapeHtml(d.model)}** (${this._escapeHtml(d.service_tag || '')}).  Ask me anything or try the suggestions below.`);
+            }
+        } catch (e) {
+            // Not connected or server not reachable — stay in disconnected state
+        }
     }
 
     // ─── Input State Management ─────────────────────────────

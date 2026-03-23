@@ -123,6 +123,22 @@ class RealtimeMonitor {
 
     async _fetchInitialMetrics() {
         try {
+            // Check if server is already connected
+            const statusR = await fetch('/api/server/quick-status');
+            const statusData = await statusR.json();
+            const sd = statusData.data || statusData;
+            
+            if (sd.connected === true) {
+                // Server is already connected — update connection bar
+                const hostInput = document.getElementById('monitorHost');
+                const bar = document.getElementById('connectionBar');
+                if (hostInput && sd.host) hostInput.value = sd.host;
+                if (bar) bar.style.display = 'none'; // Hide connection form
+                this.updateConnectionStatus(true);
+                this.showNotification(`Connected to ${sd.model || sd.host || 'server'}`, 'success');
+            }
+            
+            // Check if monitoring is already running
             const r = await fetch('/monitoring/metrics', { headers: this._headers(false) });
             if (r.ok) {
                 const d = await r.json();
@@ -130,8 +146,16 @@ class RealtimeMonitor {
                 this.isMonitoring = d.data?.monitoring_active || false;
                 if (Object.keys(m).length && Object.values(m).some(v => v.current_value > 0)) {
                     this.updateMetrics(m);
-                    this.showNotification('Loaded current metrics', 'success');
+                    this.showNotification('Live metrics loaded', 'success');
                     this._startPolling();
+                    this._startChartUpdates();
+                } else if (sd.connected === true && !this.isMonitoring) {
+                    // Connected but monitoring not started — start it
+                    try {
+                        await fetch('/monitoring/start', { method: 'POST', headers: this._headers() });
+                        this.showNotification('Monitoring auto-started', 'success');
+                        this._startPolling();
+                    } catch (e) { /* silent */ }
                 }
             }
         } catch (e) { /* silent on startup */ }
