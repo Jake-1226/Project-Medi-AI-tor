@@ -160,6 +160,9 @@ class RealtimeMonitor {
         const card = document.querySelector(`[data-metric="${metricName}"]`);
         if (!card) return;
 
+        // Set status on card element for CSS border coloring
+        card.setAttribute('data-status', m.current_status || 'normal');
+
         const valEl = card.querySelector('.metric-value .value');
         if (valEl) valEl.textContent = m.current_value != null ? m.current_value.toFixed(1) : '--';
 
