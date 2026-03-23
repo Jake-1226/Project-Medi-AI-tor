@@ -1764,11 +1764,11 @@ class FleetManager {
             return;
         }
         
-        // Store server info for realtime monitor
-        sessionStorage.setItem('fleetServerMonitor', JSON.stringify({
-            serverId: serverId,
-            name: server.name,
+        // Store server info for realtime monitor (key must match realtime.js)
+        sessionStorage.setItem('activeServerConnection', JSON.stringify({
             host: server.host,
+            username: server.username,
+            port: server.port || 443,
             fromFleet: true
         }));
         

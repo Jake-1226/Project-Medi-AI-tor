@@ -27,6 +27,9 @@ class DellAIAgent {
         this.lastDataRefresh = null;
         this._tabScrollPositions = {};
         
+        // Auth token from login session
+        this._authToken = sessionStorage.getItem('auth_token') || '';
+        
         // Cache frequently accessed DOM elements to reduce getElementById calls
         this._dom = {};
         
@@ -4175,43 +4178,23 @@ class DellAIAgent {
     async connectToFleetServer() {
         if (!this.fleetServerInfo) return;
         
-        try {
-            this.showLoading(true);
-            
-            // Use fleet server credentials to connect
-            const response = await fetch('/connect', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    host: this.fleetServerInfo.host,
-                    username: this.fleetServerInfo.username,
-                    password: this.fleetServerInfo.password,
-                    port: this.fleetServerInfo.port || 443
-                })
-            });
-            
-            if (response.ok) {
-                const result = await response.json();
-                if (result.status === 'success') {
-                    this.isConnected = true;
-                    this.currentServer = this.fleetServerInfo;
-                    this.updateUI();
-                    this.showToast(`Connected to ${this.fleetServerInfo.name} from fleet`, 'success');
-                } else {
-                    throw new Error(result.message || 'Connection failed');
-                }
-            } else {
-                throw new Error('Connection request failed');
-            }
-            
-        } catch (error) {
-            console.error('Fleet server connection error:', error);
-            this.showToast(`Failed to connect to ${this.fleetServerInfo.name}: ${error.message}`, 'error');
-        } finally {
-            this.showLoading(false);
+        // Pre-fill the connection form with fleet server details
+        const hostEl = document.getElementById('serverHost');
+        const userEl = document.getElementById('username');
+        const portEl = document.getElementById('port');
+        if (hostEl) hostEl.value = this.fleetServerInfo.host || '';
+        if (userEl) userEl.value = this.fleetServerInfo.username || '';
+        if (portEl) portEl.value = this.fleetServerInfo.port || 443;
+        
+        // Focus the password field so user can complete the connection
+        const passEl = document.getElementById('password');
+        if (passEl) {
+            passEl.focus();
+            this.showAlert('Enter the password to connect to this server.', 'info', { title: `Connecting to ${this.fleetServerInfo.name}` });
         }
+        
+        // Clean up the sessionStorage handoff
+        sessionStorage.removeItem('fleetServerConnection');
     }
     
     returnToFleet() {
