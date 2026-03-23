@@ -10,6 +10,7 @@ to reach a diagnosis.
 import asyncio
 import logging
 import re
+import time
 from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime, timezone
 
@@ -297,6 +298,7 @@ class AgentBrain:
         plus the full reasoning chain.
         """
         self.memory = WorkingMemory()  # fresh memory for this investigation
+        start_time = time.time()
         logger.info(f"AgentBrain: Starting investigation — \"{issue}\"")
 
         # ── Step 0: Form initial hypotheses ──────────────────
@@ -325,6 +327,10 @@ class AgentBrain:
 
         # ── Step 1-N: ReAct loop ─────────────────────────────
         for step in range(1, self.MAX_STEPS + 1):
+            if time.time() - start_time > 120:  # 2 minute timeout
+                logger.warning("AgentBrain: Investigation timeout (120s)")
+                break
+
             # THINK
             thought = self._think(step)
             self.memory.thought_chain.append(thought)
@@ -1028,6 +1034,8 @@ class AgentBrain:
         - If asking to remediate, propose or execute fixes
         """
         self._chat_history.append({"role": "user", "text": message, "ts": datetime.now(timezone.utc).isoformat()})
+        if len(self._chat_history) > 200:
+            self._chat_history = self._chat_history[-200:]
         msg_lower = message.lower().strip()
 
         # ── Detect intent ──────────────────────────────────────
@@ -1144,6 +1152,8 @@ class AgentBrain:
             }
 
         self._chat_history.append({"role": "agent", "text": response.get("message", ""), "ts": datetime.now(timezone.utc).isoformat()})
+        if len(self._chat_history) > 200:
+            self._chat_history = self._chat_history[-200:]
         response["chat_history"] = self._chat_history[-20:]  # last 20 messages
         return response
 

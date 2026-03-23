@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medi-AI-tor — Technician Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🩺</text></svg>">
+    <style id="theme-styles"></style>
+</head>
+<body class="tech-body" data-theme="dark">
+    <!-- ═══ SIDEBAR ═══ -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <span class="sidebar-logo">🩺</span>
+            <div class="sidebar-brand-text">
+                <span class="sidebar-title">Medi-AI-tor</span>
+                <span class="sidebar-subtitle">Technician Console</span>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="sidebar-section-label">Navigation</div>
+            <a class="sidebar-link" data-tab="overview"><span class="sidebar-icon">📊</span>Overview</a>
+            <a class="sidebar-link" data-tab="system"><span class="sidebar-icon">🖥️</span>System Info</a>
+            <a class="sidebar-link" data-tab="health"><span class="sidebar-icon">❤️</span>Health Status</a>
+            <a class="sidebar-link" href="/fleet" target="_blank"><span class="sidebar-icon">🚢</span>Fleet Management</a>
+            <a class="sidebar-link" href="/monitoring" target="_blank"><span class="sidebar-icon">📈</span>Real-time Monitor</a>
+            <a class="sidebar-link" data-tab="logs"><span class="sidebar-icon">📋</span>System Logs</a>
+            <a class="sidebar-link" data-tab="troubleshooting"><span class="sidebar-icon">🧠</span>AI Investigation</a>
+            <a class="sidebar-link" data-tab="operations"><span class="sidebar-icon">🛠️</span>Operations</a>
+            <a class="sidebar-link" data-tab="advanced"><span class="sidebar-icon">⚙️</span>Advanced</a>
+            <div class="sidebar-section-label" style="margin-top:20px">Server Actions</div>
+            <a class="sidebar-link sidebar-action" id="tsrExportBtn"><span class="sidebar-icon">📦</span>Export TSR</a>
+            <a class="sidebar-link sidebar-action" id="runDiagnosticsBtn"><span class="sidebar-icon">🩺</span>Run ePSA</a>
+            <a class="sidebar-link sidebar-action" id="supportAssistBtn"><span class="sidebar-icon">🛡️</span>SupportAssist</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="/" class="sidebar-customer-link">🧠 Customer Chat View</a>
+            <div class="sidebar-version">v2.0 — Hackathon 2026</div>
+        </div>
+    </aside>
+
+    <!-- ═══ MAIN CONTENT ═══ -->
+    <main class="main-content">
+        <!-- ── TOP BAR ── -->
+        <header class="topbar">
+            <button class="topbar-toggle" id="sidebarToggle">☰</button>
+            <div id="connectionStatus" class="topbar-connection">
+                <span class="status-indicator status-offline"></span>
+                <span>Disconnected</span>
+            </div>
+            <div class="topbar-actions">
+                <div class="sr-field">
+                    <label for="srNumber">SR#</label>
+                    <input type="text" id="srNumber" class="form-input sr-input" placeholder="SR Number">
+                    <button id="saveSrBtn" class="btn btn-sm btn-secondary">Save</button>
+                </div>
+                <div class="topbar-level-pills">
+                    <button class="level-pill selected" data-action-level="read_only" title="Read Only">🔍 RO</button>
+                    <button class="level-pill" data-action-level="diagnostic" title="Diagnostic">🔧 Diag</button>
+                    <button class="level-pill" data-action-level="full_control" title="Full Control">🚀 Full</button>
+                </div>
+                <div class="theme-toggle">
+                    <button id="themeToggle" class="btn btn-sm btn-secondary" title="Toggle Theme">
+                        <span class="theme-icon">🌙</span>
+                        <span class="theme-text">Dark</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- ── ALERT CONTAINER ── -->
+        <div id="alertContainer"></div>
+
+        <!-- ══════════════════════════════════════════════════════════
+             OVERVIEW TAB
+             ══════════════════════════════════════════════════════════ -->
+        <div id="overviewContent" class="tab-content active">
+            <!-- Connection Card (compact) -->
+            <div class="connect-banner" id="connectBanner">
+                <div class="connect-banner-left">
+                    <h2>🔗 Connect to Server</h2>
+                    <p>Connect via iDRAC (Redfish) and/or OS (SSH) for maximum functionality</p>
+                </div>
+                <!-- iDRAC Connection -->
+                <div class="connect-section">
+                    <div class="connect-section-header">
+                        <span class="connect-badge idrac">iDRAC</span>
+                        <span class="connect-status-dot" id="idracStatusDot"></span>
+                    </div>
+                    <form id="connectionForm" class="connect-form" role="form" aria-label="iDRAC Connection">
+                        <input type="text" id="serverHost" class="form-input" placeholder="iDRAC IP or Hostname" required aria-label="iDRAC Host or IP">
+                        <input type="text" id="username" class="form-input" placeholder="Username" required aria-label="iDRAC Username">
+                        <input type="password" id="password" class="form-input" placeholder="Password" required aria-label="iDRAC Password">
+                        <input type="number" id="port" class="form-input" placeholder="443" value="443" style="width:70px" aria-label="iDRAC Port">
+                        <button type="button" id="connectBtn" class="btn btn-primary" aria-label="Connect to iDRAC">Connect iDRAC</button>
+                        <button type="button" id="checkIdracBtn" class="btn btn-info" aria-label="Check iDRAC">📡</button>
+                        <button type="button" id="disconnectBtn" class="btn btn-secondary" disabled aria-label="Disconnect iDRAC">Disconnect</button>
+                    </form>
+                    <div id="idracCheckResult" style="display:none;margin-top:8px;grid-column:1/-1"></div>
+                </div>
+                <!-- OS Connection -->
+                <div class="connect-section">
+                    <div class="connect-section-header">
+                        <span class="connect-badge os">OS (SSH)</span>
+                        <span class="connect-status-dot" id="osStatusDot"></span>
+                    </div>
+                    <form id="osConnectionForm" class="connect-form" role="form" aria-label="OS SSH Connection">
+                        <input type="text" id="osHost" class="form-input" placeholder="OS IP (or same as iDRAC host)" aria-label="OS Host or IP">
+                        <input type="text" id="osUsername" class="form-input" placeholder="OS Username (e.g. root)" aria-label="OS Username">
+                        <input type="password" id="osPassword" class="form-input" placeholder="OS Password" aria-label="OS Password">
+                        <input type="number" id="osPort" class="form-input" placeholder="22" value="22" style="width:70px" aria-label="SSH Port">
+                        <button type="button" id="osConnectBtn" class="btn btn-primary" aria-label="Connect to OS via SSH">Connect OS</button>
+                        <button type="button" id="osDisconnectBtn" class="btn btn-secondary" disabled aria-label="Disconnect SSH">Disconnect</button>
+                    </form>
+                    <div id="osConnectResult" style="display:none;margin-top:8px;grid-column:1/-1"></div>
+                </div>
+                <!-- Connection Mode Indicator -->
+                <div class="connection-mode-bar" id="connectionModeBar" style="display:none">
+                    <span class="mode-label">Mode:</span>
+                    <span class="mode-badge" id="connectionModeBadge">Disconnected</span>
+                    <span class="mode-features" id="connectionModeFeatures"></span>
+                </div>
+            </div>
+
+            <!-- Quick Actions Bar -->
+            <div class="quick-actions-bar">
+                <button id="getServerInfoBtn" class="qa-btn"><span>ℹ️</span> Full Inventory</button>
+                <button id="collectLogsBtn" class="qa-btn"><span>📋</span> Collect Logs</button>
+                <button id="healthCheckBtn" class="qa-btn qa-btn-green"><span>❤️</span> Health Check</button>
+                <button id="performanceAnalysisBtn" class="qa-btn qa-btn-amber"><span>📊</span> Performance</button>
+                <button id="gracefulShutdownBtn" class="qa-btn qa-btn-warn" title="Graceful shutdown"><span>⏻</span> Shutdown</button>
+                <button id="powerCycleBtn" class="qa-btn qa-btn-warn" title="Force restart"><span>🔄</span> Power Cycle</button>
+                <button id="vacCycleBtn" class="qa-btn qa-btn-warn" title="Virtual AC cycle"><span>⚡</span> VAC Drain</button>
+                <button id="resetIdracBtn" class="qa-btn qa-btn-danger" title="Reset iDRAC"><span>🔁</span> Reset iDRAC</button>
+            </div>
+
+            <!-- Server Info + Metrics -->
+            <div id="connectionInfoContainer" class="section-block"></div>
+            <div id="serverInfoContainer">
+                <p class="placeholder-text">Connect to a server to view overview information.</p>
+            </div>
+            <div id="overviewMetricsContainer"></div>
+            <div id="actionResultContainer" class="action-result" style="display:none"></div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════
+             SYSTEM INFO TAB
+             ══════════════════════════════════════════════════════════ -->
+        <div id="systemContent" class="tab-content">
+            <div class="sub-tabs" id="systemSubTabs">
+                <span class="sub-tab active" data-subtab="sys-general">General</span>
+                <span class="sub-tab" data-subtab="sys-processors">Processors</span>
+                <span class="sub-tab" data-subtab="sys-memory">Memory</span>
+                <span class="sub-tab" data-subtab="sys-storage">Storage</span>
+                <span class="sub-tab" data-subtab="sys-network">Network</span>
+                <span class="sub-tab" data-subtab="sys-bios">BIOS Settings</span>
+                <span class="sub-tab" data-subtab="sys-bios-presets">BIOS Presets</span>
+                <span class="sub-tab" data-subtab="sys-firmware">Firmware</span>
+                <span class="sub-tab" data-subtab="sys-idrac">iDRAC</span>
+            </div>
+            <div id="sys-general" class="sub-tab-content active">
+                <div id="systemInfoContainer"><p class="placeholder-text">Connect to a server to view detailed system information.</p></div>
+            </div>
+            <div id="sys-processors" class="sub-tab-content">
+                <div id="processorsContainer"><p class="placeholder-text">No processor data loaded.</p></div>
+            </div>
+            <div id="sys-memory" class="sub-tab-content">
+                <div id="memoryContainer"><p class="placeholder-text">No memory data loaded.</p></div>
+            </div>
+            <div id="sys-storage" class="sub-tab-content">
+                <div id="storageContainer"><p class="placeholder-text">No storage data loaded.</p></div>
+            </div>
+            <div id="sys-network" class="sub-tab-content">
+                <div id="networkContainer"><p class="placeholder-text">No network data loaded.</p></div>
+            </div>
+            <div id="sys-bios" class="sub-tab-content">
+                <div id="biosContainer"><p class="placeholder-text">No BIOS data loaded.</p></div>
+            </div>
+            <div id="sys-bios-presets" class="sub-tab-content">
+                <div class="section-block">
+                    <h4>Common BIOS Configuration Presets</h4>
+                    <p style="color:#94a3b8;font-size:0.88rem;margin-bottom:12px">Apply common BIOS changes. Changes are staged and require a reboot to take effect.</p>
+                </div>
+                <div class="presets-grid" id="biosPresetsContainer">
+                    <div class="preset-card"><h5>Disable C-States</h5><p>Disable CPU C-States for maximum performance (reduces latency variability)</p><button class="btn btn-sm btn-primary" onclick="app.applyBiosPreset({'ProcCStates':'Disabled'})">Apply</button></div>
+                    <div class="preset-card"><h5>Enable PPR (Memory)</h5><p>Enable Post Package Repair on DIMMs to auto-repair memory cell failures</p><button class="btn btn-sm btn-primary" onclick="app.applyBiosPreset({'PprOnUCE':'Enabled','PprType':'Hard'})">Apply</button></div>
+                    <div class="preset-card"><h5>Max Performance Profile</h5><p>Set system profile to Maximum Performance (CPU, memory, fans)</p><button class="btn btn-sm btn-primary" onclick="app.applyBiosPreset({'SysProfile':'PerfOptimized'})">Apply</button></div>
+                    <div class="preset-card"><h5>Enable Virtualization</h5><p>Enable VT-x, VT-d, SR-IOV for virtualization workloads</p><button class="btn btn-sm btn-primary" onclick="app.applyBiosPreset({'ProcVirtualization':'Enabled','ProcX2Apic':'Enabled'})">Apply</button></div>
+                    <div class="preset-card"><h5>UEFI Boot Mode</h5><p>Switch boot mode to UEFI</p><button class="btn btn-sm btn-primary" onclick="app.applyBiosPreset({'BootMode':'Uefi'})">Apply</button></div>
+                    <div class="preset-card"><h5>Energy Efficient</h5><p>Set system to power-saving profile for reduced power consumption</p><button class="btn btn-sm btn-primary" onclick="app.applyBiosPreset({'SysProfile':'PerfPerWattOptimizedOs'})">Apply</button></div>
+                </div>
+                <div id="biosPresetResult" class="action-result" style="display:none;margin-top:12px"></div>
+            </div>
+            <div id="sys-firmware" class="sub-tab-content">
+                <div id="firmwareContainer"><p class="placeholder-text">No firmware data loaded.</p></div>
+            </div>
+            <div id="sys-idrac" class="sub-tab-content">
+                <div id="idracContainer"><p class="placeholder-text">No iDRAC data loaded.</p></div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════
+             HEALTH STATUS TAB
+             ══════════════════════════════════════════════════════════ -->
+        <div id="healthContent" class="tab-content">
+            <div class="sub-tabs" id="healthSubTabs">
+                <span class="sub-tab active" data-subtab="health-overview">Overview</span>
+                <span class="sub-tab" data-subtab="health-thermal">Thermal</span>
+                <span class="sub-tab" data-subtab="health-power">Power</span>
+                <span class="sub-tab" data-subtab="health-issues">Issues &amp; Warnings</span>
+            </div>
+            <div id="health-overview" class="sub-tab-content active">
+                <div id="healthStatusContainer"><p class="placeholder-text">Connect to a server to view health status.</p></div>
+            </div>
+            <div id="health-thermal" class="sub-tab-content">
+                <div id="thermalContainer"><p class="placeholder-text">No thermal data loaded.</p></div>
+            </div>
+            <div id="health-power" class="sub-tab-content">
+                <div id="powerContainer"><p class="placeholder-text">No power data loaded.</p></div>
+            </div>
+            <div id="health-issues" class="sub-tab-content">
+                <div id="issuesContainer"><p class="placeholder-text">No issue data loaded.</p></div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════
+             SYSTEM LOGS TAB
+             ══════════════════════════════════════════════════════════ -->
+        <div id="logsContent" class="tab-content">
+            <div class="log-toolbar">
+                <div class="log-filters">
+                    <select id="logSeverityFilter" class="form-select log-filter-select">
+                        <option value="all">All Severities</option>
+                        <option value="critical">Critical</option>
+                        <option value="error">Error</option>
+                        <option value="warning">Warning</option>
+                        <option value="info">Info</option>
+                    </select>
+                    <input type="text" id="logSearchInput" class="form-input log-search" placeholder="Search logs...">
+                </div>
+                <div id="logStatsBar" class="log-stats-bar"></div>
+            </div>
+            <div class="log-container" id="logsContainer">
+                <p class="placeholder-text">Connect to a server and collect logs to view them here.</p>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════
+             AI INVESTIGATION TAB
+             ══════════════════════════════════════════════════════════ -->
+        <div id="troubleshootingContent" class="tab-content">
+            <!-- AI Investigation Panel -->
+            <div class="investigation-panel">
+                <div class="sub-tabs">
+                    <span class="sub-tab active" data-subtab="ts-recommendations">AI Recommendations</span>
+                    <span class="sub-tab" data-subtab="ts-tsr">TSR Status</span>
+                    <span class="sub-tab" data-subtab="ts-jobs">Job Queue</span>
+                    <span class="sub-tab" data-subtab="ts-postcode">POST Codes</span>
+                    <span class="sub-tab" data-subtab="ts-diagnostics">Diagnostics</span>
+                    <span class="sub-tab" data-subtab="ts-supportassist">SupportAssist</span>
+                </div>
+                <div id="ts-recommendations" class="sub-tab-content active">
+                    <!-- AI Troubleshooting Input -->
+                    <div class="ai-input-card">
+                        <div class="ai-input-header">
+                            <span class="ai-input-icon">🧠</span>
+                            <div>
+                                <h3>AI-Powered Investigation</h3>
+                                <p>Describe the issue — the agent will form hypotheses, collect evidence, and diagnose root cause</p>
+                            </div>
+                        </div>
+                        <form id="troubleshootingForm" class="ai-input-form">
+                            <textarea id="issueDescription" class="form-textarea" placeholder="e.g. Server won't POST, memory errors in SEL, RAID degraded, fans running loud..." rows="3" required></textarea>
+                            <div class="ai-input-actions">
+                                <button type="submit" id="startTroubleshootingBtn" class="btn btn-primary"><span>🔍</span> Investigate</button>
+                                <div class="example-chips">
+                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Server is overheating, getting temperature warnings and fans are running very loud'; document.getElementById('startTroubleshootingBtn').click();">🌡️ Overheating</button>
+                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Getting correctable memory ECC errors on DIMM A2'; document.getElementById('startTroubleshootingBtn').click();">🧠 ECC Errors</button>
+                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Server will not boot, no POST, amber power light'; document.getElementById('startTroubleshootingBtn').click();">⚡ No POST</button>
+                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='RAID virtual disk is degraded, one disk predicted failure'; document.getElementById('startTroubleshootingBtn').click();">💾 RAID Degraded</button>
+                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Server crashed with BSOD, SEL shows CPU IERR machine check error'; document.getElementById('startTroubleshootingBtn').click();">🖥️ CPU IERR</button>
+                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Network connectivity intermittent, NIC link dropping'; document.getElementById('startTroubleshootingBtn').click();">🌐 Network Drops</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div id="recommendationsContainer"></div>
+                </div>
+            <div id="ts-tsr" class="sub-tab-content">
+                <div id="tsrStatusContainer"><p class="placeholder-text">No TSR export initiated. Use the sidebar "Export TSR" action.</p></div>
+                <div class="section-block" style="margin-top:16px;border-left-color:#6c757d">
+                    <h4>Manual TSR Instructions</h4>
+                    <p style="font-size:0.9rem">If remote TSR collection is unavailable:</p>
+                    <ol style="font-size:0.88rem;padding-left:20px;margin-top:8px">
+                        <li>Navigate to <code>https://&lt;iDRAC-IP&gt;</code></li>
+                        <li>Log in → <strong>Maintenance > SupportAssist</strong></li>
+                        <li>Click <strong>Start a Collection</strong> → select all → <strong>Collect</strong></li>
+                        <li>Download the TSR file and upload to Dell Support with your SR#</li>
+                    </ol>
+                </div>
+            </div>
+            <div id="ts-jobs" class="sub-tab-content">
+                <div id="jobsContainer"><p class="placeholder-text">No job queue data loaded.</p></div>
+            </div>
+            <div id="ts-postcode" class="sub-tab-content">
+                <div id="postCodeContainer"><p class="placeholder-text">No POST code data loaded.</p></div>
+            </div>
+            <div id="ts-diagnostics" class="sub-tab-content">
+                <div class="section-block">
+                    <h4>Remote Diagnostics (ePSA)</h4>
+                    <p style="color:#94a3b8;font-size:0.88rem">Run Dell ePSA hardware diagnostics remotely via iDRAC.</p>
+                    <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+                        <button class="btn btn-primary" onclick="app.runDiagnostics('Express')">Express</button>
+                        <button class="btn btn-secondary" onclick="app.runDiagnostics('Extended')">Extended</button>
+                        <button class="btn btn-secondary" onclick="app.runDiagnostics('PitStop')">PitStop</button>
+                    </div>
+                </div>
+                <div id="diagnosticsResultContainer" style="margin-top:12px"></div>
+            </div>
+            <div id="ts-supportassist" class="sub-tab-content">
+                <div id="supportAssistContainer"><p class="placeholder-text">Click SupportAssist in the sidebar to check status.</p></div>
+            </div>
+        </div>
+
+        <!-- Chat Interface -->
+        <div class="chat-interface">
+            <div class="chat-history" id="chatHistory">
+                <div class="chat-message ai-message">
+                    <div class="message-content">
+                        👋 Hello! I'm your AI server assistant. I can help you investigate issues, troubleshoot problems, and execute actions on your Dell server. How can I assist you today?
+                    </div>
+                    <div class="message-time">Just now</div>
+                </div>
+            </div>
+            <div class="chat-input-section">
+                <div class="chat-input-wrapper">
+                    <input type="text" id="chatInput" placeholder="Ask me anything about your server...">
+                    <button id="sendChatBtn" class="btn btn-primary">📤 Send</button>
+                </div>
+                <div class="suggestion-chips">
+                    <button class="chip" data-suggestion="Check server health">🏥 Check server health</button>
+                    <button class="chip" data-suggestion="Investigate slow performance">🔍 Investigate slow performance</button>
+                    <button class="chip" data-suggestion="Check temperature sensors">🌡️ Check temperature sensors</button>
+                    <button class="chip" data-suggestion="Get system inventory">📋 Get system inventory</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Display -->
+        <div class="results-display" id="resultsDisplay">
+            <div class="result-placeholder">
+                <div class="placeholder-icon">📊</div>
+                <p>Results from investigations, troubleshooting, and actions will appear here</p>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════
+             OPERATIONS TAB — Comprehensive Server Management Tools
+             ══════════════════════════════════════════════════════════ -->
+        <div id="operationsContent" class="tab-content">
+            <div class="sub-tabs" id="opsSubTabs">
+                <span class="sub-tab active" data-subtab="ops-bios">BIOS Tasks</span>
+                <span class="sub-tab" data-subtab="ops-raid">RAID / Storage</span>
+                <span class="sub-tab" data-subtab="ops-drives">Drive Management</span>
+                <span class="sub-tab" data-subtab="ops-power">Power &amp; Thermal</span>
+                <span class="sub-tab" data-subtab="ops-idrac">iDRAC Management</span>
+                <span class="sub-tab" data-subtab="ops-firmware">Firmware Lifecycle</span>
+                <span class="sub-tab" data-subtab="ops-network">Network Config</span>
+                <span class="sub-tab" data-subtab="ops-os">OS &amp; Boot</span>
+            </div>
+
+            <!-- ── BIOS TASKS ── -->
+            <div id="ops-bios" class="sub-tab-content active">
+                <div class="section-block" style="border-left-color: var(--info-blue)">
+                    <h4>⚙️ BIOS Configuration Tasks</h4>
+                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">All changes are staged via Redfish BIOS Pending Settings and applied on next reboot.</p>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Read BIOS Configuration</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('bios_get_all')" title="Read all current BIOS attributes"><span class="ops-btn-icon">📋</span><span class="ops-btn-label">Get All BIOS Attributes</span><span class="ops-btn-desc">Read all current settings (read-only)</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Performance Tuning</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{ProcCStates:'Disabled'})" title="Disable CPU C-States for lower latency"><span class="ops-btn-icon">⚡</span><span class="ops-btn-label">Disable C-States</span><span class="ops-btn-desc">Max performance, lower latency</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{SysProfile:'PerfOptimized'})" title="Max Performance Profile"><span class="ops-btn-icon">🚀</span><span class="ops-btn-label">Max Performance</span><span class="ops-btn-desc">CPU + Memory + Fan optimized</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{ProcTurboMode:'Enabled',EnergyPerformanceBias:'MaxPower'})" title="Enable Turbo Boost"><span class="ops-btn-icon">🏎️</span><span class="ops-btn-label">Turbo Boost On</span><span class="ops-btn-desc">Enable Intel Turbo Boost</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{UncoreFrequency:'DynamicUFS'})" title="Dynamic Uncore Frequency"><span class="ops-btn-icon">📊</span><span class="ops-btn-label">Dynamic Uncore</span><span class="ops-btn-desc">Dynamic uncore frequency scaling</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{SubNumaCluster:'Enabled'})" title="Sub-NUMA Clustering"><span class="ops-btn-icon">🧩</span><span class="ops-btn-label">Sub-NUMA Cluster</span><span class="ops-btn-desc">Split sockets for NUMA-aware apps</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Memory Configuration</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{PprOnUCE:'Enabled',PprType:'Hard'})" title="Enable Post Package Repair"><span class="ops-btn-icon">🔧</span><span class="ops-btn-label">Enable PPR</span><span class="ops-btn-desc">Auto-repair DIMM cell failures</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{MemOpMode:'OptimizerMode'})" title="Memory Optimizer Mode"><span class="ops-btn-icon">💨</span><span class="ops-btn-label">Optimizer Mode</span><span class="ops-btn-desc">Max memory bandwidth</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{MemOpMode:'SpareMode'})" title="Memory Spare Mode"><span class="ops-btn-icon">🛡️</span><span class="ops-btn-label">Spare Mode</span><span class="ops-btn-desc">Memory sparing for reliability</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{MemOpMode:'MirrorMode'})" title="Memory Mirror Mode"><span class="ops-btn-icon">🪞</span><span class="ops-btn-label">Mirror Mode</span><span class="ops-btn-desc">Full memory mirroring (50% capacity)</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{MemTest:'Enabled'})" title="Enable Memory Test"><span class="ops-btn-icon">🧪</span><span class="ops-btn-label">Memory Test</span><span class="ops-btn-desc">Run memory test on next boot</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Virtualization</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{ProcVirtualization:'Enabled',ProcX2Apic:'Enabled'})" title="Enable VT-x + x2APIC"><span class="ops-btn-icon">🖥️</span><span class="ops-btn-label">Enable VT-x</span><span class="ops-btn-desc">CPU virtualization + x2APIC</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{IntelVtForDirectIo:'Enabled'})" title="Enable VT-d"><span class="ops-btn-icon">🔌</span><span class="ops-btn-label">Enable VT-d</span><span class="ops-btn-desc">I/O MMU for device passthrough</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{SriovGlobalEnable:'Enabled'})" title="Enable SR-IOV"><span class="ops-btn-icon">🌐</span><span class="ops-btn-label">Enable SR-IOV</span><span class="ops-btn-desc">Single-root I/O virtualization</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Security</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{TpmSecurity:'On'})" title="Enable TPM"><span class="ops-btn-icon">🔒</span><span class="ops-btn-label">Enable TPM</span><span class="ops-btn-desc">Trusted Platform Module</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{SecureBoot:'Enabled'})" title="Enable Secure Boot"><span class="ops-btn-icon">🛡️</span><span class="ops-btn-label">Secure Boot</span><span class="ops-btn-desc">UEFI Secure Boot enforcement</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{AcPwrRcvry:'Last'})" title="AC Power Recovery: Last"><span class="ops-btn-icon">⚡</span><span class="ops-btn-label">AC Recovery: Last</span><span class="ops-btn-desc">Restore last power state on AC</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{AcPwrRcvry:'On'})" title="AC Power Recovery: On"><span class="ops-btn-icon">🔋</span><span class="ops-btn-label">AC Recovery: On</span><span class="ops-btn-desc">Always power on after AC loss</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Boot Configuration</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{BootMode:'Uefi'})" title="UEFI Boot Mode"><span class="ops-btn-icon">📀</span><span class="ops-btn-label">UEFI Mode</span><span class="ops-btn-desc">Set boot mode to UEFI</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('bios_set',{BootMode:'Bios'})" title="Legacy BIOS Boot"><span class="ops-btn-icon">💾</span><span class="ops-btn-label">Legacy BIOS</span><span class="ops-btn-desc">Set boot mode to Legacy BIOS</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('set_next_boot','BiosSetup')" title="Boot to BIOS Setup"><span class="ops-btn-icon">🔧</span><span class="ops-btn-label">Boot to F2 Setup</span><span class="ops-btn-desc">One-time boot to BIOS setup</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('set_next_boot','Pxe')" title="PXE Boot"><span class="ops-btn-icon">🌐</span><span class="ops-btn-label">PXE Boot</span><span class="ops-btn-desc">One-time boot from network (PXE)</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('set_next_boot','UefiHttp')" title="HTTP Boot"><span class="ops-btn-icon">🌍</span><span class="ops-btn-label">HTTP Boot</span><span class="ops-btn-desc">One-time UEFI HTTP boot</span></button>
+                    </div>
+                </div>
+                <div id="opsResultBios" class="ops-result" style="display:none"></div>
+            </div>
+
+            <!-- ── RAID / STORAGE ── -->
+            <div id="ops-raid" class="sub-tab-content">
+                <div class="section-block" style="border-left-color: #f97316">
+                    <h4>💿 RAID Controller &amp; Virtual Disk Operations</h4>
+                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">Manage PERC RAID controllers, virtual disks, and storage pools via Redfish Storage API.</p>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Virtual Disk Management</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('raid_list_vd')" title="List Virtual Disks"><span class="ops-btn-icon">📋</span><span class="ops-btn-label">List Virtual Disks</span><span class="ops-btn-desc">Show all VDs, status, layout</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('raid_create_vd')" title="Create Virtual Disk"><span class="ops-btn-icon">➕</span><span class="ops-btn-label">Create Virtual Disk</span><span class="ops-btn-desc">New VD (RAID 0/1/5/6/10/50/60)</span></button>
+                        <button class="ops-btn ops-btn-danger" onclick="app.runOperation('raid_delete_vd')" title="Delete Virtual Disk"><span class="ops-btn-icon">🗑️</span><span class="ops-btn-label">Delete Virtual Disk</span><span class="ops-btn-desc">Remove selected virtual disk</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('raid_init_vd')" title="Initialize Virtual Disk"><span class="ops-btn-icon">🔄</span><span class="ops-btn-label">Initialize VD</span><span class="ops-btn-desc">Fast or full initialization</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">RAID Controller</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('raid_controller_info')" title="Controller Info"><span class="ops-btn-icon">📊</span><span class="ops-btn-label">Controller Details</span><span class="ops-btn-desc">PERC model, cache, firmware</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('raid_check_consistency')" title="Check Consistency"><span class="ops-btn-icon">✅</span><span class="ops-btn-label">Consistency Check</span><span class="ops-btn-desc">Verify VD parity/mirror integrity</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('raid_clear_foreign')" title="Clear Foreign Config"><span class="ops-btn-icon">🧹</span><span class="ops-btn-label">Clear Foreign Config</span><span class="ops-btn-desc">Clear foreign disk configuration</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('raid_import_foreign')" title="Import Foreign Config"><span class="ops-btn-icon">📥</span><span class="ops-btn-label">Import Foreign</span><span class="ops-btn-desc">Import foreign disk config</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('raid_set_patrol_read')" title="Patrol Read"><span class="ops-btn-icon">🔍</span><span class="ops-btn-label">Patrol Read</span><span class="ops-btn-desc">Start/stop background patrol read</span></button>
+                        <button class="ops-btn ops-btn-danger" onclick="app.runOperation('raid_reset_controller')" title="Reset RAID Controller"><span class="ops-btn-icon">🔁</span><span class="ops-btn-label">Reset Controller</span><span class="ops-btn-desc">Reset PERC controller (caution)</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Rebuild &amp; Recovery</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('raid_rebuild')" title="Rebuild VD"><span class="ops-btn-icon">🔨</span><span class="ops-btn-label">Rebuild VD</span><span class="ops-btn-desc">Rebuild degraded virtual disk</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('raid_assign_hotspare')" title="Assign Hot Spare"><span class="ops-btn-icon">🔥</span><span class="ops-btn-label">Assign Hot Spare</span><span class="ops-btn-desc">Dedicate / global hot spare</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('raid_remove_hotspare')" title="Remove Hot Spare"><span class="ops-btn-icon">❌</span><span class="ops-btn-label">Remove Hot Spare</span><span class="ops-btn-desc">Unassign hot spare disk</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('raid_replace_drive')" title="Replace Member Disk"><span class="ops-btn-icon">🔀</span><span class="ops-btn-label">Replace Member</span><span class="ops-btn-desc">Copyback/replace a member disk</span></button>
+                    </div>
+                </div>
+                <div id="opsResultRaid" class="ops-result" style="display:none"></div>
+            </div>
+
+            <!-- ── DRIVE MANAGEMENT ── -->
+            <div id="ops-drives" class="sub-tab-content">
+                <div class="section-block" style="border-left-color: #a855f7">
+                    <h4>💽 Physical Drive Management</h4>
+                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">Manage individual physical drives — SMART data, LED identification, secure erase, and lifecycle.</p>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Drive Inventory &amp; Health</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('drive_list')" title="List All Drives"><span class="ops-btn-icon">📋</span><span class="ops-btn-label">List All Drives</span><span class="ops-btn-desc">Physical drives, slots, SMART status</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('drive_smart_data')" title="SMART Data"><span class="ops-btn-icon">📊</span><span class="ops-btn-label">SMART Details</span><span class="ops-btn-desc">Read count, wear level, errors</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('drive_predictive')" title="Predictive Failure"><span class="ops-btn-icon">🔮</span><span class="ops-btn-label">Predictive Failure</span><span class="ops-btn-desc">Check predicted failure status</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('drive_media_patrol')" title="Drive Media Patrol"><span class="ops-btn-icon">🔍</span><span class="ops-btn-label">Media Patrol</span><span class="ops-btn-desc">Background media verification</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Drive Operations</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('drive_blink_on')" title="Blink Drive LED"><span class="ops-btn-icon">💡</span><span class="ops-btn-label">Blink LED</span><span class="ops-btn-desc">Identify drive (blink LED on)</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('drive_blink_off')" title="Stop Blink"><span class="ops-btn-icon">🔲</span><span class="ops-btn-label">Stop Blink</span><span class="ops-btn-desc">Turn off drive identify LED</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('drive_set_online')" title="Set Online"><span class="ops-btn-icon">✅</span><span class="ops-btn-label">Set Online</span><span class="ops-btn-desc">Bring drive online</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('drive_set_offline')" title="Set Offline"><span class="ops-btn-icon">⛔</span><span class="ops-btn-label">Set Offline</span><span class="ops-btn-desc">Take drive offline</span></button>
+                        <button class="ops-btn ops-btn-danger" onclick="app.runOperation('drive_secure_erase')" title="Cryptographic Erase"><span class="ops-btn-icon">🗑️</span><span class="ops-btn-label">Secure Erase</span><span class="ops-btn-desc">Cryptographic erase (ISE/SED)</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('drive_convert_raid')" title="Convert to RAID"><span class="ops-btn-icon">🔄</span><span class="ops-btn-label">Convert to RAID</span><span class="ops-btn-desc">Convert non-RAID to RAID-capable</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('drive_convert_nonraid')" title="Convert to Non-RAID"><span class="ops-btn-icon">↩️</span><span class="ops-btn-label">Convert to JBOD</span><span class="ops-btn-desc">Convert to non-RAID / passthrough</span></button>
+                    </div>
+                </div>
+                <div id="opsResultDrives" class="ops-result" style="display:none"></div>
+            </div>
+
+            <!-- ── POWER & THERMAL ── -->
+            <div id="ops-power" class="sub-tab-content">
+                <div class="section-block" style="border-left-color: var(--warning-yellow)">
+                    <h4>⚡ Power &amp; Thermal Management</h4>
+                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">Server power state control, power budgets, thermal profiles, and fan management.</p>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Power Control</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('power_on')" title="Power On"><span class="ops-btn-icon">🟢</span><span class="ops-btn-label">Power On</span><span class="ops-btn-desc">Turn server on</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('power_graceful_shutdown')" title="Graceful Shutdown"><span class="ops-btn-icon">⏻</span><span class="ops-btn-label">Graceful Shutdown</span><span class="ops-btn-desc">OS-level shutdown command</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('power_cycle')" title="Power Cycle"><span class="ops-btn-icon">🔄</span><span class="ops-btn-label">Power Cycle</span><span class="ops-btn-desc">Hard restart (immediate)</span></button>
+                        <button class="ops-btn ops-btn-danger" onclick="app.runOperation('power_force_off')" title="Force Off"><span class="ops-btn-icon">🔴</span><span class="ops-btn-label">Force Off</span><span class="ops-btn-desc">Immediate power off (like pulling plug)</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('power_nmi')" title="NMI (Non-Maskable Interrupt)"><span class="ops-btn-icon">🚨</span><span class="ops-btn-label">Send NMI</span><span class="ops-btn-desc">Trigger memory dump / crash</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('power_vac_cycle')" title="Virtual AC Cycle"><span class="ops-btn-icon">⚡</span><span class="ops-btn-label">VAC Drain</span><span class="ops-btn-desc">Virtual AC power cycle (flea power)</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Power Budget &amp; Capping</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('power_read_budget')" title="Read Power Budget"><span class="ops-btn-icon">📊</span><span class="ops-btn-label">Power Budget</span><span class="ops-btn-desc">Current draw, min, max, headroom</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('power_set_cap')" title="Set Power Cap"><span class="ops-btn-icon">📉</span><span class="ops-btn-label">Set Power Cap</span><span class="ops-btn-desc">Limit max server power draw (W)</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('power_remove_cap')" title="Remove Power Cap"><span class="ops-btn-icon">📈</span><span class="ops-btn-label">Remove Cap</span><span class="ops-btn-desc">Remove power consumption limit</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('power_history')" title="Power History"><span class="ops-btn-icon">📉</span><span class="ops-btn-label">Power History</span><span class="ops-btn-desc">24h power consumption chart</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Thermal &amp; Fan</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('thermal_read_sensors')" title="Read Temperature Sensors"><span class="ops-btn-icon">🌡️</span><span class="ops-btn-label">Read Temperatures</span><span class="ops-btn-desc">All CPU, inlet, exhaust sensors</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('thermal_read_fans')" title="Read Fan Status"><span class="ops-btn-icon">🌀</span><span class="ops-btn-label">Read Fan Status</span><span class="ops-btn-desc">Fan RPM, health, redundancy</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('thermal_profile_default')" title="Default Thermal"><span class="ops-btn-icon">⚖️</span><span class="ops-btn-label">Default Profile</span><span class="ops-btn-desc">Auto fan control (balanced)</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('thermal_profile_perf')" title="Max Cooling"><span class="ops-btn-icon">❄️</span><span class="ops-btn-label">Max Cooling</span><span class="ops-btn-desc">Aggressive fan curves (louder)</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('thermal_profile_quiet')" title="Minimum Noise"><span class="ops-btn-icon">🤫</span><span class="ops-btn-label">Minimum Noise</span><span class="ops-btn-desc">Quiet operation (higher temps)</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('thermal_exhaust_temp')" title="Set Exhaust Limit"><span class="ops-btn-icon">🔥</span><span class="ops-btn-label">Exhaust Limit</span><span class="ops-btn-desc">Set max exhaust temperature</span></button>
+                    </div>
+                </div>
+                <div id="opsResultPower" class="ops-result" style="display:none"></div>
+            </div>
+
+            <!-- ── iDRAC MANAGEMENT ── -->
+            <div id="ops-idrac" class="sub-tab-content">
+                <div class="section-block" style="border-left-color: var(--success-green)">
+                    <h4>🌐 iDRAC Management</h4>
+                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">Configure iDRAC settings, network, users, certificates, and virtual console.</p>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">iDRAC Network</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('idrac_get_network')" title="View Network Config"><span class="ops-btn-icon">🌐</span><span class="ops-btn-label">Network Config</span><span class="ops-btn-desc">IP, subnet, gateway, DNS, VLAN</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('idrac_set_static_ip')" title="Set Static IP"><span class="ops-btn-icon">📌</span><span class="ops-btn-label">Set Static IP</span><span class="ops-btn-desc">Assign static IPv4 address</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('idrac_set_dhcp')" title="Enable DHCP"><span class="ops-btn-icon">🔄</span><span class="ops-btn-label">Enable DHCP</span><span class="ops-btn-desc">Switch to DHCP addressing</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('idrac_set_vlan')" title="Set VLAN"><span class="ops-btn-icon">🏷️</span><span class="ops-btn-label">Set VLAN</span><span class="ops-btn-desc">Configure VLAN ID for iDRAC</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">User Management</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('idrac_list_users')" title="List Users"><span class="ops-btn-icon">👥</span><span class="ops-btn-label">List Users</span><span class="ops-btn-desc">Show all iDRAC user accounts</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('idrac_create_user')" title="Create User"><span class="ops-btn-icon">👤</span><span class="ops-btn-label">Create User</span><span class="ops-btn-desc">Add new iDRAC user account</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('idrac_change_password')" title="Change Password"><span class="ops-btn-icon">🔑</span><span class="ops-btn-label">Change Password</span><span class="ops-btn-desc">Update user password</span></button>
+                        <button class="ops-btn ops-btn-danger" onclick="app.runOperation('idrac_delete_user')" title="Delete User"><span class="ops-btn-icon">🗑️</span><span class="ops-btn-label">Delete User</span><span class="ops-btn-desc">Remove iDRAC user account</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Certificates &amp; Security</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('idrac_view_cert')" title="View Certificate"><span class="ops-btn-icon">📜</span><span class="ops-btn-label">View SSL Cert</span><span class="ops-btn-desc">Current certificate details + expiry</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('idrac_generate_csr')" title="Generate CSR"><span class="ops-btn-icon">📝</span><span class="ops-btn-label">Generate CSR</span><span class="ops-btn-desc">Create certificate signing request</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('idrac_upload_cert')" title="Upload Certificate"><span class="ops-btn-icon">📤</span><span class="ops-btn-label">Upload Cert</span><span class="ops-btn-desc">Import signed SSL certificate</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('idrac_test_syslog')" title="Test Syslog"><span class="ops-btn-icon">📡</span><span class="ops-btn-label">Test Syslog</span><span class="ops-btn-desc">Send test event to syslog server</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Virtual Console &amp; Media</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('idrac_launch_vconsole')" title="Launch Virtual Console"><span class="ops-btn-icon">🖥️</span><span class="ops-btn-label">Virtual Console</span><span class="ops-btn-desc">Open remote KVM console</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('idrac_mount_iso')" title="Mount Virtual Media"><span class="ops-btn-icon">💿</span><span class="ops-btn-label">Mount ISO</span><span class="ops-btn-desc">Attach remote ISO / virtual media</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('idrac_unmount_media')" title="Unmount Media"><span class="ops-btn-icon">⏏️</span><span class="ops-btn-label">Unmount Media</span><span class="ops-btn-desc">Detach all virtual media</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">iDRAC Maintenance</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('idrac_reset')" title="Reset iDRAC"><span class="ops-btn-icon">🔁</span><span class="ops-btn-label">Reset iDRAC</span><span class="ops-btn-desc">Graceful iDRAC reboot</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('idrac_clear_sel')" title="Clear SEL"><span class="ops-btn-icon">🧹</span><span class="ops-btn-label">Clear SEL</span><span class="ops-btn-desc">Clear System Event Log</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('idrac_clear_lc_log')" title="Clear LC Log"><span class="ops-btn-icon">🧹</span><span class="ops-btn-label">Clear LC Log</span><span class="ops-btn-desc">Clear Lifecycle Controller Log</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('idrac_export_config')" title="Export Server Config"><span class="ops-btn-icon">📦</span><span class="ops-btn-label">Export SCP</span><span class="ops-btn-desc">Export Server Configuration Profile</span></button>
+                        <button class="ops-btn ops-btn-danger" onclick="app.runOperation('idrac_import_config')" title="Import Server Config"><span class="ops-btn-icon">📥</span><span class="ops-btn-label">Import SCP</span><span class="ops-btn-desc">Import Server Configuration Profile</span></button>
+                        <button class="ops-btn ops-btn-danger" onclick="app.runOperation('idrac_factory_reset')" title="Factory Reset iDRAC"><span class="ops-btn-icon">⚠️</span><span class="ops-btn-label">Factory Reset</span><span class="ops-btn-desc">Reset iDRAC to factory defaults</span></button>
+                    </div>
+                </div>
+                <div id="opsResultIdrac" class="ops-result" style="display:none"></div>
+            </div>
+
+            <!-- ── FIRMWARE LIFECYCLE ── -->
+            <div id="ops-firmware" class="sub-tab-content">
+                <div class="section-block" style="border-left-color: #ec4899">
+                    <h4>📦 Firmware Lifecycle Management</h4>
+                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">Update, rollback, and schedule firmware changes via iDRAC Redfish UpdateService.</p>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Firmware Update</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('fw_check_catalog')" title="Check Catalog"><span class="ops-btn-icon">🔍</span><span class="ops-btn-label">Check Catalog</span><span class="ops-btn-desc">Compare installed vs Dell latest</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('fw_update_bios')" title="Update BIOS"><span class="ops-btn-icon">🖥️</span><span class="ops-btn-label">Update BIOS</span><span class="ops-btn-desc">Stage BIOS update (reboot req)</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('fw_update_idrac')" title="Update iDRAC"><span class="ops-btn-icon">🌐</span><span class="ops-btn-label">Update iDRAC</span><span class="ops-btn-desc">Update iDRAC firmware</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('fw_update_nic')" title="Update NIC"><span class="ops-btn-icon">📡</span><span class="ops-btn-label">Update NIC FW</span><span class="ops-btn-desc">Network adapter firmware</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('fw_update_raid')" title="Update RAID"><span class="ops-btn-icon">💿</span><span class="ops-btn-label">Update RAID FW</span><span class="ops-btn-desc">PERC controller firmware</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('fw_update_drive')" title="Update Drive FW"><span class="ops-btn-icon">💽</span><span class="ops-btn-label">Update Drive FW</span><span class="ops-btn-desc">HDD/SSD firmware update</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('fw_update_cpld')" title="Update CPLD"><span class="ops-btn-icon">🔌</span><span class="ops-btn-label">Update CPLD</span><span class="ops-btn-desc">Complex Programmable Logic Device</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Rollback &amp; Scheduling</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('fw_rollback')" title="Rollback Firmware"><span class="ops-btn-icon">↩️</span><span class="ops-btn-label">Rollback</span><span class="ops-btn-desc">Revert to previous firmware version</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('fw_schedule_update')" title="Schedule Update"><span class="ops-btn-icon">🕐</span><span class="ops-btn-label">Schedule Update</span><span class="ops-btn-desc">Stage update for maintenance window</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('fw_job_status')" title="Check Job Status"><span class="ops-btn-icon">📋</span><span class="ops-btn-label">Update Job Status</span><span class="ops-btn-desc">Check pending firmware jobs</span></button>
+                        <button class="ops-btn ops-btn-danger" onclick="app.runOperation('fw_cancel_jobs')" title="Cancel Jobs"><span class="ops-btn-icon">🚫</span><span class="ops-btn-label">Cancel All Jobs</span><span class="ops-btn-desc">Purge pending update jobs</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Repository &amp; Compliance</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('fw_compliance_report')" title="Compliance Report"><span class="ops-btn-icon">📊</span><span class="ops-btn-label">Compliance Report</span><span class="ops-btn-desc">Full firmware compliance check</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('fw_download_catalog')" title="Download Catalog"><span class="ops-btn-icon">📥</span><span class="ops-btn-label">Download Catalog</span><span class="ops-btn-desc">Pull latest Dell catalog.xml</span></button>
+                    </div>
+                </div>
+                <div id="opsResultFirmware" class="ops-result" style="display:none"></div>
+            </div>
+
+            <!-- ── NETWORK CONFIG ── -->
+            <div id="ops-network" class="sub-tab-content">
+                <div class="section-block" style="border-left-color: #06b6d4">
+                    <h4>🌐 Server Network Configuration</h4>
+                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">NIC teaming, VLAN configuration, bandwidth management, and diagnostics.</p>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">NIC Management</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('nic_inventory')" title="NIC Inventory"><span class="ops-btn-icon">📋</span><span class="ops-btn-label">NIC Inventory</span><span class="ops-btn-desc">All adapters, ports, MACs, link</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('nic_statistics')" title="NIC Statistics"><span class="ops-btn-icon">📊</span><span class="ops-btn-label">Port Statistics</span><span class="ops-btn-desc">TX/RX counters, errors, drops</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('nic_enable_port')" title="Enable Port"><span class="ops-btn-icon">✅</span><span class="ops-btn-label">Enable Port</span><span class="ops-btn-desc">Bring network port up</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('nic_disable_port')" title="Disable Port"><span class="ops-btn-icon">⛔</span><span class="ops-btn-label">Disable Port</span><span class="ops-btn-desc">Take network port down</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Teaming &amp; Partitioning</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('nic_create_team')" title="Create NIC Team"><span class="ops-btn-icon">🔗</span><span class="ops-btn-label">Create NIC Team</span><span class="ops-btn-desc">Bond ports (LACP, failover)</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('nic_partition')" title="NIC Partitioning"><span class="ops-btn-icon">✂️</span><span class="ops-btn-label">NIC Partitioning</span><span class="ops-btn-desc">NPAR: split port into functions</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('nic_set_vlan')" title="Set NIC VLAN"><span class="ops-btn-icon">🏷️</span><span class="ops-btn-label">Set VLAN</span><span class="ops-btn-desc">Configure VLAN tagging on port</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('nic_wake_on_lan')" title="Wake-on-LAN Config"><span class="ops-btn-icon">📡</span><span class="ops-btn-label">Wake-on-LAN</span><span class="ops-btn-desc">Enable/disable WoL</span></button>
+                    </div>
+                </div>
+                <div id="opsResultNetwork" class="ops-result" style="display:none"></div>
+            </div>
+
+            <!-- ── OS & BOOT ── -->
+            <div id="ops-os" class="sub-tab-content">
+                <div class="section-block" style="border-left-color: #14b8a6">
+                    <h4>💻 OS Deployment &amp; Boot Management</h4>
+                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:6px">Remote OS installation, boot order management, and lifecycle controller operations.</p>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Boot Order</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('boot_get_order')" title="Get Boot Order"><span class="ops-btn-icon">📋</span><span class="ops-btn-label">Boot Order</span><span class="ops-btn-desc">View current boot sequence</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('boot_set_hdd_first')" title="HDD First"><span class="ops-btn-icon">💾</span><span class="ops-btn-label">HDD First</span><span class="ops-btn-desc">Set hard drive as first boot</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('boot_set_pxe_first')" title="PXE First"><span class="ops-btn-icon">🌐</span><span class="ops-btn-label">PXE First</span><span class="ops-btn-desc">Set PXE as first boot device</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('boot_set_cd_first')" title="Optical First"><span class="ops-btn-icon">💿</span><span class="ops-btn-label">CD/DVD First</span><span class="ops-btn-desc">Set optical drive as first boot</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">OS Deployment</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('os_get_drivers')" title="Get OS Drivers"><span class="ops-btn-icon">📦</span><span class="ops-btn-label">OS Driver Pack</span><span class="ops-btn-desc">Download driver pack for server model</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('os_attach_iso')" title="Attach ISO"><span class="ops-btn-icon">💿</span><span class="ops-btn-label">Attach OS ISO</span><span class="ops-btn-desc">Mount remote ISO + boot to it</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('os_unattended_install')" title="Unattended Install"><span class="ops-btn-icon">🤖</span><span class="ops-btn-label">Unattended Install</span><span class="ops-btn-desc">Automated OS deploy via LC</span></button>
+                    </div>
+                </div>
+                <div class="ops-category">
+                    <h5 class="ops-cat-title">Lifecycle Controller</h5>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runOperation('lc_get_status')" title="LC Status"><span class="ops-btn-icon">📊</span><span class="ops-btn-label">LC Status</span><span class="ops-btn-desc">Lifecycle Controller readiness</span></button>
+                        <button class="ops-btn" onclick="app.runOperation('lc_get_remote_services')" title="Remote Services"><span class="ops-btn-icon">🔧</span><span class="ops-btn-label">Remote Services</span><span class="ops-btn-desc">Available LC remote services</span></button>
+                        <button class="ops-btn ops-btn-warn" onclick="app.runOperation('lc_repart')" title="Reprovision"><span class="ops-btn-icon">🔄</span><span class="ops-btn-label">LC Reprovision</span><span class="ops-btn-desc">Reinitialize Lifecycle Controller</span></button>
+                        <button class="ops-btn ops-btn-danger" onclick="app.runOperation('lc_wipe')" title="LC Wipe"><span class="ops-btn-icon">⚠️</span><span class="ops-btn-label">LC Wipe</span><span class="ops-btn-desc">Factory reset Lifecycle Controller</span></button>
+                    </div>
+                </div>
+                <div id="opsResultOs" class="ops-result" style="display:none"></div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════════════════════════════════════
+             ADVANCED TAB
+             ══════════════════════════════════════════════════════════ -->
+        <div id="advancedContent" class="tab-content">
+            <div class="sub-tabs">
+                <span class="sub-tab active" data-subtab="adv-lifecycle">Lifecycle Logs</span>
+                <span class="sub-tab" data-subtab="adv-monitoring">Monitoring</span>
+            </div>
+            <div id="adv-lifecycle" class="sub-tab-content active">
+                <div class="log-toolbar">
+                    <div class="log-filters">
+                        <select id="lcSeverityFilter" class="form-select log-filter-select">
+                            <option value="all">All Severities</option>
+                            <option value="Critical">Critical</option>
+                            <option value="Warning">Warning</option>
+                            <option value="OK">OK / Info</option>
+                        </select>
+                        <input type="text" id="lcSearchInput" class="form-input log-search" placeholder="Search lifecycle logs...">
+                        <button id="refreshLcLogsBtn" class="btn btn-sm btn-info">🔄 Refresh</button>
+                    </div>
+                </div>
+                <div class="log-container" id="lifecycleLogsContainer"><p class="placeholder-text">No lifecycle logs loaded.</p></div>
+            </div>
+            <div id="adv-monitoring" class="sub-tab-content">
+                <div class="monitoring-controls">
+                    <button id="startMonitoringBtn" class="btn btn-success btn-sm">▶ Start Monitoring</button>
+                    <button id="stopMonitoringBtn" class="btn btn-danger btn-sm" disabled>⏹ Stop</button>
+                    <span id="monitoringStatus" class="monitoring-badge">Idle</span>
+                </div>
+                <div id="monitoringContainer"><p class="placeholder-text">Start monitoring to track sensor readings over time.</p></div>
+            </div>
+        </div>
+
+        <!-- ── ACTIVITY LOG (collapsible) ── -->
+        <details class="activity-log-section">
+            <summary class="activity-log-toggle">📝 Agent Activity Log</summary>
+            <div class="log-container" id="outputLog">
+                <div class="log-entry log-info">
+                    <span class="timestamp">[00:00:00]</span> Medi-AI-tor Agent initialized and ready
+                </div>
+            </div>
+        </details>
+    </main>
+
+    <!-- ═══ FLOATING AI CHAT ═══ -->
+    <div class="agent-chat-panel" id="agentChatPanel">
+        <div class="agent-chat-header" id="agentChatHeader">
+            <div class="agent-chat-header-left">
+                <span class="agent-chat-avatar">🧠</span>
+                <div>
+                    <div class="agent-chat-title">Medi-AI-tor Agent</div>
+                    <div class="agent-chat-subtitle" id="agentChatSubtitle">Ready to investigate</div>
+                </div>
+            </div>
+            <div class="agent-chat-header-right">
+                <button class="agent-chat-minimize" id="agentChatMinimize" title="Minimize">—</button>
+            </div>
+        </div>
+        <div class="agent-chat-body" id="agentChatBody">
+            <div class="agent-chat-messages" id="agentChatMessages">
+                <div class="agent-chat-msg agent-msg-system">
+                    <div class="agent-msg-content">
+                        <p>I'm your AI troubleshooting agent. I can:</p>
+                        <ul>
+                            <li><strong>Investigate</strong> — describe an issue and I'll diagnose it</li>
+                            <li><strong>Dig deeper</strong> — "tell me more about memory"</li>
+                            <li><strong>Fix it</strong> — "can you fix this?" (with your approval)</li>
+                            <li><strong>Explain</strong> — "why do you think that?"</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="agent-chat-metrics" id="agentChatMetrics" style="display:none"></div>
+            <div class="agent-chat-suggestions" id="agentChatSuggestions">
+                <button class="agent-suggest-chip" data-msg="Server is overheating and fans are loud">🌡️ Overheating</button>
+                <button class="agent-suggest-chip" data-msg="Getting memory ECC errors on DIMM A2">🧠 ECC Errors</button>
+                <button class="agent-suggest-chip" data-msg="RAID virtual disk is degraded">💾 RAID Degraded</button>
+                <button class="agent-suggest-chip" data-msg="Server won't POST, amber power light">⚡ No POST</button>
+            </div>
+            <form class="agent-chat-input-row" id="agentChatForm">
+                <input type="text" id="agentChatInput" class="agent-chat-input" placeholder="Describe the issue or ask a question..." autocomplete="off">
+                <button type="submit" class="agent-chat-send" id="agentChatSend">➤</button>
+            </form>
+        </div>
+    </div>
+    <button class="agent-chat-fab" id="agentChatFab" title="Open AI Agent Chat">🧠</button>
+
+    <!-- Loading Indicator -->
+    <div class="loading-indicator" style="display: none;">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

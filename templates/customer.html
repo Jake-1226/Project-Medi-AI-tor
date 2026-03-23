@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medi-AI-tor — AI Server Support</title>
+    <link rel="stylesheet" href="/static/css/customer.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+</head>
+<body>
+    <!-- Top nav -->
+    <nav class="top-nav">
+        <div class="nav-brand">
+            <!-- Mobile sidebar toggle -->
+            <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <span class="nav-logo">🧠</span>
+            <span class="nav-title">Medi-AI-tor</span>
+            <span class="nav-sep">|</span>
+            <span class="nav-subtitle">AI Server Support Agent</span>
+        </div>
+        <div class="nav-right">
+            <span class="nav-connection" id="navConnection" title="Server connection status">
+                <span class="conn-dot conn-off" id="connDot"></span>
+                <span id="connText">Not Connected</span>
+            </span>
+            <a href="/technician" class="nav-link-tech" title="Switch to Technician View">🔧 Technician</a>
+        </div>
+    </nav>
+
+    <!-- Mobile sidebar overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="chat-app">
+        <!-- Sidebar -->
+        <aside class="chat-sidebar" id="chatSidebar">
+            <!-- Connection panel -->
+            <div class="sidebar-section" id="connectSection">
+                <h3 class="sidebar-heading">Server Connection</h3>
+                <form id="connectForm" class="connect-form" role="form" aria-label="Server Connection">
+                    <input type="text" id="cHost" class="c-input" placeholder="iDRAC IP or Hostname" required aria-label="Server IP or Hostname" autocomplete="off">
+                    <input type="text" id="cUser" class="c-input" placeholder="Username (e.g. root)" required aria-label="Username" autocomplete="username">
+                    <input type="password" id="cPass" class="c-input" placeholder="Password" required aria-label="Password" autocomplete="current-password">
+                    <input type="number" id="cPort" class="c-input" placeholder="Port (default 443)" value="443" min="1" max="65535" aria-label="Port Number">
+                    <button type="submit" class="c-btn c-btn-connect" id="connectBtn">
+                        <span class="c-btn-icon" id="connectIcon">🔗</span>
+                        <span id="connectLabel">Connect</span>
+                    </button>
+                </form>
+                <div class="connect-status" id="connectStatus"></div>
+            </div>
+
+            <!-- Server info (shown after connect) -->
+            <div class="sidebar-section" id="serverInfoSection" style="display:none">
+                <h3 class="sidebar-heading">Connected Server</h3>
+                <div class="server-info-card" id="serverInfoCard"></div>
+                <button class="c-btn c-btn-sm c-btn-disconnect" id="disconnectBtn">Disconnect</button>
+            </div>
+
+            <!-- Agent status -->
+            <div class="sidebar-section">
+                <h3 class="sidebar-heading">Agent Status</h3>
+                <div class="agent-status-card" id="agentStatusCard">
+                    <div class="agent-status-row"><span class="as-label">State</span><span class="as-val" id="asState">Idle</span></div>
+                    <div class="agent-status-row"><span class="as-label">Facts</span><span class="as-val" id="asFacts">0</span></div>
+                    <div class="agent-status-row"><span class="as-label">Hypotheses</span><span class="as-val" id="asHyps">0</span></div>
+                    <div class="agent-status-row"><span class="as-label">Confidence</span><span class="as-val" id="asConf">—</span></div>
+                </div>
+            </div>
+
+            <!-- Metrics (shown after investigation) -->
+            <div class="sidebar-section" id="metricsSection" style="display:none">
+                <h3 class="sidebar-heading">Business Impact</h3>
+                <div class="metrics-card" id="metricsCard"></div>
+            </div>
+        </aside>
+
+        <!-- Main chat area -->
+        <main class="chat-main">
+            <div class="chat-messages" id="chatMessages" role="log" aria-label="Chat conversation" aria-live="polite">
+                <!-- Welcome message -->
+                <div class="chat-msg msg-agent">
+                    <div class="msg-avatar">🧠</div>
+                    <div class="msg-body">
+                        <div class="msg-name">Medi-AI-tor</div>
+                        <div class="msg-text">
+                            <p>Hi! I'm <strong>Medi-AI-tor</strong>, your AI server diagnostics agent. I investigate Dell server issues in seconds — not hours.</p>
+                            <p><strong>Connect to a server</strong> using the panel on the left, then ask me anything or describe an issue.</p>
+                            <div class="msg-capabilities">
+                                <div class="cap-item"><span class="cap-icon">📊</span><span>Answer server questions — model, RAM, CPU, firmware, boot config</span></div>
+                                <div class="cap-item"><span class="cap-icon">🔍</span><span>Run diagnostics — temperatures, fans, storage, network, BIOS, logs</span></div>
+                                <div class="cap-item"><span class="cap-icon">🧪</span><span>Investigate issues — form hypotheses, gather evidence, diagnose root cause</span></div>
+                                <div class="cap-item"><span class="cap-icon">🌐</span><span>Check iDRAC — network config, users, certificates, job queue, lifecycle</span></div>
+                                <div class="cap-item"><span class="cap-icon">🔧</span><span>Propose & execute fixes with your approval</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scroll-to-bottom FAB -->
+            <button class="scroll-bottom-fab" id="scrollBottomBtn" aria-label="Scroll to latest message" style="display:none">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+
+            <!-- Suggestion chips -->
+            <div class="chat-suggestions" id="chatSuggestions">
+                <div class="suggest-group" role="group" aria-label="Quick Questions">
+                    <span class="suggest-label">Quick Questions</span>
+                    <div class="suggest-row">
+                        <button class="suggest-chip suggest-info" data-msg="Give me a server overview">📊 Server Overview</button>
+                        <button class="suggest-chip suggest-info" data-msg="What model is this server?">🖥️ Model</button>
+                        <button class="suggest-chip suggest-info" data-msg="How much RAM does this server have?">🧠 RAM</button>
+                        <button class="suggest-chip suggest-info" data-msg="What CPU is installed?">⚙️ CPU</button>
+                        <button class="suggest-chip suggest-info" data-msg="What BIOS and iDRAC versions are running?">📦 BIOS / iDRAC</button>
+                        <button class="suggest-chip suggest-info" data-msg="Is the server powered on?">🔋 Power State</button>
+                    </div>
+                </div>
+                <div class="suggest-group" role="group" aria-label="Diagnostics">
+                    <span class="suggest-label">Diagnostics & Checks</span>
+                    <div class="suggest-row">
+                        <button class="suggest-chip suggest-diag" data-msg="Check the temperatures">🌡️ Temperatures</button>
+                        <button class="suggest-chip suggest-diag" data-msg="Check the fan speeds">🌀 Fans</button>
+                        <button class="suggest-chip suggest-diag" data-msg="Check power supplies">⚡ Power</button>
+                        <button class="suggest-chip suggest-diag" data-msg="Is my firmware up to date?">📦 Firmware</button>
+                        <button class="suggest-chip suggest-diag" data-msg="Audit my BIOS settings">⚙️ BIOS Audit</button>
+                        <button class="suggest-chip suggest-diag" data-msg="Check for errors in the system logs">📋 Logs</button>
+                        <button class="suggest-chip suggest-diag" data-msg="Show the boot order">🥾 Boot Order</button>
+                        <button class="suggest-chip suggest-diag" data-msg="Show iDRAC network config">🌐 iDRAC Network</button>
+                    </div>
+                </div>
+                <div class="suggest-group" role="group" aria-label="Troubleshooting">
+                    <span class="suggest-label">Troubleshoot Issues</span>
+                    <div class="suggest-row">
+                        <button class="suggest-chip suggest-issue" data-msg="Server is overheating and fans are running very loud">🌡️ Overheating</button>
+                        <button class="suggest-chip suggest-issue" data-msg="Getting correctable memory ECC errors">🧠 ECC Errors</button>
+                        <button class="suggest-chip suggest-issue" data-msg="RAID virtual disk is degraded">💾 RAID Degraded</button>
+                        <button class="suggest-chip suggest-issue" data-msg="Server crashed with CPU IERR machine check error">🖥️ CPU IERR</button>
+                        <button class="suggest-chip suggest-issue" data-msg="PCIe fatal error completion timeout">🔴 PCIe Error</button>
+                        <button class="suggest-chip suggest-issue" data-msg="Server won't POST, power light is amber">⚡ No POST</button>
+                        <button class="suggest-chip suggest-issue" data-msg="Power supply redundancy lost">🔌 PSU Failure</button>
+                        <button class="suggest-chip suggest-issue" data-msg="Collect a TSR report for Dell support">📋 Collect TSR</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input area -->
+            <form class="chat-input-area" id="chatForm" role="form" aria-label="Chat message input">
+                <div class="chat-input-row">
+                    <textarea id="chatInput" class="chat-input" placeholder="Describe your server issue or ask a question..." rows="1" maxlength="2000" disabled aria-label="Type your message"></textarea>
+                    <button type="submit" class="chat-send" id="chatSend" disabled aria-label="Send message" title="Send message (Enter)">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+                    </button>
+                </div>
+                <div class="chat-input-hint">
+                    <span id="inputHint">Connect to a server to start chatting</span>
+                </div>
+            </form>
+        </main>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="/static/js/customer.js"></script>
+</body>
+</html>

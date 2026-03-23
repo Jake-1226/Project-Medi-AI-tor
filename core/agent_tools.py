@@ -77,7 +77,7 @@ def parse_temperatures(raw: Dict[str, Any]) -> ToolResult:
             component=name, metric="temperature",
             value=reading, unit="°C", status=status,
         ))
-    readings = [t.get("reading_celsius") or 0 for t in temps if t.get("reading_celsius")]
+    readings = [t.get("reading_celsius") for t in temps if t.get("reading_celsius") is not None]
     avg = round(sum(readings) / len(readings), 1) if readings else 0
     mx = max(readings) if readings else 0
     summary = f"{len(temps)} sensors — Avg: {avg}°C, Max: {mx}°C"
@@ -105,7 +105,7 @@ def parse_fans(raw: Dict[str, Any]) -> ToolResult:
             id=f"fan_{i}", description=f"{name} = {rpm} RPM" if rpm else f"{name} status={f.get('status','?')}",
             component=name, metric="speed_rpm", value=rpm, unit="RPM", status=status,
         ))
-    speeds = [f.get("speed_rpm") or 0 for f in fans if f.get("speed_rpm")]
+    speeds = [f.get("speed_rpm") for f in fans if f.get("speed_rpm") is not None and 0 < f.get("speed_rpm", 0) < 50000]
     avg_rpm = round(sum(speeds) / len(speeds)) if speeds else 0
     failed = sum(1 for f in fans if not _is_healthy(f.get("status")))
     summary = f"{len(fans)} fans — Avg: {avg_rpm} RPM"
@@ -287,7 +287,11 @@ def parse_logs(raw: Dict[str, Any]) -> ToolResult:
                               component="SEL", metric="log_entry", value=sev, status="critical"))
 
     # ── MCA (Machine Check Architecture) decoder ──────────
-    mca_results = scan_logs_for_mca_errors(logs)
+    try:
+        mca_results = scan_logs_for_mca_errors(logs)
+    except Exception as e:
+        logger.warning(f"MCA decoder error: {e}")
+        mca_results = []
     for j, mca in enumerate(mca_results):
         facts.append(Fact(
             id=f"mca_{j}", description=f"MCA DECODED: {mca.description}",
@@ -301,7 +305,11 @@ def parse_logs(raw: Dict[str, Any]) -> ToolResult:
             warnings.append(entry)
 
     # ── PCIe AER (Advanced Error Reporting) decoder ───────
-    pcie_results = scan_logs_for_pcie_errors(logs)
+    try:
+        pcie_results = scan_logs_for_pcie_errors(logs)
+    except Exception as e:
+        logger.warning(f"PCIe decoder error: {e}")
+        pcie_results = []
     for k, pcie in enumerate(pcie_results):
         facts.append(Fact(
             id=f"pcie_{k}", description=f"PCIe DECODED: {pcie.description}",
