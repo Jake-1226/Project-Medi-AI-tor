@@ -50,10 +50,14 @@ class CustomerChat {
                     this.showToast('Connect to a server first', 'warning');
                     return;
                 }
+                // Add loading state to clicked chip
+                chip.classList.add('chip-loading');
                 input.value = chip.dataset.msg;
                 input.style.height = 'auto';
                 input.style.height = Math.min(input.scrollHeight, 120) + 'px';
                 this.send();
+                // Remove loading after response (chips may be hidden by then)
+                setTimeout(() => chip.classList.remove('chip-loading'), 3000);
             });
         });
 
@@ -285,11 +289,18 @@ class CustomerChat {
         const nav = document.getElementById('navConnection');
         const connectSec = document.getElementById('connectSection');
         const serverSec = document.getElementById('serverInfoSection');
+        const inputHint = document.getElementById('inputHint');
         const safeHost = this._escapeHtml(host);
 
         if (connected) {
-            // Update nav
-            if (nav) nav.innerHTML = `<span class="conn-dot conn-on"></span> <span>${safeHost}</span>`;
+            // Update nav with connected styling
+            if (nav) {
+                nav.classList.add('connected');
+                nav.innerHTML = `<span class="conn-dot conn-on"></span> <span class="conn-text">${safeHost}</span>`;
+            }
+            
+            // Update input hint
+            if (inputHint) inputHint.textContent = 'Try "give me a server overview" or describe an issue';
             
             // Smooth transition: fade out connect, fade in server card
             if (connectSec) { connectSec.style.opacity = '0'; setTimeout(() => { connectSec.style.display = 'none'; }, 250); }
@@ -306,7 +317,11 @@ class CustomerChat {
             // Fetch quick status to enrich the card
             this._enrichServerCard();
         } else {
-            if (nav) nav.innerHTML = '<span class="conn-dot conn-off"></span> <span>Not Connected</span>';
+            if (nav) {
+                nav.classList.remove('connected');
+                nav.innerHTML = '<span class="conn-dot conn-off"></span> <span class="conn-text">Not Connected</span>';
+            }
+            if (inputHint) inputHint.textContent = 'Connect to a server to start';
             if (serverSec) { serverSec.style.opacity = '0'; setTimeout(() => { serverSec.style.display = 'none'; }, 250); }
             if (connectSec) { connectSec.style.display = 'block'; connectSec.style.opacity = '0'; requestAnimationFrame(() => { connectSec.style.opacity = '1'; }); }
         }
@@ -1421,11 +1436,46 @@ class CustomerChat {
 
     // ─── Sidebar Updates ──────────────────────────────────
     updateAgentStatus(state, metrics) {
-        document.getElementById('asState').textContent = state;
+        const section = document.getElementById('agentSection');
+        const progressBar = document.getElementById('agentProgressBar');
+        const progressFill = document.getElementById('agentProgressFill');
+        
+        // Show the investigation section when agent is working
+        if (state && state !== 'Ready' && state !== 'Idle') {
+            if (section) section.style.display = 'block';
+            if (progressBar) progressBar.style.display = 'block';
+            if (progressFill) progressFill.classList.add('indeterminate');
+        }
+        
+        // Update status text
+        const stateEl = document.getElementById('asState');
+        if (stateEl) stateEl.textContent = state;
+        
         if (metrics) {
-            document.getElementById('asFacts').textContent = metrics.facts_collected || 0;
-            document.getElementById('asHyps').textContent = metrics.hypotheses_tested || 0;
-            document.getElementById('asConf').textContent = metrics.confidence ? metrics.confidence + '%' : '—';
+            const factsEl = document.getElementById('asFacts');
+            const hypsEl = document.getElementById('asHyps');
+            const confEl = document.getElementById('asConf');
+            if (factsEl) factsEl.textContent = metrics.facts_collected || 0;
+            if (hypsEl) hypsEl.textContent = metrics.hypotheses_tested || 0;
+            if (confEl) confEl.textContent = metrics.confidence ? metrics.confidence + '%' : '—';
+            
+            // Update progress bar based on confidence
+            if (metrics.confidence && progressFill) {
+                progressFill.classList.remove('indeterminate');
+                progressFill.style.width = Math.min(metrics.confidence, 100) + '%';
+            }
+        }
+        
+        // Hide when investigation completes
+        if (state === 'Complete' || state === 'Done' || state === 'Idle') {
+            if (progressFill) {
+                progressFill.classList.remove('indeterminate');
+                progressFill.style.width = '100%';
+            }
+            // Keep visible for 5 seconds after completion to show results
+            setTimeout(() => {
+                if (progressBar) progressBar.style.display = 'none';
+            }, 5000);
         }
     }
 

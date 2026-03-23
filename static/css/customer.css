@@ -362,6 +362,83 @@ body {
 .as-label { color: var(--text-muted); }
 .as-val { font-weight: 600; color: var(--primary); }
 
+/* Investigation progress bar */
+.agent-progress-bar {
+    height: 3px;
+    background: rgba(79,70,229,0.12);
+    border-radius: 2px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+.agent-progress-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.5s ease;
+}
+.agent-progress-fill.indeterminate {
+    width: 30%;
+    animation: progressSlide 1.5s ease-in-out infinite;
+}
+@keyframes progressSlide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+}
+
+/* Nav connection indicator (improved visibility) */
+.nav-connection {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+.conn-text { color: var(--text-muted); }
+.nav-connection.connected {
+    background: rgba(22,163,74,0.08);
+}
+.nav-connection.connected .conn-text {
+    color: var(--green);
+    font-weight: 600;
+}
+
+/* Technician view link */
+.nav-link-tech {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+.nav-link-tech:hover { color: var(--primary); border-color: var(--primary); }
+
+/* Suggestion chip loading state */
+.suggest-chip.chip-loading {
+    opacity: 0.6;
+    pointer-events: none;
+    position: relative;
+}
+.suggest-chip.chip-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    width: 10px;
+    height: 10px;
+    margin-top: -5px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ─── Metrics Card ───────────────────────────────────── */
 .metrics-card {
     background: var(--green-bg);

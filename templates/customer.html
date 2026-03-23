@@ -20,9 +20,9 @@
         <div class="nav-right">
             <div class="nav-connection" id="navConnection" title="Server connection status">
                 <span class="conn-dot conn-off" id="connDot"></span>
-                <span id="connText">Not Connected</span>
+                <span id="connText" class="conn-text">Not Connected</span>
             </div>
-            <a href="/technician" class="nav-link-tech" title="Technician Dashboard">🔧</a>
+            <a href="/technician" class="nav-link-tech" title="Switch to Technician View">Technician View</a>
         </div>
     </nav>
 
@@ -87,20 +87,18 @@
                 </div>
             </div>
 
-            <!-- Agent status — simplified for customers -->
-            <div class="sidebar-section" id="agentSection">
-                <h3 class="sidebar-heading">Agent Status</h3>
+            <!-- Agent status — only shown during active investigation -->
+            <div class="sidebar-section" id="agentSection" style="display:none">
+                <h3 class="sidebar-heading">Investigation</h3>
                 <div class="agent-status-card" id="agentStatusCard">
+                    <div class="agent-progress-bar" id="agentProgressBar" style="display:none">
+                        <div class="agent-progress-fill" id="agentProgressFill"></div>
+                    </div>
                     <div class="agent-status-row"><span class="as-label">Status</span><span class="as-val" id="asState">Ready</span></div>
                     <div class="agent-status-row"><span class="as-label">Data Collected</span><span class="as-val" id="asFacts">0</span></div>
                     <div class="agent-status-row"><span class="as-label">Analysis</span><span class="as-val" id="asHyps">—</span></div>
                     <div class="agent-status-row"><span class="as-label">Confidence</span><span class="as-val" id="asConf">—</span></div>
                 </div>
-            </div>
-
-            <div class="sidebar-section" id="metricsSection" style="display:none">
-                <h3 class="sidebar-heading">Impact</h3>
-                <div class="metrics-card" id="metricsCard"></div>
             </div>
         </aside>
 
