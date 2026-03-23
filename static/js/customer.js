@@ -328,7 +328,6 @@ class CustomerChat {
                     if (d.cpu_model) html += `<div class="scd-row"><span class="scd-label">CPU</span><span class="scd-val">${this._escapeHtml(d.cpu_model)} × ${d.cpu_count || 1}</span></div>`;
                     if (d.total_memory_gb) html += `<div class="scd-row"><span class="scd-label">RAM</span><span class="scd-val">${d.total_memory_gb} GB</span></div>`;
                     if (d.bios_version) html += `<div class="scd-row"><span class="scd-label">BIOS</span><span class="scd-val">${this._escapeHtml(d.bios_version)}</span></div>`;
-                    if (d.idrac_version) html += `<div class="scd-row"><span class="scd-label">iDRAC</span><span class="scd-val">${this._escapeHtml(d.idrac_version)}</span></div>`;
                     if (d.health) {
                         const healthColor = d.health === 'critical' ? 'var(--red)' : d.health === 'warning' ? 'var(--yellow)' : 'var(--green)';
                         html += `<div class="scd-row"><span class="scd-label">Health</span><span class="scd-val" style="color:${healthColor};font-weight:700">${d.health.toUpperCase()}</span></div>`;
@@ -336,8 +335,38 @@ class CustomerChat {
                     details.innerHTML = html;
                 }
             }
+            // Also fetch health check to populate quick health bar
+            this._fetchQuickHealth();
         } catch (e) {
             // Non-critical — card stays with basic info
+        }
+    }
+
+    async _fetchQuickHealth() {
+        try {
+            const r = await fetch('/api/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'health_check', action_level: 'read_only', parameters: {} })
+            });
+            const data = await r.json();
+            const hs = data?.result?.health_status || {};
+            const components = hs.components || {};
+            const bar = document.getElementById('quickHealthBar');
+            const grid = document.getElementById('qhGrid');
+            if (!bar || !grid || Object.keys(components).length === 0) return;
+
+            let html = '';
+            for (const [name, status] of Object.entries(components)) {
+                const s = String(status).toLowerCase();
+                const cls = s.includes('ok') || s === 'online' ? 'qh-ok' : s.includes('warn') ? 'qh-warn' : 'qh-crit';
+                const label = name.replace(/([A-Z])/g, ' $1').trim();
+                html += `<div class="qh-item ${cls}"><span class="qh-dot"></span>${label}</div>`;
+            }
+            grid.innerHTML = html;
+            bar.style.display = 'block';
+        } catch (e) {
+            // Non-critical
         }
     }
 

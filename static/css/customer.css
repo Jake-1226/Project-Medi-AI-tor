@@ -290,6 +290,48 @@ body {
 .scd-label { color: var(--text-light); font-size: 0.72rem; }
 .scd-val { color: var(--text); font-weight: 600; font-size: 0.78rem; text-align: right; max-width: 60%; overflow: hidden; text-overflow: ellipsis; }
 
+/* ─── Quick Health Bar (sidebar) ────────────────────── */
+.quick-health {
+    margin: 10px 0 8px;
+    padding: 10px 0 0;
+    border-top: 1px solid var(--border);
+}
+.qh-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 8px;
+}
+.qh-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+}
+.qh-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    background: rgba(0,0,0,0.02);
+}
+.qh-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.qh-ok .qh-dot { background: var(--green); }
+.qh-warn .qh-dot { background: var(--yellow); }
+.qh-crit .qh-dot { background: var(--red); }
+.qh-ok { color: var(--green); }
+.qh-warn { color: #92400e; }
+.qh-crit { color: var(--red); font-weight: 700; }
+
 /* Legacy server info card (keep for compatibility) */
 .server-info-card {
     background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
@@ -560,7 +602,17 @@ body {
     gap: 5px;
     justify-content: center;
 }
-.suggest-group { margin-bottom: 8px; }
+.suggest-group { margin-bottom: 6px; }
+.suggest-group-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    display: block;
+    margin-bottom: 4px;
+    padding-left: 2px;
+}
 .suggest-label {
     font-size: 0.72rem;
     font-weight: 700;
