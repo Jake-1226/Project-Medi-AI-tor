@@ -266,8 +266,12 @@ def parse_logs(raw: Dict[str, Any]) -> ToolResult:
 
     logs = raw.get("logs", [])
     facts, warnings, critical = [], [], []
-    crit_count = sum(1 for l in logs if (l.get("severity") or "").lower() in ("critical", "error"))
-    warn_count = sum(1 for l in logs if (l.get("severity") or "").lower() == "warning")
+    def _sev(entry):
+        s = entry.get("severity") or ""
+        if hasattr(s, 'value'): s = s.value
+        return str(s).lower()
+    crit_count = sum(1 for l in logs if _sev(l) in ("critical", "error"))
+    warn_count = sum(1 for l in logs if _sev(l) == "warning")
 
     # Extract key log facts
     if crit_count:
@@ -280,7 +284,9 @@ def parse_logs(raw: Dict[str, Any]) -> ToolResult:
 
     # Sample recent critical messages
     for i, l in enumerate(logs[:200]):
-        sev = (l.get("severity") or "info").lower()
+        sev = l.get("severity") or "info"
+        if hasattr(sev, 'value'): sev = sev.value
+        sev = str(sev).lower()
         if sev in ("critical", "error") and i < 10:
             msg = (l.get("message") or "")[:120]
             facts.append(Fact(id=f"log_crit_{i}", description=msg,

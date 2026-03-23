@@ -149,6 +149,7 @@ body {
 /* ─── Connection Form ────────────────────────────────── */
 .connect-form { display: flex; flex-direction: column; gap: 6px; }
 .connect-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.c-port { max-width: 120px; font-size: 0.78rem; }
 .c-input {
     padding: 8px 10px;
     border: 1.5px solid var(--border);

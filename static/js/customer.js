@@ -241,12 +241,14 @@ class CustomerChat {
         const connectSec = document.getElementById('connectSection');
         const serverSec = document.getElementById('serverInfoSection');
         const card = document.getElementById('serverInfoCard');
+        // Sanitize host to prevent XSS
+        const safeHost = (host || '').replace(/[<>"'&]/g, c => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
 
         if (connected) {
-            nav.innerHTML = `<span class="conn-dot conn-on"></span> ${host}`;
+            nav.innerHTML = `<span class="conn-dot conn-on"></span> ${safeHost}`;
             connectSec.style.display = 'none';
             serverSec.style.display = 'block';
-            card.innerHTML = `<div class="si-row"><span class="si-label">Host</span><span class="si-val">${host}</span></div>
+            card.innerHTML = `<div class="si-row"><span class="si-label">Host</span><span class="si-val">${safeHost}</span></div>
                 <div class="si-row"><span class="si-label">Port</span><span class="si-val">${this.serverInfo?.port || 443}</span></div>
                 <div class="si-row"><span class="si-label">Status</span><span class="si-val" style="color:var(--green)">Connected</span></div>`;
         } else {
@@ -976,6 +978,7 @@ class CustomerChat {
                 <div class="msg-text">
                     <div class="thinking-container">
                         <div class="thinking-header">
+                            <span class="collapse-chevron">▾</span>
                             <span class="thinking-pulse"></span>
                             <span class="thinking-title">Agent is investigating...</span>
                             <span class="thinking-timer">0s</span>
@@ -992,7 +995,9 @@ class CustomerChat {
             const el = div.querySelector('.thinking-timer');
             if (el) {
                 const elapsed = Math.round((Date.now() - this._thinkingStartTime) / 1000);
-                el.textContent = elapsed + 's';
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                el.textContent = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
             }
         }, 1000);
 
@@ -1231,29 +1236,41 @@ class CustomerChat {
 
     addFollowUps(options) {
         const container = document.getElementById('chatMessages');
-        // Append follow-ups to the last agent message if possible
         const lastMsg = container.querySelector('.chat-msg.msg-agent:last-of-type .msg-text');
         const div = document.createElement('div');
         div.className = 'msg-followups';
-        div.innerHTML = options.map(o => `<button class="followup-chip">${o}</button>`).join('');
-        
+
+        // Create buttons with listeners BEFORE appending to DOM
+        options.forEach(o => {
+            const btn = document.createElement('button');
+            btn.className = 'followup-chip';
+            btn.textContent = o;
+            btn.addEventListener('click', () => {
+                const input = document.getElementById('chatInput');
+                if (input) input.value = o;
+                div.remove();
+                this.send();
+            });
+            div.appendChild(btn);
+        });
+
         if (lastMsg) {
             lastMsg.appendChild(div);
         } else {
             const wrapper = document.createElement('div');
             wrapper.className = 'chat-msg msg-agent';
-            wrapper.innerHTML = `<div class="msg-avatar" style="visibility:hidden">🧠</div><div class="msg-body">${div.outerHTML}</div>`;
+            const avatar = document.createElement('div');
+            avatar.className = 'msg-avatar';
+            avatar.style.visibility = 'hidden';
+            avatar.textContent = '🧠';
+            const body = document.createElement('div');
+            body.className = 'msg-body';
+            body.appendChild(div);
+            wrapper.appendChild(avatar);
+            wrapper.appendChild(body);
             container.appendChild(wrapper);
         }
         this.scrollToBottom();
-
-        div.querySelectorAll('.followup-chip').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.getElementById('chatInput').value = btn.textContent;
-                div.remove();
-                this.send();
-            });
-        });
     }
 
     formatText(text) {

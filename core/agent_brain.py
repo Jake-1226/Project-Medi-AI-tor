@@ -1036,6 +1036,13 @@ class AgentBrain:
         self._chat_history.append({"role": "user", "text": message, "ts": datetime.now(timezone.utc).isoformat()})
         if len(self._chat_history) > 200:
             self._chat_history = self._chat_history[-200:]
+
+        # Guard against empty or whitespace-only messages
+        if not message or not message.strip():
+            response = {"type": "answer", "message": "I'm here to help! Ask me anything about the server, or describe an issue you'd like me to investigate."}
+            response["chat_history"] = self._chat_history[-20:]
+            return response
+
         msg_lower = message.lower().strip()
 
         # ── Detect intent ──────────────────────────────────────
@@ -1202,6 +1209,8 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
 
     def _classify_intent(self, msg: str) -> str:
         """Classify user message into an intent category."""
+        if not msg or not isinstance(msg, str):
+            return "general"
         # ── Greetings and meta-conversation (check first) ──
         # Use word-boundary checks to avoid substring false positives (e.g. "sup" in "supply")
         words = set(re.findall(r'\b\w+\b', msg))

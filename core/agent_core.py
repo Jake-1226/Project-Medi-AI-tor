@@ -185,7 +185,7 @@ class DellAIAgent:
                 # Enrich with CPU, memory, hostname, power from Redfish Systems endpoint
                 try:
                     system_data = await self.redfish_client._get(f"Systems/{self.redfish_client.system_id}")
-                    if system_data:
+                    if system_data and isinstance(system_data, dict):
                         si["power_state"] = system_data.get("PowerState", "Unknown")
                         si["hostname"] = system_data.get("HostName", "")
                         si["manufacturer"] = system_data.get("Manufacturer", "Dell Inc.")
@@ -611,6 +611,7 @@ class DellAIAgent:
     
     async def _execute_full_control_command(self, command: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
         """Execute full control commands (high risk)"""
+        parameters = parameters or {}
         
         # Try diagnostic commands first (which includes read-only)
         try:
