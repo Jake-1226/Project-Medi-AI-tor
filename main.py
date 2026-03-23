@@ -240,6 +240,29 @@ async def api_connect_to_server(connection: ServerConnection):
             password=password,
             port=port
         )
+        
+        # Auto-register server in fleet manager
+        try:
+            server_info = await agent.execute_action(
+                action_level=ActionLevel.READ_ONLY,
+                command="get_server_info",
+                parameters={}
+            )
+            si = server_info.get("server_info", {})
+            fleet_manager.add_server(
+                name=si.get("model", host),
+                host=host,
+                username=username,
+                password=password,
+                port=port,
+                model=si.get("model"),
+                service_tag=si.get("service_tag"),
+                environment="production",
+            )
+            logger.info(f"Auto-registered {host} in fleet manager")
+        except Exception as e:
+            logger.warning(f"Could not auto-register server in fleet: {e}")
+        
         return {
             "status": "success",
             "message": "Connected successfully",
@@ -263,6 +286,27 @@ async def connect_to_server(connection: ServerConnection):
         )
         
         if success:
+            # Auto-register server in fleet manager
+            try:
+                si_data = await agent.execute_action(
+                    action_level=ActionLevel.READ_ONLY,
+                    command="get_server_info",
+                    parameters={}
+                )
+                si = si_data.get("server_info", {})
+                fleet_manager.add_server(
+                    name=si.get("model", connection.get_host()),
+                    host=connection.get_host(),
+                    username=connection.get_username(),
+                    password=connection.get_password(),
+                    port=connection.get_port(),
+                    model=si.get("model"),
+                    service_tag=si.get("service_tag"),
+                    environment="production",
+                )
+            except Exception:
+                pass  # Fleet registration is best-effort
+            
             return {"status": "success", "message": "Connected to server successfully"}
         else:
             raise HTTPException(status_code=400, detail="Failed to connect to server")
@@ -1323,6 +1367,35 @@ async def run_fleet_health_check():
         }
     except Exception as e:
         logger.error(f"Fleet health check error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/fleet/alerts/{alert_index}/acknowledge")
+async def acknowledge_fleet_alert(alert_index: int, request: dict = {}):
+    """Acknowledge a fleet alert"""
+    try:
+        alerts = fleet_manager.get_recent_alerts(hours=168, limit=1000)
+        if 0 <= alert_index < len(alerts):
+            alerts[alert_index]["acknowledged"] = True
+            alerts[alert_index]["acknowledged_by"] = request.get("acknowledged_by", "user")
+            alerts[alert_index]["acknowledged_at"] = datetime.now().isoformat()
+            return {"status": "success", "message": "Alert acknowledged"}
+        raise HTTPException(status_code=404, detail="Alert not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error acknowledging fleet alert: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/fleet/alerts/clear")
+async def clear_fleet_alerts(request: dict = {}):
+    """Clear resolved/acknowledged fleet alerts"""
+    try:
+        before = len(fleet_manager.alerts)
+        fleet_manager.alerts = [a for a in fleet_manager.alerts if not a.get("acknowledged")]
+        after = len(fleet_manager.alerts)
+        return {"status": "success", "cleared": before - after, "remaining": after}
+    except Exception as e:
+        logger.error(f"Error clearing fleet alerts: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/fleet/alerts")
