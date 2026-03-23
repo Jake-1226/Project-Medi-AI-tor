@@ -345,7 +345,6 @@ class CustomerChat {
         if (this.serverInfo) {
             localStorage.setItem('mediAItor_conn', JSON.stringify({
                 host: this.serverInfo.host,
-                username: this.serverInfo.username,
                 port: this.serverInfo.port
             }));
         }
@@ -356,13 +355,8 @@ class CustomerChat {
             const saved = JSON.parse(localStorage.getItem('mediAItor_conn'));
             if (saved?.host) {
                 document.getElementById('cHost').value = saved.host;
-                document.getElementById('cUser').value = saved.username || '';
                 if (saved.port) document.getElementById('cPort').value = saved.port;
-                // Auto-focus password field since host/user are pre-filled
-                setTimeout(() => {
-                    const passField = document.getElementById('cPass');
-                    if (passField && saved.host && saved.username) passField.focus();
-                }, 300);
+                // username and password intentionally NOT restored from localStorage
             }
         } catch (e) {}
     }

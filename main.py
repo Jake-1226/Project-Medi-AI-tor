@@ -7,12 +7,17 @@ and Dell servers, leveraging Redfish API and RACADM for comprehensive server man
 
 import asyncio
 import logging
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+import os
+import time
+import re
+from collections import defaultdict
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Request, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List, Union
+from starlette.middleware.base import BaseHTTPMiddleware
 import json
 import uvicorn
 from enum import Enum
@@ -36,6 +41,7 @@ from core.webhook_manager import WebhookManager
 from core.rbac import RBACManager
 from core.alert_system import alert_system
 from core.fleet_manager import fleet_manager
+from security.auth import AuthManager, AuthenticationError, AuthorizationError
 
 # main.py (top imports)
 from models.server_models import ActionLevel
@@ -48,6 +54,142 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ═══════════════════════════════════════════════════════════════
+#  SECURITY INFRASTRUCTURE
+# ═══════════════════════════════════════════════════════════════
+
+# Auth manager (initialized on startup with config)
+auth_manager: Optional[AuthManager] = None
+
+# Rate limiter: per-IP request counts
+_rate_limits: Dict[str, list] = defaultdict(list)
+
+# Audit log (in-memory ring buffer, last 10 000 events)
+_audit_log: List[Dict[str, Any]] = []
+_AUDIT_MAX = 10_000
+
+def _audit(event: str, *, ip: str = "?", user: str = "anonymous", detail: str = ""):
+    """Append an event to the audit log."""
+    entry = {"ts": datetime.now().isoformat(), "event": event, "ip": ip, "user": user, "detail": detail}
+    _audit_log.append(entry)
+    if len(_audit_log) > _AUDIT_MAX:
+        _audit_log.pop(0)
+    logger.info(f"AUDIT [{event}] ip={ip} user={user} {detail}")
+
+def _rate_check(ip: str, limit: int = 30, window: int = 60) -> bool:
+    """Return True if request is within rate limit. Prunes old entries."""
+    now = time.time()
+    _rate_limits[ip] = [t for t in _rate_limits[ip] if now - t < window]
+    if len(_rate_limits[ip]) >= limit:
+        return False
+    _rate_limits[ip].append(now)
+    return True
+
+def _sanitize_error(e: Exception) -> str:
+    """Return a safe error message for the client. Log full detail server-side."""
+    msg = str(e)
+    # Strip file paths, stack traces, and internal IPs from client-facing messages
+    if any(tok in msg.lower() for tok in ['traceback', 'file "/', 'file "c:', 'file "\\\\', 'modulenotfound']):
+        return "An internal error occurred. Please try again."
+    # Keep short operational messages that are useful to the technician
+    if len(msg) > 300:
+        return msg[:297] + "..."
+    return msg
+
+# Hostnames: allow IPs (v4/v6), FQDNs. Block obvious path-traversal.
+_HOST_RE = re.compile(r'^[a-zA-Z0-9._:\-\[\]]+$')
+
+def _validate_host(host: str) -> str:
+    """Validate and sanitize a hostname/IP. Raises HTTPException on bad input."""
+    host = host.strip()
+    if not host or len(host) > 253:
+        raise HTTPException(status_code=400, detail="Invalid host")
+    if not _HOST_RE.match(host):
+        raise HTTPException(status_code=400, detail="Invalid host format")
+    return host
+
+# OS command whitelist — only these actions are allowed via /api/os/execute
+_OS_COMMAND_WHITELIST = {
+    'system_info', 'cpu_info', 'memory_info', 'disk_info', 'network_info',
+    'process_list', 'service_list', 'uptime', 'kernel_info', 'dmesg',
+    'journal_logs', 'syslog', 'hardware_info', 'pci_devices', 'usb_devices',
+    'temperature', 'smart_status', 'raid_status', 'network_stats',
+    'docker_status', 'custom_command',  # custom_command only for admin role
+}
+
+# ─── Security Headers Middleware ─────────────────────────────
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to every response."""
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        # CSP: allow self + inline styles (needed by dashboard) + CDN fonts
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
+            "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; "
+            "img-src 'self' data:; "
+            "connect-src 'self' ws: wss:; "
+        )
+        return response
+
+# ─── Rate-Limit Middleware ───────────────────────────────────
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Reject requests that exceed per-IP rate limits."""
+    # Tighter limits for sensitive paths
+    SENSITIVE = {'/api/connect': 10, '/api/os/connect': 10, '/api/os/execute': 20,
+                 '/api/auth/login': 10, '/api/execute': 60, '/api/chat': 60,
+                 '/api/chat/stream': 30}
+    
+    async def dispatch(self, request: Request, call_next):
+        ip = request.client.host if request.client else "unknown"
+        path = request.url.path
+        limit = self.SENSITIVE.get(path, 120)  # default 120 req/min
+        if not _rate_check(ip, limit=limit, window=60):
+            _audit("RATE_LIMIT", ip=ip, detail=path)
+            return JSONResponse(status_code=429, content={"detail": "Too many requests. Please slow down."})
+        return await call_next(request)
+
+# ─── Auth dependency (FastAPI Depends) ───────────────────────
+async def _get_current_user(request: Request) -> Dict[str, Any]:
+    """Extract and validate the JWT token from Authorization header or cookie.
+    Returns user info dict or raises 401.
+    """
+    token = None
+    # 1. Authorization: Bearer <token>
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+    # 2. Cookie fallback (for browser pages)
+    if not token:
+        token = request.cookies.get("auth_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    try:
+        user_info = await auth_manager.validate_token(token)
+        return user_info
+    except AuthenticationError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+async def _require_role(request: Request, role: str) -> Dict[str, Any]:
+    """Ensure the current user has a specific role."""
+    user = await _get_current_user(request)
+    if user.get("role") != role and user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    return user
+
+async def _require_permission(request: Request, perm: str) -> Dict[str, Any]:
+    """Ensure the current user has a specific permission."""
+    user = await _get_current_user(request)
+    if perm not in user.get("permissions", []):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    return user
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Dell Server AI Agent",
@@ -55,14 +197,20 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware
+# CORS middleware — restrict to same-origin by default; override with CORS_ORIGINS env var
+_cors_origins = os.getenv("CORS_ORIGINS", "").strip()
+_allowed_origins = [o.strip() for o in _cors_origins.split(",") if o.strip()] if _cors_origins else []
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_allowed_origins or ["*"],  # '*' only when CORS_ORIGINS not set (dev)
+    allow_credentials=bool(_allowed_origins),  # credentials only with explicit origins
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+# Security headers & rate limiting
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware)
 
 # Initialize global components
 agent = None
@@ -137,6 +285,7 @@ async def startup_event():
     global agent, agent_brain, automation_engine, multi_server_manager, analytics_engine
     global predictive_analytics, predictive_maintenance, voice_assistant, third_party_api
     global realtime_monitor, health_monitor, webhook_manager, rbac_manager
+    global auth_manager
     
     config = AgentConfig.from_env()
     
@@ -156,6 +305,17 @@ async def startup_event():
     automation_engine = AutomationEngine(agent)
     multi_server_manager = MultiServerManager(config)
     
+    # Initialize authentication
+    auth_manager = AuthManager(config)
+    # Override default passwords from environment if provided
+    for role in ("admin", "operator", "viewer"):
+        env_pw = os.getenv(f"AUTH_{role.upper()}_PASSWORD")
+        if env_pw:
+            auth_manager.users[role]["password_hash"] = auth_manager._hash_password(env_pw)
+            logger.info(f"Loaded custom password for {role} from environment")
+    
+    logger.info("Authentication system initialized (3 default roles: admin, operator, viewer)")
+    
     # Optional components (may not exist)
     try:
         from integrations.voice_assistant import VoiceAssistant
@@ -174,25 +334,129 @@ async def startup_event():
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# ═══════════════════════════════════════════════════════════════
+#  AUTHENTICATION ENDPOINTS
+# ═══════════════════════════════════════════════════════════════
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.get("/login", response_class=HTMLResponse)
+async def get_login_page():
+    """Serve the login page"""
+    return FileResponse('templates/login.html', headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+
+@app.post("/api/auth/login")
+async def auth_login(creds: LoginRequest, request: Request):
+    """Authenticate user and return JWT token"""
+    ip = request.client.host if request.client else "unknown"
+    try:
+        result = await auth_manager.authenticate(creds.username, creds.password)
+        _audit("LOGIN_SUCCESS", ip=ip, user=creds.username)
+        response = JSONResponse(content={"status": "success", **result})
+        # Set HTTP-only cookie for browser-based access
+        response.set_cookie(
+            key="auth_token",
+            value=result["token"],
+            httponly=True,
+            samesite="strict",
+            max_age=86400,  # 24 hours
+            secure=os.getenv("REQUIRE_HTTPS", "false").lower() == "true",
+        )
+        return response
+    except AuthenticationError as e:
+        _audit("LOGIN_FAILED", ip=ip, user=creds.username, detail=str(e))
+        raise HTTPException(status_code=401, detail=str(e))
+
+@app.post("/api/auth/logout")
+async def auth_logout(request: Request):
+    """Logout and invalidate session"""
+    try:
+        user = await _get_current_user(request)
+        await auth_manager.logout(user.get("session_id", ""))
+        _audit("LOGOUT", user=user.get("username", "?"))
+        response = JSONResponse(content={"status": "success"})
+        response.delete_cookie("auth_token")
+        return response
+    except Exception:
+        response = JSONResponse(content={"status": "success"})
+        response.delete_cookie("auth_token")
+        return response
+
+@app.get("/api/auth/me")
+async def auth_me(request: Request):
+    """Get current user info (validates token)"""
+    user = await _get_current_user(request)
+    return {"status": "success", "user": user}
+
+@app.post("/api/auth/change-password")
+async def auth_change_password(request: Request, body: dict):
+    """Change current user's password"""
+    user = await _get_current_user(request)
+    try:
+        await auth_manager.change_password(
+            user["username"], body.get("old_password", ""), body.get("new_password", "")
+        )
+        _audit("PASSWORD_CHANGE", user=user["username"])
+        return {"status": "success", "message": "Password changed"}
+    except AuthenticationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/auth/sessions")
+async def auth_sessions(request: Request):
+    """List active sessions (admin only)"""
+    user = await _get_current_user(request)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return {"status": "success", "sessions": auth_manager.get_active_sessions()}
+
+@app.get("/api/audit-log")
+async def get_audit_log(request: Request, limit: int = Query(default=100, le=1000)):
+    """Get recent audit log entries (admin only)"""
+    user = await _get_current_user(request)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return {"status": "success", "entries": _audit_log[-limit:]}
+
+# ═══════════════════════════════════════════════════════════════
+#  PAGE ROUTES
+# ═══════════════════════════════════════════════════════════════
+
 @app.get("/", response_class=HTMLResponse)
 async def get_customer_chat():
-    """Serve the customer-facing AI chat page"""
+    """Serve the customer-facing AI chat page (public — no auth required)"""
     return FileResponse('templates/customer.html', headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 @app.get("/technician", response_class=HTMLResponse)
-async def get_technician_dashboard():
-    """Serve the technician/support dashboard"""
-    return FileResponse('templates/dashboard.html', headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+async def get_technician_dashboard(request: Request):
+    """Serve the technician/support dashboard — requires authentication.
+    If no valid token, redirect to /login.
+    """
+    token = request.cookies.get("auth_token")
+    if not token:
+        from starlette.responses import RedirectResponse
+        return RedirectResponse(url="/login", status_code=302)
+    try:
+        await auth_manager.validate_token(token)
+        return FileResponse('templates/dashboard.html', headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+    except Exception:
+        from starlette.responses import RedirectResponse
+        return RedirectResponse(url="/login", status_code=302)
 
 @app.post("/api/connect")
-async def api_connect_to_server(connection: ServerConnection):
-    """Connect to a Dell server using Redfish API"""
+async def api_connect_to_server(connection: ServerConnection, request: Request):
+    """Connect to a Dell server using Redfish API — requires authentication"""
+    user = await _get_current_user(request)
+    ip = request.client.host if request.client else "?"
     try:
         # Get actual values from UI fields
-        host = connection.get_host()
+        host = _validate_host(connection.get_host())
         username = connection.get_username()
         password = connection.get_password()
         port = connection.get_port()
+        
+        _audit("CONNECT_ATTEMPT", ip=ip, user=user.get("username", "?"), detail=f"host={host}")
         
         # Validate connection parameters
         if not host or not username or not password:
@@ -272,7 +536,7 @@ async def api_connect_to_server(connection: ServerConnection):
         raise
     except Exception as e:
         logger.error(f"Connection error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/connect")
 async def connect_to_server(connection: ServerConnection):
@@ -313,7 +577,7 @@ async def connect_to_server(connection: ServerConnection):
             
     except Exception as e:
         logger.error(f"Connection error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/disconnect")
 async def disconnect_from_server():
@@ -341,16 +605,23 @@ async def disconnect_from_server():
         raise
     except Exception as e:
         logger.error(f"Error disconnecting from server: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/execute")
-async def api_execute_action(request: AgentActionRequest):
-    """Execute an agent action based on the specified action level"""
+async def api_execute_action(action_req: AgentActionRequest, request: Request):
+    """Execute an agent action based on the specified action level — requires authentication"""
+    user = await _get_current_user(request)
+    # Check permission against action level
+    al = action_req.action_level.value if hasattr(action_req.action_level, 'value') else str(action_req.action_level)
+    if al not in user.get("permissions", []):
+        raise HTTPException(status_code=403, detail=f"Your role does not permit '{al}' actions")
+    ip = request.client.host if request.client else "?"
+    _audit("EXECUTE", ip=ip, user=user.get("username", "?"), detail=f"{action_req.action} [{al}]")
     try:
         if not agent.is_connected():
             raise HTTPException(status_code=400, detail="Not connected to server")
         
-        result = await agent.execute_action(request.action_level, request.action, request.parameters)
+        result = await agent.execute_action(action_req.action_level, action_req.action, action_req.parameters)
         return {
             "status": "success",
             "result": result
@@ -358,8 +629,8 @@ async def api_execute_action(request: AgentActionRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error executing action {request.action}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error executing action {action_req.action}: {e}")
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/execute")
 async def execute_action(request: AgentActionRequest):
@@ -370,7 +641,7 @@ async def execute_action(request: AgentActionRequest):
         
     except Exception as e:
         logger.error(f"Action execution error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/troubleshoot")
 async def api_troubleshoot_server(request: TroubleshootingTask):
@@ -386,7 +657,7 @@ async def api_troubleshoot_server(request: TroubleshootingTask):
         }
     except Exception as e:
         logger.error(f"Troubleshooting error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/troubleshoot")
 async def troubleshoot_server(request: TroubleshootingTask):
@@ -420,7 +691,7 @@ async def troubleshoot_server(request: TroubleshootingTask):
         
     except Exception as e:
         logger.error(f"Troubleshooting error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 # ─── Agentic Investigation Endpoint ──────────────────────────────
 @app.post("/api/investigate")
@@ -449,7 +720,7 @@ async def api_investigate_server(request: TroubleshootingTask):
         raise
     except Exception as e:
         logger.error(f"Investigation error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/investigate")
 async def investigate_server(request: TroubleshootingTask):
@@ -494,7 +765,7 @@ async def investigate_server(request: TroubleshootingTask):
 
     except Exception as e:
         logger.error(f"Investigation error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 # ─── Chat Endpoint ─────────────────────────────────────────────
 @app.post("/api/chat")
@@ -516,7 +787,7 @@ async def api_chat_with_agent(msg: ChatMessage):
         }
     except Exception as e:
         logger.error(f"Chat error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/chat")
 async def chat_with_agent(msg: ChatMessage):
@@ -724,7 +995,7 @@ async def connect_to_os(connection: OSConnection):
         raise HTTPException(status_code=500, detail="paramiko library not installed - SSH unavailable")
     except Exception as e:
         logger.error(f"OS connection error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/os/disconnect")
 async def disconnect_from_os():
@@ -737,18 +1008,32 @@ async def disconnect_from_os():
         return {"status": "success", "message": "SSH disconnected"}
     except Exception as e:
         logger.error(f"OS disconnect error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/os/execute")
-async def execute_os_command(request: dict):
-    """Execute an OS-level command via SSH"""
+async def execute_os_command(body: dict, request: Request):
+    """Execute an OS-level command via SSH — requires authentication + command whitelist"""
+    user = await _get_current_user(request)
+    ip = request.client.host if request.client else "?"
     global ssh_client
     try:
         if not ssh_client or not ssh_client.is_connected():
             raise HTTPException(status_code=400, detail="Not connected to OS via SSH")
         
-        action = request.get("action", "")
-        params = request.get("parameters", {})
+        action = body.get("action", "")
+        params = body.get("parameters", {})
+        
+        # Validate action against whitelist
+        if action not in _OS_COMMAND_WHITELIST:
+            _audit("OS_CMD_BLOCKED", ip=ip, user=user.get("username", "?"), detail=f"action={action}")
+            raise HTTPException(status_code=403, detail=f"OS action '{action}' is not permitted")
+        
+        # custom_command requires admin role
+        if action == "custom_command" and user.get("role") != "admin":
+            _audit("OS_CMD_BLOCKED", ip=ip, user=user.get("username", "?"), detail="custom_command by non-admin")
+            raise HTTPException(status_code=403, detail="Custom commands require admin role")
+        
+        _audit("OS_EXECUTE", ip=ip, user=user.get("username", "?"), detail=f"action={action}")
         
         # Map actions to SSH client methods
         os_actions = {
@@ -768,7 +1053,7 @@ async def execute_os_command(request: dict):
         
         handler = os_actions.get(action)
         if not handler:
-            raise HTTPException(status_code=400, detail=f"Unknown OS action: {action}. Available: {list(os_actions.keys())}")
+            raise HTTPException(status_code=400, detail=f"Unknown OS action: {action}")
         
         result = await handler()
         return {"status": "success", "result": result}
@@ -777,7 +1062,7 @@ async def execute_os_command(request: dict):
         raise
     except Exception as e:
         logger.error(f"OS command error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 # ─── Connection Status API ───────────────────────────────────────
 @app.get("/api/connection/status")
@@ -883,8 +1168,20 @@ async def health_check():
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time communication"""
+    """WebSocket endpoint for real-time communication — validates auth token from query or cookie"""
+    # Authenticate before accepting
+    token = websocket.query_params.get("token") or websocket.cookies.get("auth_token")
+    if not token:
+        await websocket.close(code=4001, reason="Authentication required")
+        return
+    try:
+        ws_user = await auth_manager.validate_token(token)
+    except Exception:
+        await websocket.close(code=4001, reason="Invalid token")
+        return
+    
     await websocket.accept()
+    _audit("WS_CONNECT", user=ws_user.get("username", "?"))
     try:
         while True:
             data = await websocket.receive_text()
@@ -941,7 +1238,7 @@ async def calculate_health_score(request: dict):
         
     except Exception as e:
         logger.error(f"Health scoring error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 # ─── Cache Management Endpoint ───────────────────────────────────────
 @app.get("/cache/stats")
@@ -956,7 +1253,7 @@ async def get_cache_stats():
         }
     except Exception as e:
         logger.error(f"Cache stats error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/cache/clear")
 async def clear_cache(pattern: str = "*"):
@@ -971,7 +1268,7 @@ async def clear_cache(pattern: str = "*"):
         }
     except Exception as e:
         logger.error(f"Cache clear error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 # ─── Webhook Management Endpoints ───────────────────────────────────
 @app.get("/webhooks")
@@ -986,7 +1283,7 @@ async def list_webhooks():
         }
     except Exception as e:
         logger.error(f"Webhook list error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/webhooks/test")
 async def test_webhook(webhook_id: str):
@@ -1012,7 +1309,7 @@ async def test_webhook(webhook_id: str):
         }
     except Exception as e:
         logger.error(f"Webhook test error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 # ─── Predictive Analytics Endpoint ───────────────────────────────────
 @app.post("/predictive-analysis")
@@ -1033,7 +1330,7 @@ async def run_predictive_analysis(request: dict):
         }
     except Exception as e:
         logger.error(f"Predictive analysis error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 # ─── Health Monitoring Endpoints ───────────────────────────────────
 @app.post("/monitoring/start")
@@ -1060,7 +1357,7 @@ async def start_health_monitoring():
         }
     except Exception as e:
         logger.error(f"Monitoring start error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/monitoring/stop")
 async def stop_health_monitoring():
@@ -1075,7 +1372,7 @@ async def stop_health_monitoring():
         }
     except Exception as e:
         logger.error(f"Monitoring stop error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/monitoring/status")
 async def get_monitoring_status():
@@ -1090,7 +1387,7 @@ async def get_monitoring_status():
         }
     except Exception as e:
         logger.error(f"Monitoring status error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/monitoring/alerts")
 async def get_health_alerts(severity: Optional[str] = None):
@@ -1126,7 +1423,7 @@ async def get_health_alerts(severity: Optional[str] = None):
         }
     except Exception as e:
         logger.error(f"Alerts error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/monitoring/alerts/{alert_id}/acknowledge")
 async def acknowledge_alert(alert_id: str, request: dict):
@@ -1148,7 +1445,7 @@ async def acknowledge_alert(alert_id: str, request: dict):
         raise
     except Exception as e:
         logger.error(f"Alert acknowledge error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/fleet", response_class=HTMLResponse)
 async def get_fleet_dashboard():
@@ -1166,7 +1463,7 @@ async def get_fleet_overview():
         }
     except Exception as e:
         logger.error(f"Error getting fleet overview: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/servers")
 async def add_fleet_server(server_data: dict):
@@ -1193,7 +1490,7 @@ async def add_fleet_server(server_data: dict):
         }
     except Exception as e:
         logger.error(f"Error adding server to fleet: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/servers/{server_id}/connect")
 async def connect_fleet_server(server_id: str):
@@ -1207,7 +1504,7 @@ async def connect_fleet_server(server_id: str):
         }
     except Exception as e:
         logger.error(f"Error connecting to server {server_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/servers/{server_id}/disconnect")
 async def disconnect_fleet_server(server_id: str):
@@ -1221,7 +1518,7 @@ async def disconnect_fleet_server(server_id: str):
         }
     except Exception as e:
         logger.error(f"Error disconnecting from server {server_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/connect-all")
 async def connect_all_fleet_servers():
@@ -1236,7 +1533,7 @@ async def connect_all_fleet_servers():
         }
     except Exception as e:
         logger.error(f"Error connecting to all servers: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/disconnect-all")
 async def disconnect_all_fleet_servers():
@@ -1251,7 +1548,7 @@ async def disconnect_all_fleet_servers():
         }
     except Exception as e:
         logger.error(f"Error disconnecting from all servers: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/api/fleet/servers/{server_id}")
 async def get_fleet_server(server_id: str):
@@ -1270,7 +1567,7 @@ async def get_fleet_server(server_id: str):
         raise
     except Exception as e:
         logger.error(f"Error getting server {server_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.put("/api/fleet/servers/{server_id}")
 async def update_fleet_server(server_id: str, server_data: dict):
@@ -1289,7 +1586,7 @@ async def update_fleet_server(server_id: str, server_data: dict):
         raise
     except Exception as e:
         logger.error(f"Error updating server {server_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.delete("/api/fleet/servers/{server_id}")
 async def delete_fleet_server(server_id: str):
@@ -1308,7 +1605,7 @@ async def delete_fleet_server(server_id: str):
         raise
     except Exception as e:
         logger.error(f"Error deleting server {server_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/servers/{server_id}/diagnostics")
 async def run_server_diagnostics(server_id: str):
@@ -1352,7 +1649,7 @@ async def run_server_diagnostics(server_id: str):
         raise
     except Exception as e:
         logger.error(f"Diagnostics error for server {server_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/health-check")
 async def run_fleet_health_check():
@@ -1367,7 +1664,7 @@ async def run_fleet_health_check():
         }
     except Exception as e:
         logger.error(f"Fleet health check error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/alerts/{alert_index}/acknowledge")
 async def acknowledge_fleet_alert(alert_index: int, request: dict = {}):
@@ -1384,7 +1681,7 @@ async def acknowledge_fleet_alert(alert_index: int, request: dict = {}):
         raise
     except Exception as e:
         logger.error(f"Error acknowledging fleet alert: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/alerts/clear")
 async def clear_fleet_alerts(request: dict = {}):
@@ -1396,7 +1693,7 @@ async def clear_fleet_alerts(request: dict = {}):
         return {"status": "success", "cleared": before - after, "remaining": after}
     except Exception as e:
         logger.error(f"Error clearing fleet alerts: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/api/fleet/alerts")
 async def get_fleet_alerts(hours: int = 24, limit: int = 100):
@@ -1411,7 +1708,7 @@ async def get_fleet_alerts(hours: int = 24, limit: int = 100):
         }
     except Exception as e:
         logger.error(f"Error getting fleet alerts: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/mobile", response_class=HTMLResponse)
 async def get_mobile_dashboard():
@@ -1425,7 +1722,16 @@ async def get_realtime_dashboard():
 
 @app.websocket("/ws/monitoring")
 async def websocket_monitoring(websocket: WebSocket):
-    """WebSocket endpoint for real-time monitoring"""
+    """WebSocket endpoint for real-time monitoring — requires auth token"""
+    token = websocket.query_params.get("token") or websocket.cookies.get("auth_token")
+    if not token:
+        await websocket.close(code=4001, reason="Authentication required")
+        return
+    try:
+        await auth_manager.validate_token(token)
+    except Exception:
+        await websocket.close(code=4001, reason="Invalid token")
+        return
     await websocket.accept()
     
     # Add connection to monitor
@@ -1503,7 +1809,7 @@ async def get_current_metrics():
         }
     except Exception as e:
         logger.error(f"Metrics error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/monitoring/metrics/{metric_name}/history")
 async def get_metric_history(metric_name: str, minutes: int = 60):
@@ -1520,7 +1826,7 @@ async def get_metric_history(metric_name: str, minutes: int = 60):
         }
     except Exception as e:
         logger.error(f"Metric history error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 # ─── Fleet Group Management Endpoints ──────────────────────────────
 @app.get("/api/fleet/groups")
@@ -1540,7 +1846,7 @@ async def get_fleet_groups():
         return {"status": "success", "groups": groups}
     except Exception as e:
         logger.error(f"Error getting fleet groups: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/groups")
 async def create_fleet_group(group_data: dict):
@@ -1563,7 +1869,7 @@ async def create_fleet_group(group_data: dict):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating fleet group: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.delete("/api/fleet/groups/{group_name}")
 async def delete_fleet_group(group_name: str):
@@ -1578,7 +1884,7 @@ async def delete_fleet_group(group_name: str):
         raise
     except Exception as e:
         logger.error(f"Error deleting fleet group: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/groups/{group_name}/servers/{server_id}")
 async def add_server_to_group(group_name: str, server_id: str):
@@ -1593,7 +1899,7 @@ async def add_server_to_group(group_name: str, server_id: str):
         raise
     except Exception as e:
         logger.error(f"Error adding server to group: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.delete("/api/fleet/groups/{group_name}/servers/{server_id}")
 async def remove_server_from_group(group_name: str, server_id: str):
@@ -1608,7 +1914,7 @@ async def remove_server_from_group(group_name: str, server_id: str):
         raise
     except Exception as e:
         logger.error(f"Error removing server from group: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 # ─── Fleet Analytics Endpoints ──────────────────────────────
 @app.get("/api/fleet/analytics")
@@ -1650,7 +1956,7 @@ async def get_fleet_analytics(time_range: str = "24h", metric: str = "health"):
         return {"status": "success", "data": analytics}
     except Exception as e:
         logger.error(f"Error getting fleet analytics: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/analytics/report")
 async def generate_fleet_report(report_config: dict = {}):
@@ -1713,7 +2019,7 @@ async def generate_fleet_report(report_config: dict = {}):
         return {"status": "success", "report": report}
     except Exception as e:
         logger.error(f"Error generating fleet report: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 # ─── Export Endpoints ──────────────────────────────
 @app.get("/api/fleet/export/servers")
@@ -1752,7 +2058,7 @@ async def export_fleet_servers(format: str = "json"):
         return {"status": "success", "data": servers_data}
     except Exception as e:
         logger.error(f"Error exporting servers: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/api/fleet/export/alerts")
 async def export_fleet_alerts(format: str = "json", hours: int = 24):
@@ -1787,7 +2093,7 @@ async def export_fleet_alerts(format: str = "json", hours: int = 24):
         return {"status": "success", "data": alerts_data}
     except Exception as e:
         logger.error(f"Error exporting alerts: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 # ─── Server Snapshot / Quick Status Endpoint ─────────────────────
 # Stores snapshots in memory for timeline
@@ -1838,7 +2144,7 @@ async def get_server_snapshot():
         raise
     except Exception as e:
         logger.error(f"Snapshot error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/api/server/timeline")
 async def get_server_timeline(limit: int = 50):
@@ -1851,7 +2157,7 @@ async def get_server_timeline(limit: int = 50):
         }
     except Exception as e:
         logger.error(f"Timeline error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 # ─── Quick Server Status (lightweight) ─────────────────────────
 @app.get("/api/server/quick-status")
@@ -1904,14 +2210,16 @@ async def get_quick_status():
 
 # ─── Batch Execute (multiple commands in one request) ──────────
 @app.post("/api/execute/batch")
-async def batch_execute(request: dict):
-    """Execute multiple commands in a single request for faster tab loading.
-    Accepts: {"commands": [{"action": "...", "parameters": {}}, ...]}"""
+async def batch_execute(body: dict, request: Request):
+    """Execute multiple commands in a single request — requires authentication"""
+    user = await _get_current_user(request)
+    ip = request.client.host if request.client else "?"
+    _audit("BATCH_EXECUTE", ip=ip, user=user.get("username", "?"), detail=f"{len(body.get('commands', []))} cmds")
     try:
         if not agent.is_connected():
             raise HTTPException(status_code=400, detail="Not connected to server")
         
-        commands = request.get("commands", [])
+        commands = body.get("commands", [])
         if not commands or len(commands) > 20:
             raise HTTPException(status_code=400, detail="Provide 1-20 commands")
         
@@ -1932,7 +2240,7 @@ async def batch_execute(request: dict):
         raise
     except Exception as e:
         logger.error(f"Batch execute error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 # ─── Quick Diagnostics Summary ─────────────────────────────────
 @app.get("/api/server/diagnostics-summary")
@@ -2004,7 +2312,7 @@ async def get_diagnostics_summary():
         raise
     except Exception as e:
         logger.error(f"Diagnostics summary error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 # ─── Server Comparison ──────────────────────────────────────────
 @app.post("/api/fleet/compare")
@@ -2043,7 +2351,7 @@ async def compare_fleet_servers(request: dict):
         raise
     except Exception as e:
         logger.error(f"Comparison error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 if __name__ == "__main__":
     uvicorn.run(

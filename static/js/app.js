@@ -144,7 +144,7 @@ class DellAIAgent {
     
     setupWebSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        const wsUrl = `${protocol}//${window.location.host}/ws?token=${this._authToken || ''}`;
         
         try {
             this.websocket = new WebSocket(wsUrl);
@@ -204,7 +204,7 @@ class DellAIAgent {
         try {
             const response = await fetch(`/connect`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getAuthHeaders(),
                 body: JSON.stringify({ host, username, password, port })
             });
             
@@ -255,7 +255,7 @@ class DellAIAgent {
             try {
                 const response = await fetch(`/api/disconnect`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: this._getAuthHeaders()
                 });
                 const result = await response.json();
                 if (response.ok) {
@@ -295,6 +295,15 @@ class DellAIAgent {
             clearInterval(this._autoRefreshTimer);
             this._autoRefreshTimer = null;
         }
+    }
+
+    _getAuthHeaders() {
+        // Token is in HTTP-only cookie, automatically sent by browser
+        // But also support explicit token for API calls
+        const token = this._authToken || '';
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        return headers;
     }
 
     // ─── OS Connection via SSH ────────────────────────────────
@@ -458,7 +467,7 @@ class DellAIAgent {
         try {
             const response = await fetch(`/api/execute`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getAuthHeaders(),
                 body: JSON.stringify({
                     action: command,
                     action_level: this.actionLevel,
@@ -1709,7 +1718,7 @@ class DellAIAgent {
             // Use batch endpoint for parallel execution
             const response = await fetch('/api/execute/batch', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getAuthHeaders(),
                 body: JSON.stringify({
                     commands: [
                         { action: 'get_server_info', parameters: {} },
@@ -3579,7 +3588,15 @@ class DellAIAgent {
     }
     
     saveSettings() {
-        localStorage.setItem('dellAgentSettings', JSON.stringify({ currentServer: this.currentServer, actionLevel: this.actionLevel }));
+        localStorage.setItem('dellAgentSettings', JSON.stringify({
+            currentServer: {
+                host: this.currentServer?.host || '',
+                username: this.currentServer?.username || '',
+                port: this.currentServer?.port || 443,
+                // password intentionally NOT saved to localStorage
+            },
+            actionLevel: this.actionLevel
+        }));
     }
     
     loadSavedSettings() {
@@ -3593,17 +3610,11 @@ class DellAIAgent {
             if (settings.currentServer) {
                 document.getElementById('serverHost').value = settings.currentServer.host || '';
                 document.getElementById('username').value = settings.currentServer.username || '';
-                document.getElementById('password').value = settings.currentServer.password || '';
+                // password intentionally NOT restored from localStorage
                 document.getElementById('port').value = settings.currentServer.port || 443;
             }
             
-            // Auto-reconnect if we have saved credentials and password
-            if (settings.currentServer?.host && settings.currentServer?.password) {
-                setTimeout(() => {
-                    this.log('Auto-reconnecting to ' + settings.currentServer.host + '...', 'info');
-                    this.connectToServer();
-                }, 500);
-            }
+            // No auto-reconnect — user must enter password each session
         } catch (error) { console.error('Failed to load saved settings:', error); }
         this.loadSrNumber();
     }

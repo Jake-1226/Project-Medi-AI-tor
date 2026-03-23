@@ -54,14 +54,14 @@ class ServerInfo:
     notes: str = ""
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert server to dictionary for API responses"""
+        """Convert server to dictionary for API responses — passwords are NEVER included"""
         return {
             "id": self.id,
             "name": self.name,
             "host": self.host,
             "port": self.port,
             "username": self.username,
-            "password": self.password,  # Include for API responses
+            # password intentionally omitted from API responses
             "model": self.model,
             "service_tag": self.service_tag,
             "location": self.location,
