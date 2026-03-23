@@ -3375,11 +3375,11 @@ class DellAIAgent {
             const response = await fetch(`/api/execute`, {
                 method: 'POST',
                 headers: this._getAuthHeaders(),
-                body: JSON.stringify({ action_level: this.actionLevel, command: 'health_check', parameters: {} })
+                body: JSON.stringify({ action_level: this.actionLevel, action: 'health_check', parameters: {} })
             });
             const result = await response.json();
             if (!response.ok) return;
-            const data = result.data || {};
+            const data = result.result || result.data || {};
             const snap = { time: new Date(), data };
             this.monitoringSnapshots.push(snap);
             if (this.monitoringSnapshots.length > 60) this.monitoringSnapshots.shift();
@@ -3413,6 +3413,198 @@ class DellAIAgent {
                     </div>`;
                 }).join('')}
             </div>`; 
+    }
+
+    // ─── Advanced Tab: runAdvanced dispatcher ─────────────────────
+    async runAdvanced(action) {
+        if (!this.currentServer) { this.showAlert('Connect to a server first', 'warning'); return; }
+
+        // Map action -> endpoint + result container
+        const mapping = {
+            'diagnostics_summary': { url: '/api/server/diagnostics-summary', resultId: 'advDiagnosticsResult' },
+            'connectivity_test':   { cmd: 'connectivity_test', resultId: 'advDiagnosticsResult' },
+            'check_idrac':         { url: '/check-idrac', method: 'POST', body: {}, resultId: 'advDiagnosticsResult' },
+            'post_codes':          { cmd: 'get_post_codes', resultId: 'advDiagnosticsResult' },
+            'support_collection':  { cmd: 'export_tsr', level: 'diagnostic', resultId: 'advDiagnosticsResult' },
+            'health_score':        { cmd: 'check_health_score', resultId: 'advHealthResult' },
+            'server_snapshot':     { url: '/api/server/snapshot', resultId: 'advSnapshotResult' },
+            'server_timeline':     { url: '/api/server/timeline', resultId: 'advSnapshotResult' },
+            'predictive_analysis': { url: '/predictive-analysis', method: 'POST', body: {}, resultId: 'advPredictiveResult' },
+            'firmware_compliance': { cmd: 'get_firmware_inventory', resultId: 'advPredictiveResult' },
+        };
+
+        const m = mapping[action];
+        if (!m) { this.showAlert(`Unknown advanced action: ${action}`, 'error'); return; }
+
+        const resultDiv = document.getElementById(m.resultId);
+        if (resultDiv) {
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'action-result';
+            resultDiv.innerHTML = `<div style="padding:12px;color:var(--text-muted)">Running ${action}...</div>`;
+        }
+
+        try {
+            let data;
+            if (m.url) {
+                // Direct API endpoint call
+                const opts = { method: m.method || 'GET', headers: this._getAuthHeaders() };
+                if (m.body) opts.body = JSON.stringify(m.body);
+                const r = await fetch(m.url, opts);
+                data = await r.json();
+            } else if (m.cmd) {
+                // Via /api/execute
+                const r = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: this._getAuthHeaders(),
+                    body: JSON.stringify({ action: m.cmd, action_level: m.level || this.actionLevel, parameters: {} })
+                });
+                data = await r.json();
+                data = data.result || data;
+            }
+
+            this.log(`Advanced: ${action} completed`, 'success');
+            if (resultDiv) {
+                resultDiv.className = 'action-result result-success';
+                resultDiv.innerHTML = this._renderAdvancedResult(action, data);
+            }
+        } catch (error) {
+            this.log(`Advanced ${action} failed: ${error.message}`, 'error');
+            if (resultDiv) {
+                resultDiv.className = 'action-result result-error';
+                resultDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
+            }
+        }
+    }
+
+    _renderAdvancedResult(action, data) {
+        const v = (x) => x ?? 'N/A';
+        const badge = (text, color) => `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;background:${color}20;color:${color}">${text}</span>`;
+
+        if (action === 'diagnostics_summary') {
+            const s = data.data || data.summary || data;
+            const overall = s.overall || 'unknown';
+            const color = overall === 'ok' ? '#10b981' : overall === 'warning' ? '#f59e0b' : '#ef4444';
+            let html = `<h4>Diagnostics Summary</h4><p>${badge(overall.toUpperCase(), color)}</p>`;
+            if (s.components) {
+                html += '<table class="data-table" style="margin-top:8px"><thead><tr><th>Component</th><th>Status</th></tr></thead><tbody>';
+                for (const [comp, st] of Object.entries(s.components)) {
+                    html += `<tr><td>${comp}</td><td><span class="badge ${this._badge(st)}">${st}</span></td></tr>`;
+                }
+                html += '</tbody></table>';
+            }
+            if (s.alerts?.length) {
+                html += `<h5 style="margin-top:12px">Alerts (${s.alerts.length})</h5>`;
+                s.alerts.forEach(a => { html += `<div style="padding:4px 0;font-size:0.82rem">${badge(a.severity || 'info', a.severity === 'critical' ? '#ef4444' : '#f59e0b')} ${a.message}</div>`; });
+            }
+            if (s.recommendations?.length) {
+                html += `<h5 style="margin-top:12px">Recommendations</h5><ul style="font-size:0.82rem;padding-left:18px">`;
+                s.recommendations.forEach(r => { html += `<li>${typeof r === 'string' ? r : r.message || JSON.stringify(r)}</li>`; });
+                html += '</ul>';
+            }
+            return html;
+        }
+
+        if (action === 'health_score') {
+            const hs = data.health_score || data.health_data || data;
+            let html = '<h4>Health Score Breakdown</h4>';
+            if (typeof hs === 'object') {
+                html += '<table class="data-table"><thead><tr><th>Subsystem</th><th>Score</th><th>Status</th></tr></thead><tbody>';
+                for (const [k, val] of Object.entries(hs)) {
+                    if (typeof val === 'number') {
+                        const color = val >= 80 ? '#10b981' : val >= 60 ? '#f59e0b' : '#ef4444';
+                        html += `<tr><td>${k}</td><td><strong>${val.toFixed(1)}%</strong></td><td>${badge(val >= 80 ? 'OK' : val >= 60 ? 'WARN' : 'CRITICAL', color)}</td></tr>`;
+                    }
+                }
+                html += '</tbody></table>';
+            } else {
+                html += `<p>Score: <strong>${v(hs)}</strong></p>`;
+            }
+            return html;
+        }
+
+        if (action === 'server_snapshot') {
+            const snap = data.data || data;
+            let html = '<h4>Server Snapshot</h4>';
+            html += `<p style="font-size:0.82rem;color:var(--text-muted)">Captured at: ${snap.timestamp || new Date().toISOString()}</p>`;
+            if (typeof snap === 'object') {
+                html += `<details style="margin-top:8px"><summary style="cursor:pointer;font-size:0.85rem;font-weight:600">View Full Snapshot Data</summary><pre style="max-height:400px;overflow:auto;font-size:0.75rem;padding:10px;background:var(--bg-input);border-radius:6px;margin-top:6px">${JSON.stringify(snap, null, 2)}</pre></details>`;
+            }
+            return html;
+        }
+
+        if (action === 'server_timeline') {
+            const tl = data.data || data.timeline || data;
+            let html = '<h4>Snapshot Timeline</h4>';
+            if (Array.isArray(tl) && tl.length) {
+                html += `<p style="font-size:0.82rem">${tl.length} snapshot(s) recorded</p>`;
+                tl.slice(-10).reverse().forEach(s => {
+                    html += `<div style="padding:6px 0;border-bottom:1px solid var(--border-color);font-size:0.82rem">${s.timestamp || 'Unknown time'} — ${s.overall || s.status || 'captured'}</div>`;
+                });
+            } else {
+                html += '<p>No snapshots recorded yet. Take a snapshot first.</p>';
+            }
+            return html;
+        }
+
+        if (action === 'predictive_analysis') {
+            const pa = data.predictive_report || data;
+            let html = '<h4>Predictive Analysis Report</h4>';
+            if (pa.summary) {
+                html += `<p>Predictions: ${pa.summary.total_predictions || 0} | High Risk: ${pa.summary.high_risk_count || 0}</p>`;
+            }
+            if (pa.predictions?.length) {
+                pa.predictions.forEach(p => {
+                    const color = p.risk_level === 'critical' ? '#ef4444' : p.risk_level === 'high' ? '#f59e0b' : '#3b82f6';
+                    html += `<div style="padding:8px;margin:6px 0;background:var(--bg-input);border-radius:6px;border-left:3px solid ${color}">${badge(p.risk_level?.toUpperCase() || 'INFO', color)} <strong>${p.component || 'System'}</strong><br><span style="font-size:0.82rem">${p.recommendation || p.message || 'No details'}</span></div>`;
+                });
+            }
+            return html;
+        }
+
+        if (action === 'connectivity_test') {
+            const ct = data.connectivity_results || data;
+            let html = '<h4>Connectivity Test</h4>';
+            if (typeof ct === 'object') {
+                for (const [k, val] of Object.entries(ct)) {
+                    if (typeof val === 'boolean') {
+                        html += `<div style="padding:4px 0">${val ? '✅' : '❌'} ${k}</div>`;
+                    } else if (typeof val === 'object') {
+                        html += `<div style="padding:4px 0"><strong>${k}:</strong> ${JSON.stringify(val)}</div>`;
+                    }
+                }
+            }
+            return html;
+        }
+
+        if (action === 'post_codes') {
+            const codes = data.post_codes || data;
+            let html = '<h4>POST Code History</h4>';
+            if (Array.isArray(codes) && codes.length) {
+                html += '<table class="data-table"><thead><tr><th>Code</th><th>Description</th><th>Time</th></tr></thead><tbody>';
+                codes.forEach(c => {
+                    html += `<tr><td><code>${c.code || c.MessageId || '?'}</code></td><td>${c.message || c.Message || ''}</td><td>${c.timestamp || c.Created || ''}</td></tr>`;
+                });
+                html += '</tbody></table>';
+            } else {
+                html += '<p>No POST codes recorded or server booted normally.</p>';
+            }
+            return html;
+        }
+
+        if (action === 'firmware_compliance') {
+            const fw = data.firmware_inventory || data.firmware || data;
+            let html = '<h4>Firmware Compliance Report</h4>';
+            if (Array.isArray(fw) && fw.length) {
+                html += `<p>${fw.length} firmware components found</p>`;
+                html += '<table class="data-table"><thead><tr><th>Component</th><th>Version</th></tr></thead><tbody>';
+                fw.forEach(f => { html += `<tr><td>${f.name || f.Name || '?'}</td><td>${f.version || f.Version || '?'}</td></tr>`; });
+                html += '</tbody></table>';
+            }
+            return html;
+        }
+
+        // Default: show raw JSON
+        return `<h4>${action}</h4><pre style="max-height:400px;overflow:auto;font-size:0.75rem;padding:10px;background:var(--bg-input);border-radius:6px">${JSON.stringify(data, null, 2)}</pre>`;
     }
 
     // ─── Logs Tab ───────────────────────────────────────────────

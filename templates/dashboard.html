@@ -704,6 +704,10 @@
             <div class="sub-tabs">
                 <span class="sub-tab active" data-subtab="adv-lifecycle">Lifecycle Logs</span>
                 <span class="sub-tab" data-subtab="adv-monitoring">Monitoring</span>
+                <span class="sub-tab" data-subtab="adv-diagnostics">Diagnostics</span>
+                <span class="sub-tab" data-subtab="adv-health-score">Health Score</span>
+                <span class="sub-tab" data-subtab="adv-snapshot">Server Snapshot</span>
+                <span class="sub-tab" data-subtab="adv-predictive">Predictive</span>
             </div>
             <div id="adv-lifecycle" class="sub-tab-content active">
                 <div class="log-toolbar">
@@ -715,18 +719,58 @@
                             <option value="OK">OK / Info</option>
                         </select>
                         <input type="text" id="lcSearchInput" class="form-input log-search" placeholder="Search lifecycle logs...">
-                        <button id="refreshLcLogsBtn" class="btn btn-sm btn-info">🔄 Refresh</button>
+                        <button id="refreshLcLogsBtn" class="btn btn-sm btn-info">Refresh</button>
                     </div>
                 </div>
                 <div class="log-container" id="lifecycleLogsContainer"><p class="placeholder-text">No lifecycle logs loaded.</p></div>
             </div>
             <div id="adv-monitoring" class="sub-tab-content">
                 <div class="monitoring-controls">
-                    <button id="startMonitoringBtn" class="btn btn-success btn-sm">▶ Start Monitoring</button>
-                    <button id="stopMonitoringBtn" class="btn btn-danger btn-sm" disabled>⏹ Stop</button>
+                    <button id="startMonitoringBtn" class="btn btn-success btn-sm">Start Monitoring</button>
+                    <button id="stopMonitoringBtn" class="btn btn-danger btn-sm" disabled>Stop</button>
                     <span id="monitoringStatus" class="monitoring-badge">Idle</span>
                 </div>
                 <div id="monitoringContainer"><p class="placeholder-text">Start monitoring to track sensor readings over time.</p></div>
+            </div>
+            <div id="adv-diagnostics" class="sub-tab-content">
+                <div class="section-block">
+                    <h4>Quick Diagnostics</h4>
+                    <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:12px">Run diagnostic checks against the connected server.</p>
+                    <div class="ops-btn-grid">
+                        <button class="ops-btn" onclick="app.runAdvanced('diagnostics_summary')">Full Diagnostics Summary</button>
+                        <button class="ops-btn" onclick="app.runAdvanced('connectivity_test')">Connectivity Test</button>
+                        <button class="ops-btn" onclick="app.runAdvanced('check_idrac')">Check iDRAC Availability</button>
+                        <button class="ops-btn" onclick="app.runAdvanced('post_codes')">POST Code History</button>
+                        <button class="ops-btn" onclick="app.runAdvanced('support_collection')">Create Support Collection (TSR)</button>
+                    </div>
+                </div>
+                <div id="advDiagnosticsResult" class="action-result" style="display:none"></div>
+            </div>
+            <div id="adv-health-score" class="sub-tab-content">
+                <div class="section-block">
+                    <h4>Detailed Health Score</h4>
+                    <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:12px">Compute a weighted health score across all subsystems.</p>
+                    <button class="btn btn-primary btn-sm" onclick="app.runAdvanced('health_score')">Calculate Health Score</button>
+                </div>
+                <div id="advHealthResult" class="action-result" style="display:none"></div>
+            </div>
+            <div id="adv-snapshot" class="sub-tab-content">
+                <div class="section-block">
+                    <h4>Server Configuration Snapshot</h4>
+                    <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:12px">Capture a full point-in-time snapshot of server state.</p>
+                    <button class="btn btn-primary btn-sm" onclick="app.runAdvanced('server_snapshot')">Take Snapshot</button>
+                    <button class="btn btn-outline btn-sm" onclick="app.runAdvanced('server_timeline')">View Timeline</button>
+                </div>
+                <div id="advSnapshotResult" class="action-result" style="display:none"></div>
+            </div>
+            <div id="adv-predictive" class="sub-tab-content">
+                <div class="section-block">
+                    <h4>Predictive Analytics</h4>
+                    <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:12px">Analyze trends and predict potential failures before they happen.</p>
+                    <button class="btn btn-primary btn-sm" onclick="app.runAdvanced('predictive_analysis')">Run Predictive Analysis</button>
+                    <button class="btn btn-outline btn-sm" onclick="app.runAdvanced('firmware_compliance')">Firmware Compliance Report</button>
+                </div>
+                <div id="advPredictiveResult" class="action-result" style="display:none"></div>
             </div>
         </div>
 
