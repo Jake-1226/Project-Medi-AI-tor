@@ -1474,14 +1474,22 @@ class AgentBrain:
                     if ok:
                         lines.append(f"🟢 {len(ok)} sensors normal")
             else:
-                lines = [f"Deep dive into **{target}**: collected {len(facts)} data points."]
+                lines = [f"**{target.replace('_', ' ').title()}**: collected {len(facts)} data points."]
                 if crit:
-                    lines.append(f"🔴 {len(crit)} critical: " + "; ".join(f.description for f in crit[:3]))
+                    lines.append(f"🔴 **{len(crit)} critical:**")
+                    for f in crit[:5]:
+                        lines.append(f"  • {f.description}")
                 if warn:
-                    lines.append(f"🟡 {len(warn)} warnings: " + "; ".join(f.description for f in warn[:3]))
+                    lines.append(f"🟡 **{len(warn)} warnings:**")
+                    for f in warn[:5]:
+                        lines.append(f"  • {f.description}")
                 if ok:
-                    lines.append(f"🟢 {len(ok)} healthy components")
-                lines.append(f"Updated hypotheses based on new {target} data.")
+                    ok_shown = min(len(ok), 8)
+                    lines.append(f"🟢 **{len(ok)} healthy:**")
+                    for f in ok[:ok_shown]:
+                        lines.append(f"  • {f.description}")
+                    if len(ok) > ok_shown:
+                        lines.append(f"  • ...and {len(ok) - ok_shown} more")
 
             return {
                 "summary": "\n".join(lines),
