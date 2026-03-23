@@ -2692,21 +2692,37 @@ class DellAIAgent {
         const c = document.getElementById('overviewMetricsContainer');
         if (!c) return;
         const tiles = [];
+        
+        // Overall health tile (first, most prominent)
+        if (data.health_status) {
+            const hs = data.health_status;
+            const overall = (hs.overall_status || 'unknown').toLowerCase();
+            const crits = (hs.critical_issues || []).length;
+            const warns = (hs.warnings || []).length;
+            const cls = overall.includes('ok') ? 'tile-ok' : overall.includes('warn') ? 'tile-warn' : 'tile-crit';
+            const label = crits > 0 ? `${crits} critical` : warns > 0 ? `${warns} warnings` : 'All clear';
+            tiles.push(`<div class="metric-tile ${cls}"><div class="tile-value">${overall.toUpperCase()}</div><div class="tile-label">Server Health</div><div class="tile-sub">${label}</div></div>`);
+        }
+        
         if (data.processors && data.processors.length) {
             const totalCores = data.processors.reduce((s, p) => s + (p.cores || 0), 0);
             const totalThreads = data.processors.reduce((s, p) => s + (p.threads || 0), 0);
-            tiles.push(`<div class="metric-tile tile-info"><div class="tile-value">${data.processors.length}</div><div class="tile-label">CPUs</div><div class="tile-sub">${totalCores} cores / ${totalThreads} threads</div></div>`);
+            tiles.push(`<div class="metric-tile tile-info"><div class="tile-value">${data.processors.length}</div><div class="tile-label">CPUs</div><div class="tile-sub">${totalCores}C / ${totalThreads}T</div></div>`);
         }
         if (data.memory && data.memory.length) {
             const totalGB = data.memory.reduce((s, m) => s + (m.size_gb || 0), 0);
-            tiles.push(`<div class="metric-tile tile-info"><div class="tile-value">${totalGB} GB</div><div class="tile-label">Memory</div><div class="tile-sub">${data.memory.length} DIMMs</div></div>`);
+            const populated = data.memory.filter(m => (m.size_gb || 0) > 0).length;
+            tiles.push(`<div class="metric-tile tile-info"><div class="tile-value">${totalGB} GB</div><div class="tile-label">Memory</div><div class="tile-sub">${populated}/${data.memory.length} DIMMs</div></div>`);
         }
         if (data.storage_devices && data.storage_devices.length) {
             const totalTB = (data.storage_devices.reduce((s, d) => s + (d.capacity_gb || 0), 0) / 1024).toFixed(1);
-            tiles.push(`<div class="metric-tile tile-info"><div class="tile-value">${totalTB} TB</div><div class="tile-label">Storage</div><div class="tile-sub">${data.storage_devices.length} drives</div></div>`);
+            const healthy = data.storage_devices.filter(d => (d.status || '').toLowerCase().includes('ok')).length;
+            const cls = healthy === data.storage_devices.length ? 'tile-ok' : 'tile-warn';
+            tiles.push(`<div class="metric-tile ${cls}"><div class="tile-value">${totalTB} TB</div><div class="tile-label">Storage</div><div class="tile-sub">${healthy}/${data.storage_devices.length} healthy</div></div>`);
         }
         if (data.network_interfaces && data.network_interfaces.length) {
-            tiles.push(`<div class="metric-tile tile-info"><div class="tile-value">${data.network_interfaces.length}</div><div class="tile-label">NICs</div></div>`);
+            const up = data.network_interfaces.filter(n => (n.link_status || '').toLowerCase().includes('up')).length;
+            tiles.push(`<div class="metric-tile tile-info"><div class="tile-value">${data.network_interfaces.length}</div><div class="tile-label">NICs</div><div class="tile-sub">${up} link up</div></div>`);
         }
         if (data.temperatures && data.temperatures.length) {
             const readings = data.temperatures.filter(t => t.reading_celsius != null).map(t => t.reading_celsius);
@@ -2714,25 +2730,32 @@ class DellAIAgent {
                 const avg = (readings.reduce((a, b) => a + b, 0) / readings.length).toFixed(1);
                 const max = Math.max(...readings).toFixed(1);
                 const cls = max > 80 ? 'tile-crit' : max > 65 ? 'tile-warn' : 'tile-ok';
-                tiles.push(`<div class="metric-tile ${cls}"><div class="tile-value">${avg}&deg;C</div><div class="tile-label">Avg Temp</div><div class="tile-sub">Max: ${max}&deg;C</div></div>`);
+                tiles.push(`<div class="metric-tile ${cls}"><div class="tile-value">${avg}&deg;C</div><div class="tile-label">Avg Temp</div><div class="tile-sub">Peak: ${max}&deg;C</div></div>`);
             }
         }
         if (data.fans && data.fans.length) {
             const speeds = data.fans.filter(f => f.speed_rpm != null).map(f => f.speed_rpm);
             if (speeds.length) {
                 const avg = Math.round(speeds.reduce((a, b) => a + b, 0) / speeds.length);
-                tiles.push(`<div class="metric-tile tile-ok"><div class="tile-value">${avg}</div><div class="tile-label">Avg Fan RPM</div><div class="tile-sub">${data.fans.length} fans</div></div>`);
+                const max = Math.max(...speeds);
+                const cls = max > 15000 ? 'tile-warn' : 'tile-ok';
+                tiles.push(`<div class="metric-tile ${cls}"><div class="tile-value">${avg.toLocaleString()}</div><div class="tile-label">Avg Fan RPM</div><div class="tile-sub">${data.fans.length} fans</div></div>`);
             }
         }
         if (data.power_supplies && data.power_supplies.length) {
             const totalW = data.power_supplies.reduce((s, ps) => s + (ps.power_watts || 0), 0);
-            tiles.push(`<div class="metric-tile tile-info"><div class="tile-value">${totalW}W</div><div class="tile-label">PSU Capacity</div><div class="tile-sub">${data.power_supplies.length} PSUs</div></div>`);
+            const healthy = data.power_supplies.filter(ps => {
+                const st = (ps.status || '').toLowerCase();
+                return st.includes('ok') || st.includes('enabled');
+            }).length;
+            const cls = healthy === data.power_supplies.length ? 'tile-ok' : 'tile-crit';
+            tiles.push(`<div class="metric-tile ${cls}"><div class="tile-value">${totalW}W</div><div class="tile-label">PSU</div><div class="tile-sub">${healthy}/${data.power_supplies.length} healthy</div></div>`);
         }
         if (data.logs && data.logs.length) {
             const crits = data.logs.filter(l => l.severity === 'critical').length;
             const errs = data.logs.filter(l => l.severity === 'error').length;
             const cls = crits > 0 ? 'tile-crit' : errs > 0 ? 'tile-warn' : 'tile-ok';
-            tiles.push(`<div class="metric-tile ${cls}"><div class="tile-value">${data.logs.length}</div><div class="tile-label">Log Entries</div><div class="tile-sub">${crits} critical, ${errs} errors</div></div>`);
+            tiles.push(`<div class="metric-tile ${cls}"><div class="tile-value">${data.logs.length}</div><div class="tile-label">Events</div><div class="tile-sub">${crits} critical, ${errs} errors</div></div>`);
         }
         if (tiles.length) {
             const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
