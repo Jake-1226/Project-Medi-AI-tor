@@ -24,6 +24,8 @@ class DellAIAgent {
         this.inventory = {};
         this.monitoringInterval = null;
         this.monitoringSnapshots = [];
+        this.lastDataRefresh = null;
+        this._tabScrollPositions = {};
         
         this.init();
     }
@@ -226,6 +228,8 @@ class DellAIAgent {
 
                 // Auto-fetch all dashboard data
                 setTimeout(() => this.fetchAllDashboardData(), 1000);
+                // Start auto-refresh every 60 seconds
+                this._startAutoRefresh();
             } else {
                 this.showAlert(`Connection failed: ${result.detail}`, 'danger');
                 this.log(`Connection failed: ${result.detail}`, 'error');
@@ -239,6 +243,7 @@ class DellAIAgent {
     }
     
     async disconnectFromServer() {
+        this._stopAutoRefresh();
         try {
             this.currentServer = null;
             this.updateConnectionStatus(false);
@@ -275,6 +280,23 @@ class DellAIAgent {
         }
     }
     
+    _startAutoRefresh() {
+        this._stopAutoRefresh();
+        this._autoRefreshTimer = setInterval(() => {
+            if (this.currentServer) {
+                this.log('Auto-refreshing data...', 'info');
+                this.fetchAllDashboardData();
+            }
+        }, 60000);
+    }
+
+    _stopAutoRefresh() {
+        if (this._autoRefreshTimer) {
+            clearInterval(this._autoRefreshTimer);
+            this._autoRefreshTimer = null;
+        }
+    }
+
     // ─── OS Connection via SSH ────────────────────────────────
     async connectToOS() {
         const host = document.getElementById('osHost')?.value?.trim();
@@ -415,6 +437,21 @@ class DellAIAgent {
             return;
         }
         
+        // Visual feedback on quick action buttons
+        const btnMap = {
+            'get_full_inventory': 'getServerInfoBtn',
+            'collect_logs': 'collectLogsBtn',
+            'health_check': 'healthCheckBtn',
+            'performance_analysis': 'performanceAnalysisBtn',
+        };
+        const btnId = btnMap[command];
+        const btn = btnId ? document.getElementById(btnId) : null;
+        if (btn) {
+            btn.disabled = true;
+            btn._origHTML = btn.innerHTML;
+            btn.classList.add('btn-loading');
+        }
+        
         this.showLoading(true);
         this.log(`Executing action: ${command}`, 'info');
         
@@ -434,15 +471,41 @@ class DellAIAgent {
             if (response.ok) {
                 this.handleActionResponse(result.result);
                 this.log(`✅ ${command} completed successfully`, 'success');
+                // Flash success on button
+                if (btn) {
+                    btn.classList.remove('btn-loading');
+                    btn.classList.add('btn-success');
+                    btn.innerHTML = '✅ Done';
+                    setTimeout(() => { btn.classList.remove('btn-success'); btn.innerHTML = btn._origHTML; }, 2500);
+                }
             } else {
-                this.log(`❌ ${command} failed: ${result.detail}`, 'error');
-                this.showAlert(`Action failed: ${result.detail}`, 'danger');
+                // Enhanced error messages with context
+                let errorMsg = result.detail || 'Unknown error';
+                if (errorMsg.includes('timeout')) errorMsg += ' — Check iDRAC responsiveness';
+                else if (errorMsg.includes('auth')) errorMsg += ' — Verify credentials';
+                else if (errorMsg.includes('refused')) errorMsg += ' — Check network/firewall';
+                this.log(`❌ ${command} failed: ${errorMsg}`, 'error');
+                this.showAlert(`Action failed: ${errorMsg}`, 'danger');
+                // Flash error on button
+                if (btn) {
+                    btn.classList.remove('btn-loading');
+                    btn.classList.add('btn-error');
+                    btn.innerHTML = '❌ Failed';
+                    setTimeout(() => { btn.classList.remove('btn-error'); btn.innerHTML = btn._origHTML; }, 3000);
+                }
             }
         } catch (error) {
             this.log(`❌ Network error during ${command}: ${error.message}`, 'error');
-            this.showAlert(`Network error: ${error.message}`, 'danger');
+            this.showAlert(`Network error: ${error.message} — Check your connection`, 'danger');
+            if (btn) {
+                btn.classList.remove('btn-loading');
+                btn.classList.add('btn-error');
+                btn.innerHTML = '❌ Error';
+                setTimeout(() => { btn.classList.remove('btn-error'); btn.innerHTML = btn._origHTML; }, 3000);
+            }
         } finally {
             this.showLoading(false);
+            if (btn) btn.disabled = false;
         }
     }
     
@@ -1592,6 +1655,12 @@ class DellAIAgent {
     }
     
     switchTab(tabElement) {
+        // Save scroll position of current tab before switching
+        const currentContent = document.querySelector('.tab-content.active');
+        if (currentContent) {
+            this._tabScrollPositions[currentContent.id] = currentContent.scrollTop;
+        }
+        
         // Remove active class from all tabs/sidebar-links and contents
         document.querySelectorAll('.tab, .sidebar-link[data-tab]').forEach(tab => tab.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -1607,6 +1676,11 @@ class DellAIAgent {
         const content = document.getElementById(`${tabName}Content`);
         if (content) {
             content.classList.add('active');
+            // Restore scroll position
+            const savedPos = this._tabScrollPositions[content.id];
+            if (savedPos) {
+                requestAnimationFrame(() => { content.scrollTop = savedPos; });
+            }
         }
         
         // If tab has no data yet and we're connected, show loading hint
@@ -1647,6 +1721,7 @@ class DellAIAgent {
                         { action: 'get_storage_devices', parameters: {} },
                         { action: 'get_network_interfaces', parameters: {} },
                         { action: 'health_check', parameters: {} },
+                        { action: 'collect_logs', parameters: {} },
                     ]
                 })
             });
@@ -1661,13 +1736,22 @@ class DellAIAgent {
             const data = await response.json();
             if (data.status === 'success' && data.results) {
                 // Process each result through the existing handler
+                const failedCmds = [];
                 for (const [action, result] of Object.entries(data.results)) {
                     if (result.status === 'success' && result.result) {
                         this.handleActionResponse(result.result);
+                    } else {
+                        failedCmds.push(action);
                     }
                 }
-                this.log('Dashboard data loaded', 'success');
-                this.showAlert('Data loaded successfully', 'success');
+                this.lastDataRefresh = Date.now();
+                if (failedCmds.length > 0) {
+                    this.log(`⚠️ Failed to load: ${failedCmds.join(', ')}`, 'warning');
+                    this.showAlert(`Partial data: ${failedCmds.length} source(s) failed`, 'warning');
+                } else {
+                    this.log('Dashboard data loaded', 'success');
+                    this.showAlert('Data loaded successfully', 'success');
+                }
             }
         } catch (err) {
             this.log('Failed to load data: ' + err.message, 'error');
@@ -1759,10 +1843,19 @@ class DellAIAgent {
                     document.querySelector('[data-tab="troubleshooting"]')?.click();
                     setTimeout(() => document.querySelector('[data-subtab="ts-tsr"]')?.click(), 200);
                 }
+                // Action-specific guidance
+                const guidance = {
+                    'force_restart': 'Server is restarting. Monitor power status in the Health tab. Expect 2-5 min downtime.',
+                    'graceful_shutdown': 'Graceful shutdown initiated. OS will stop services first — may take 1-5 min.',
+                    'virtual_ac_cycle': 'Virtual AC cycle initiated. Server will fully power off then back on.',
+                    'reset_idrac': 'iDRAC is resetting. Connection will drop for 30-60 seconds — do NOT refresh.',
+                    'export_tsr': 'TSR export started. This can take 5-15 minutes. Check Troubleshooting > TSR Status.',
+                    'clear_sel': 'System Event Log cleared. Old events are gone — collect fresh logs if needed.',
+                }[command] || '';
                 if (container) {
                     container.style.display = 'block';
                     container.className = 'action-result result-success';
-                    container.innerHTML = `<strong>✅ ${command}</strong> — Action completed successfully.`;
+                    container.innerHTML = `<strong>✅ ${command}</strong> — Action completed successfully.${guidance ? `<div class="action-guidance">${guidance}</div>` : ''}`;
                 }
             } else {
                 this.log(`❌ ${command} failed: ${result.detail}`, 'error');
@@ -2589,7 +2682,10 @@ class DellAIAgent {
             const cls = crits > 0 ? 'tile-crit' : errs > 0 ? 'tile-warn' : 'tile-ok';
             tiles.push(`<div class="metric-tile ${cls}"><div class="tile-value">${data.logs.length}</div><div class="tile-label">Log Entries</div><div class="tile-sub">${crits} critical, ${errs} errors</div></div>`);
         }
-        if (tiles.length) c.innerHTML = `<div class="metric-tiles">${tiles.join('')}</div>`;
+        if (tiles.length) {
+            const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+            c.innerHTML = `<div class="metric-tiles">${tiles.join('')}</div><div class="data-timestamp">Updated: ${now}</div>`;
+        }
     }
 
     // ─── System Info Tab: General ───────────────────────────────
@@ -2641,7 +2737,8 @@ class DellAIAgent {
                         <td><span class="badge ${this._badge(p.status)}">${this._v(p.status)}</span></td>
                     </tr>`).join('')}
                 </tbody>
-            </table>`;
+            </table>
+            <div class="data-timestamp">Refreshed: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
     }
 
     // ─── System Info Tab: Memory ────────────────────────────────
@@ -2674,7 +2771,8 @@ class DellAIAgent {
                         <td><span class="badge ${this._badge(m.status)}">${this._v(m.status)}</span></td>
                     </tr>`).join('')}
                 </tbody>
-            </table>`;
+            </table>
+            <div class="data-timestamp">Refreshed: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
     }
 
     // ─── System Info Tab: Storage ───────────────────────────────
@@ -2708,7 +2806,8 @@ class DellAIAgent {
                         <td><span class="badge ${this._badge(s.status)}">${this._v(s.status)}</span></td>
                     </tr>`).join('')}
                 </tbody>
-            </table>`;
+            </table>
+            <div class="data-timestamp">Refreshed: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
     }
 
     // ─── System Info Tab: Network ───────────────────────────────
@@ -2740,7 +2839,8 @@ class DellAIAgent {
                         <td><span class="badge ${this._badge(n.status)}">${this._v(n.status)}</span></td>
                     </tr>`).join('')}
                 </tbody>
-            </table>`;
+            </table>
+            <div class="data-timestamp">Refreshed: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
     }
 
     // ─── Health Tab: Overall ────────────────────────────────────
@@ -2775,7 +2875,8 @@ class DellAIAgent {
                 <tbody>${compEntries.map(([comp, st]) => `
                     <tr><td>${comp}</td><td><span class="badge ${this._badge(st)}">${st}</span></td></tr>
                 `).join('')}</tbody>
-            </table>` : ''}`;
+            </table>` : ''}
+            <div class="data-timestamp">Health check as of: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
         // Also populate Issues sub-tab
         this.displayIssues(status);
     }
@@ -2844,7 +2945,8 @@ class DellAIAgent {
                         <td><span class="badge ${this._badge(t.status)}">${this._v(t.status)}</span></td>
                     </tr>`).join('')}
                 </tbody>
-            </table>`;
+            </table>
+            <div class="data-timestamp">Temperature readings as of: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
     }
 
     // ─── Health Tab: Fans (appended to Thermal) ─────────────────
@@ -2901,7 +3003,8 @@ class DellAIAgent {
                         <div class="detail-row"><span class="detail-label">Firmware</span><span class="detail-value">${this._v(ps.firmware_version)}</span></div>
                         <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value"><span class="badge ${this._badge(ps.status)}">${this._v(ps.status)}</span></span></div>
                     </div>`).join('')}
-            </div>`;
+            </div>
+            <div class="data-timestamp">PSU data as of: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
     }
 
     displayPerformanceMetrics(metrics) {
