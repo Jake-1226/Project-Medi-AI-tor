@@ -1272,7 +1272,12 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
                                    "give me a summary", "quick summary", "quick overview",
                                    "how is the server", "how's the server", "how is my server",
                                    "server report", "system report", "health report",
-                                   "full status", "show me everything", "what do we have"]):
+                                   "full status", "show me everything", "what do we have",
+                                   "what is wrong", "what's wrong with", "any problems",
+                                   "any issues", "is anything wrong", "health overview"]):
+            return "server_overview"
+        # Also match just "overview" as a standalone word
+        if msg.strip() in ["overview", "status overview", "health check", "report"]:
             return "server_overview"
 
         # Quick info queries — simple factual questions about the server
@@ -1294,7 +1299,9 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
                                    "how many nic", "how many network",
                                    "what's the warranty", "warranty status", "prosupport",
                                    "when was it manufactured", "how old is",
-                                   "express service code", "esc code"]):
+                                   "express service code", "esc code",
+                                   "which psu", "which power supply", "which drive failed",
+                                   "which dimm failed", "which component"]):
             return "quick_info"
 
         # ── Specific dig-deeper targets (must be BEFORE generic detail_query and status) ──
@@ -1829,6 +1836,55 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
         if any(w in msg for w in ["warranty", "prosupport"]):
             return f"Warranty status is not available via Redfish API. Check Dell's support site with **Service Tag: {tag}** at https://www.dell.com/support"
 
+        # Which component failed — answer from cached facts
+        if any(w in msg for w in ["which psu", "which power supply"]):
+            psu_data = self.memory.raw_data.get("check_power_supplies", {}).get("power_supplies", [])
+            if psu_data:
+                lines = ["**Power Supply Status:**"]
+                for p in psu_data:
+                    pid = p.get("id", "?")
+                    status = p.get("status", "?")
+                    watts = p.get("power_watts", "?")
+                    is_ok = "ok" in str(status).lower()
+                    icon = "🟢" if is_ok else "🔴"
+                    lines.append(f"  {icon} **{pid}**: {status} ({watts}W)")
+                return "\n".join(lines)
+            return "Say **check power supplies** to scan PSU status."
+
+        if any(w in msg for w in ["which drive failed", "which disk"]):
+            stor_data = self.memory.raw_data.get("check_storage", {}).get("storage_devices", [])
+            if stor_data:
+                failed = [d for d in stor_data if "ok" not in str(d.get("status", "")).lower()]
+                if failed:
+                    lines = [f"**{len(failed)} drive(s) with issues:**"]
+                    for d in failed:
+                        lines.append(f"  🔴 {d.get('name','?')}: {d.get('status','?')} ({d.get('capacity_gb',0)} GB {d.get('type','')})")
+                    return "\n".join(lines)
+                return "✅ All storage drives are healthy."
+            return "Say **check storage** to scan drive health."
+
+        if any(w in msg for w in ["which dimm", "which memory"]):
+            mem_data = self.memory.raw_data.get("check_memory", {}).get("memory", [])
+            if mem_data:
+                failed = [m for m in mem_data if "ok" not in str(m.get("status", "")).lower() and m.get("size_gb")]
+                if failed:
+                    lines = [f"**{len(failed)} DIMM(s) with issues:**"]
+                    for m in failed:
+                        lines.append(f"  🔴 {m.get('id','?')}: {m.get('status','?')} ({m.get('size_gb',0)} GB)")
+                    return "\n".join(lines)
+                return "✅ All memory DIMMs are healthy."
+            return "Say **check memory** to scan DIMM health."
+
+        if any(w in msg for w in ["which component"]):
+            # Show all components with issues
+            crit_facts = self.memory.get_facts_by_status("critical")
+            if crit_facts:
+                lines = [f"**Components with issues ({len(crit_facts)}):**"]
+                for f in crit_facts[:8]:
+                    lines.append(f"  🔴 {getattr(f, 'description', str(f))}")
+                return "\n".join(lines)
+            return "✅ No component issues detected. Run an **overview** for a full check."
+
         # Default: return a comprehensive server identity card
         lines = [
             f"**{model}**",
@@ -2273,29 +2329,44 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
         if not self.memory.facts:
             return "I haven't collected any data yet. Try one of these:\n\n• **\"Give me a server overview\"** — Quick health check of all components\n• **\"Check temperatures\"** — Read all thermal sensors\n• **\"Check system logs\"** — Look for errors in the SEL\n• Or describe an issue like **\"server is overheating\"** and I'll investigate"
 
+        # "what should I do" — give actionable advice based on findings
+        if any(w in msg for w in ["what should", "what do i do", "next step", "recommend", "suggestion", "advice"]):
+            crit = self.memory.get_facts_by_status("critical")
+            if crit:
+                lines = [f"Based on **{len(crit)} critical findings**, here's what I recommend:"]
+                for i, f in enumerate(crit[:3], 1):
+                    desc = getattr(f, 'description', str(f))
+                    lines.append(f"  {i}. Address: {desc}")
+                if self._last_diagnosis and self._last_diagnosis.get("remediation_steps"):
+                    lines.append(f"\nSay **\"can you fix it\"** and I'll propose a remediation plan.")
+                else:
+                    lines.append(f"\nDescribe the main issue and I'll investigate and propose a fix.")
+                return "\n".join(lines)
+            return "✅ No critical issues found. The server appears healthy. Say **overview** for a full status check."
+
         # Search facts for relevant info
         relevant = []
         words = re.findall(r'\w+', msg)
-        for fact in self.memory.facts:
-            # Safety: handle both Fact objects and raw dicts/strings
-            desc = getattr(fact, 'description', str(fact)) if not isinstance(fact, str) else fact
-            if any(w in desc.lower() for w in words):
+        for fact in self.memory.facts.values():
+            desc = getattr(fact, 'description', str(fact))
+            if any(w in desc.lower() for w in words if len(w) > 2):
                 relevant.append(fact)
 
         if relevant:
-            lines = [f"Based on my investigation, here's what I know about that:"]
+            lines = ["Based on the data I've collected:"]
             for f in relevant[:8]:
-                if isinstance(f, str):
-                    lines.append(f"  🔵 {f}")
-                else:
-                    status = getattr(f, 'status', 'ok')
-                    desc = getattr(f, 'description', str(f))
-                    comp = getattr(f, 'component', '')
-                    icon = "🔴" if status == "critical" else "🟡" if status == "warning" else "🟢"
-                    lines.append(f"  {icon} {desc} ({comp})")
+                status = getattr(f, 'status', 'ok')
+                desc = getattr(f, 'description', str(f))
+                icon = "🔴" if status == "critical" else "🟡" if status == "warning" else "🟢"
+                lines.append(f"  {icon} {desc}")
             return "\n".join(lines)
 
-        return f"I have {len(self.memory.facts)} data points from this server, but I'm not sure what you're asking about. You can:\n\n• Ask about specific components: temperatures, fans, memory, storage, power, network\n• Ask me to **investigate** an issue\n• Say **\"status\"** to see what I've found so far\n• Say **\"help\"** to see everything I can do"
+        # If we have a last diagnosis, summarize it
+        if self._last_diagnosis:
+            d = self._last_diagnosis
+            return f"My last investigation found: **{d.get('root_cause', 'N/A')}** ({d.get('confidence', 0)}% confidence).\n\nSay **\"explain\"** for the reasoning chain, or **\"can you fix it\"** for remediation."
+
+        return f"I have {len(self.memory.facts)} data points but I'm not sure what you're asking. Try:\n\n• **\"overview\"** — full server health check\n• **\"check temps\"** — temperature sensors\n• **\"check logs\"** — system event log\n• **\"help\"** — see all my capabilities"
 
     def _answer_detail_query(self, msg: str) -> str:
         """Answer detail queries from cached investigation data — no re-running tools."""
