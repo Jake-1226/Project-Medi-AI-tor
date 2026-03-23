@@ -56,5 +56,48 @@ See `.env.example` for all options. Key ones:
 - Default port: 443 (Redfish over HTTPS)
 - Credentials: entered in the connection form (never stored on disk)
 
+## Running Tests
+
+```bash
+# Install test dependencies
+pip install pytest pytest-asyncio httpx
+
+# Run unit tests (no server required) — fast, ~6 seconds
+python -m pytest tests/ -m "not integration" -v
+
+# Run integration tests (requires server on port 8000)
+RUN_INTEGRATION_TESTS=true python -m pytest tests/ -m "integration" -v
+
+# Run ALL tests
+RUN_INTEGRATION_TESTS=true python -m pytest tests/ -v
+
+# Run specific test category
+python -m pytest tests/test_config.py -v          # Configuration
+python -m pytest tests/test_security.py -v         # Security features
+python -m pytest tests/test_fleet_manager.py -v    # Fleet management
+python -m pytest tests/test_api_auth.py -v         # Authentication API
+python -m pytest tests/test_api_endpoints.py -v    # All API endpoints
+```
+
+### Test Structure
+```
+tests/
+  conftest.py                 Fixtures, markers, test config
+  test_config.py              26 tests — config loading, security levels, permissions
+  test_security.py            31 tests — error sanitization, host validation, passwords, headers
+  test_fleet_manager.py       33 tests — fleet add/connect/health/alerts/groups
+  test_api_auth.py            22 tests — JWT login, RBAC, logout, unauthenticated blocking
+  test_api_endpoints.py       28 tests — page routes, connection, execute, fleet, audit
+  test_cache_manager.py       18 tests — cache TTL, expiration, invalidation
+  test_health_scorer.py       15 tests — health scoring algorithms
+  test_predictive_analytics.py 15 tests — trend analysis, failure prediction
+```
+
+### Authentication (for integration tests)
+Default credentials (override via env vars):
+- admin / admin123 (full_control)
+- operator / operator123 (diagnostic)
+- viewer / viewer123 (read_only)
+
 ## Architecture
 See `ARCHITECTURE.md` for the full design document.

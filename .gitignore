@@ -33,14 +33,14 @@ agent.log
 # Credentials (never commit)
 .env
 
-# Test/debug files (development artifacts)
-test_*.py
-debug_*.py
-check_*.py
-final_*.py
-*_test.py
-*_debug.py
-connection_*.py
+# Test/debug files (development artifacts in root — NOT tests/ directory)
+/test_*.py
+/debug_*.py
+/check_*.py
+/final_*.py
+/*_test.py
+/*_debug.py
+/connection_*.py
 comprehensive_test.py
 functionality_expansion_test.py
 interface_functionality_test.py
