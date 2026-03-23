@@ -216,6 +216,14 @@ class DellAIAgent {
                 this.updateConnectionStatus(true);
                 this.updateConnectionMode();
                 
+                // Update topbar with server identity
+                const statusEl = document.querySelector('.topbar-connection');
+                if (statusEl) {
+                    statusEl.innerHTML = `<span class="status-indicator status-online"></span> 
+                        <strong>${this.currentServer.host}</strong>
+                        <span style="opacity:0.6;margin-left:4px">Connected</span>`;
+                }
+
                 // Auto-fetch all dashboard data
                 setTimeout(() => this.fetchAllDashboardData(), 1000);
             } else {
@@ -253,6 +261,12 @@ class DellAIAgent {
                 this.log('API disconnect not available, using UI-only disconnect', 'info');
             }
             this.updateConnectionMode();
+            
+            // Reset topbar connection status
+            const statusEl = document.querySelector('.topbar-connection');
+            if (statusEl) {
+                statusEl.innerHTML = `<span class="status-indicator status-offline"></span> Disconnected`;
+            }
         } catch (error) {
             this.showAlert(`Disconnect error: ${error.message}`, 'danger');
             this.log(`Disconnect error: ${error.message}`, 'error');
@@ -1594,32 +1608,75 @@ class DellAIAgent {
         if (content) {
             content.classList.add('active');
         }
+        
+        // If tab has no data yet and we're connected, show loading hint
+        const emptyContainers = {
+            'system': 'systemInfoContainer',
+            'health': 'healthStatusContainer',
+            'logs': 'logsContainer',
+        };
+        const containerId = emptyContainers[tabName];
+        if (containerId && this.currentServer) {
+            const container = document.getElementById(containerId);
+            if (container && (container.innerHTML.includes('placeholder-text') || container.innerHTML.trim() === '')) {
+                container.innerHTML = '<div class="loading-hint"><div class="spinner"></div><p>Loading data...</p></div>';
+            }
+        }
     }
     
     // ─── Data Fetch ───────────────────────────────────────────────
     async fetchAllDashboardData() {
+        if (!this.currentServer) return;
+        
+        this.log('Loading dashboard data...', 'info');
+        this.showAlert('Loading server data...', 'info');
+        
         try {
-            // Fetch system information
-            await this.executeAction('get_system_info');
+            // Use batch endpoint for parallel execution
+            const response = await fetch('/api/execute/batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    commands: [
+                        { action: 'get_server_info', parameters: {} },
+                        { action: 'get_processors', parameters: {} },
+                        { action: 'get_memory', parameters: {} },
+                        { action: 'get_power_supplies', parameters: {} },
+                        { action: 'get_temperature_sensors', parameters: {} },
+                        { action: 'get_fans', parameters: {} },
+                        { action: 'get_storage_devices', parameters: {} },
+                        { action: 'get_network_interfaces', parameters: {} },
+                        { action: 'health_check', parameters: {} },
+                    ]
+                })
+            });
             
-            // Fetch server information  
-            await this.executeAction('get_full_inventory');
+            if (!response.ok) {
+                // Fallback to sequential if batch fails
+                this.log('Batch fetch failed, using sequential...', 'warning');
+                await this.executeAction('get_full_inventory');
+                return;
+            }
             
-            // Fetch health status
-            await this.executeAction('health_check');
-            
-            // Fetch temperature sensors
-            await this.executeAction('get_temperature_sensors');
-            
-            // Fetch fan information
-            await this.executeAction('get_fans');
-            
-            // Fetch power supplies
-            await this.executeAction('get_power_supplies');
-            
-            this.log('Dashboard data loaded successfully', 'success');
-        } catch (error) {
-            this.log(`Error loading dashboard data: ${error.message}`, 'error');
+            const data = await response.json();
+            if (data.status === 'success' && data.results) {
+                // Process each result through the existing handler
+                for (const [action, result] of Object.entries(data.results)) {
+                    if (result.status === 'success' && result.result) {
+                        this.handleActionResponse(result.result);
+                    }
+                }
+                this.log('Dashboard data loaded', 'success');
+                this.showAlert('Data loaded successfully', 'success');
+            }
+        } catch (err) {
+            this.log('Failed to load data: ' + err.message, 'error');
+            // Fallback to get_full_inventory
+            try {
+                await this.executeAction('get_full_inventory');
+            } catch (e) {
+                this.showAlert('Failed to load server data', 'danger');
+            }
         }
     }
 
@@ -3399,7 +3456,16 @@ class DellAIAgent {
             if (settings.currentServer) {
                 document.getElementById('serverHost').value = settings.currentServer.host || '';
                 document.getElementById('username').value = settings.currentServer.username || '';
+                document.getElementById('password').value = settings.currentServer.password || '';
                 document.getElementById('port').value = settings.currentServer.port || 443;
+            }
+            
+            // Auto-reconnect if we have saved credentials and password
+            if (settings.currentServer?.host && settings.currentServer?.password) {
+                setTimeout(() => {
+                    this.log('Auto-reconnecting to ' + settings.currentServer.host + '...', 'info');
+                    this.connectToServer();
+                }, 500);
             }
         } catch (error) { console.error('Failed to load saved settings:', error); }
         this.loadSrNumber();

@@ -1853,6 +1853,87 @@ async def get_server_timeline(limit: int = 50):
         logger.error(f"Timeline error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# ─── Quick Server Status (lightweight) ─────────────────────────
+@app.get("/api/server/quick-status")
+async def get_quick_status():
+    """Lightweight server status — just the essentials for dashboard header.
+    Uses cached data when available, only fetches system info if needed."""
+    try:
+        if not agent.is_connected():
+            return {"status": "disconnected", "connected": False}
+        
+        host = agent.current_session.server_host if agent.current_session else "unknown"
+        
+        # Try to get basic info from a single Redfish call
+        result = {}
+        try:
+            si = await agent.execute_action(ActionLevel.READ_ONLY, "get_server_info", {})
+            info = si.get("server_info", {})
+            result = {
+                "connected": True,
+                "host": host,
+                "model": info.get("model", "Unknown"),
+                "service_tag": info.get("service_tag", ""),
+                "power_state": info.get("power_state", "Unknown"),
+                "bios_version": info.get("bios_version", ""),
+                "idrac_version": info.get("idrac_version", ""),
+                "cpu_model": info.get("cpu_model", ""),
+                "cpu_count": info.get("cpu_count", 0),
+                "total_memory_gb": info.get("total_memory_gb", 0),
+            }
+        except Exception as e:
+            result = {"connected": True, "host": host, "error": str(e)}
+        
+        # Quick health check (just the overall status, no deep scan)
+        try:
+            health = await agent.execute_action(ActionLevel.READ_ONLY, "health_check", {})
+            hs = health.get("health_status", {})
+            overall = hs.get("overall_status", "unknown")
+            if hasattr(overall, 'value'):
+                overall = overall.value
+            result["health"] = str(overall)
+            result["critical_count"] = len(hs.get("critical_issues", []))
+            result["warning_count"] = len(hs.get("warnings", []))
+        except Exception:
+            pass
+        
+        return {"status": "success", "data": result}
+    except Exception as e:
+        logger.error(f"Quick status error: {e}")
+        return {"status": "error", "error": str(e), "connected": agent.is_connected()}
+
+# ─── Batch Execute (multiple commands in one request) ──────────
+@app.post("/api/execute/batch")
+async def batch_execute(request: dict):
+    """Execute multiple commands in a single request for faster tab loading.
+    Accepts: {"commands": [{"action": "...", "parameters": {}}, ...]}"""
+    try:
+        if not agent.is_connected():
+            raise HTTPException(status_code=400, detail="Not connected to server")
+        
+        commands = request.get("commands", [])
+        if not commands or len(commands) > 20:
+            raise HTTPException(status_code=400, detail="Provide 1-20 commands")
+        
+        results = {}
+        for cmd in commands:
+            action = cmd.get("action", "")
+            params = cmd.get("parameters", {})
+            level = cmd.get("action_level", "read_only")
+            try:
+                al = ActionLevel(level) if isinstance(level, str) else level
+                result = await agent.execute_action(al, action, params)
+                results[action] = {"status": "success", "result": result}
+            except Exception as e:
+                results[action] = {"status": "error", "error": str(e)}
+        
+        return {"status": "success", "results": results}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Batch execute error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ─── Quick Diagnostics Summary ─────────────────────────────────
 @app.get("/api/server/diagnostics-summary")
 async def get_diagnostics_summary():

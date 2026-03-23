@@ -3972,3 +3972,401 @@ table tbody tr:hover { background: rgba(99,102,241,0.05); }
     0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
     40% { transform: translateY(-5px); opacity: 1; }
 }
+
+/* ═══════════════════════════════════════
+   DASHBOARD POLISH — Cards, Animations, Density
+   ═══════════════════════════════════════ */
+
+/* ─── Better cards with hover effects ─── */
+.section-block {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.section-block:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+.section-block h4 {
+    color: var(--accent);
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+/* ─── Metric tiles: better visual weight ─── */
+.metric-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.metric-tile {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 14px 16px;
+    text-align: center;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+.metric-tile::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--accent);
+    opacity: 0.4;
+    border-radius: 10px 10px 0 0;
+}
+.metric-tile:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.15);
+}
+.tile-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+.tile-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+.tile-sub {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+.tile-ok::before { background: var(--success-green); opacity: 0.7; }
+.tile-warn::before { background: var(--warning-yellow); opacity: 0.7; }
+.tile-crit::before { background: var(--danger-red); opacity: 0.7; }
+.tile-warn .tile-value { color: var(--warning-yellow); }
+.tile-crit .tile-value { color: var(--danger-red); }
+
+/* ─── Data tables: tighter, cleaner ─── */
+.tech-body .data-table {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 0.82rem;
+}
+.tech-body .data-table thead th {
+    background: rgba(99, 102, 241, 0.12);
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+.tech-body .data-table tbody td {
+    padding: 7px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+}
+.tech-body .data-table tbody tr:hover {
+    background: rgba(99, 102, 241, 0.04);
+}
+
+/* ─── Badges: consistent sizing ─── */
+.badge, .status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+.badge-ok, .badge-success, .badge-healthy { background: rgba(34, 197, 94, 0.12); color: var(--success-green); }
+.badge-warn, .badge-warning, .badge-degraded { background: rgba(245, 158, 11, 0.12); color: var(--warning-yellow); }
+.badge-crit, .badge-critical, .badge-error { background: rgba(239, 68, 68, 0.12); color: var(--danger-red); }
+.badge-info { background: rgba(59, 130, 246, 0.12); color: var(--info-blue); }
+.badge-neutral { background: rgba(148, 163, 184, 0.12); color: var(--text-muted); }
+
+/* ─── Loading hints ─── */
+.loading-hint {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: var(--text-muted);
+    gap: 12px;
+}
+.loading-hint .spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+.loading-hint p {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* ─── Placeholder text ─── */
+.placeholder-text {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 30px;
+    font-style: italic;
+}
+
+/* ─── Quick action buttons polish ─── */
+.qa-btn {
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+}
+.qa-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity 0.15s;
+    border-radius: inherit;
+}
+.qa-btn:active::after { opacity: 0.08; }
+
+/* ─── Operation buttons: more compact grid ─── */
+.ops-btn-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 6px;
+}
+.ops-btn {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.ops-btn:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+    background: rgba(99, 102, 241, 0.06);
+}
+.ops-btn-warn:hover { border-color: var(--warning-yellow); color: var(--warning-yellow); }
+.ops-btn-danger:hover { border-color: var(--danger-red); color: var(--danger-red); }
+
+/* ─── Category titles in operations ─── */
+.ops-category { margin-bottom: 16px; }
+.ops-cat-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* ─── Sub-tabs: cleaner look ─── */
+.tech-body .sub-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.tech-body .sub-tabs::-webkit-scrollbar { display: none; }
+.tech-body .sub-tab {
+    padding: 8px 16px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.tech-body .sub-tab:hover { color: var(--text-primary); }
+.tech-body .sub-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 600;
+}
+
+/* ─── Investigation feed ─── */
+.investigation-feed {
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.15);
+}
+.investigation-feed::-webkit-scrollbar { width: 4px; }
+.investigation-feed::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
+
+/* ─── Health gauge cards ─── */
+.gauge-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+.gauge-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px 14px;
+    transition: all 0.2s;
+}
+.gauge-card:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+}
+.gauge-card-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+.gauge-bar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 4px 0;
+}
+.gauge-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+.gauge-ok .gauge-fill { background: var(--success-green); }
+.gauge-warn .gauge-fill { background: var(--warning-yellow); }
+.gauge-crit .gauge-fill { background: var(--danger-red); }
+.gauge-val {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.gauge-threshold {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+}
+
+/* ─── Log entries: better readability ─── */
+.tech-body .log-container {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 0.78rem;
+    max-height: 500px;
+    overflow-y: auto;
+}
+.tech-body .log-entry {
+    padding: 6px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    line-height: 1.5;
+    transition: background 0.1s;
+}
+.tech-body .log-entry:hover { background: rgba(255, 255, 255, 0.03); }
+.tech-body .log-critical { border-left: 3px solid var(--danger-red); }
+.tech-body .log-error { border-left: 3px solid #f97316; }
+.tech-body .log-warning { border-left: 3px solid var(--warning-yellow); }
+.tech-body .log-info { border-left: 3px solid var(--info-blue); }
+
+/* Severity badges in logs */
+.log-severity-badge {
+    display: inline-flex;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-right: 6px;
+}
+
+/* ─── AI input card refinement ─── */
+.ai-input-card {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(139, 92, 246, 0.04));
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+}
+
+/* ─── Smooth tab transitions ─── */
+.tab-content {
+    animation: tabFadeIn 0.2s ease;
+}
+@keyframes tabFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Connect banner polish ─── */
+.connect-banner {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 16px;
+}
+
+/* ─── Sidebar link active state ─── */
+.sidebar-link.active {
+    background: rgba(99, 102, 241, 0.12);
+    color: var(--accent);
+    border-left-color: var(--accent);
+    font-weight: 600;
+}
+
+/* ─── Activity log compact ─── */
+.activity-log-section {
+    margin: 16px;
+}
+
+/* ─── Topbar server identity ─── */
+.topbar-connection strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* ─── Responsive: mobile sidebar ─── */
+@media (max-width: 768px) {
+    .sidebar { width: 200px; }
+    .main-content { margin-left: 0; }
+    .topbar { padding: 0 12px; }
+    .quick-actions-bar { margin: 0 12px 12px; padding: 10px 12px; flex-wrap: wrap; }
+    .connect-banner { margin: 12px; padding: 12px; }
+    .metric-tiles { grid-template-columns: repeat(2, 1fr); }
+    .ops-btn-grid { grid-template-columns: 1fr; }
+}
