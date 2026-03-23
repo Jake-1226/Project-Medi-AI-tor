@@ -72,8 +72,8 @@ class DellAIAgent {
         // iDRAC availability check
         document.getElementById('checkIdracBtn')?.addEventListener('click', () => this.checkIdracAvailability());
         
-        // SR# save
-        document.getElementById('saveSrBtn')?.addEventListener('click', () => this.saveSrNumber());
+        // SR# auto-save on blur
+        document.getElementById('srNumber')?.addEventListener('blur', () => this.saveSrNumber());
         
         // Troubleshooting
         document.getElementById('startTroubleshootingBtn')?.addEventListener('click', () => this.startTroubleshooting());

@@ -52,22 +52,17 @@
                 <span>Disconnected</span>
             </div>
             <div class="topbar-actions">
-                <div class="sr-field">
-                    <label for="srNumber">SR#</label>
-                    <input type="text" id="srNumber" class="form-input sr-input" placeholder="SR Number">
-                    <button id="saveSrBtn" class="btn btn-sm btn-secondary">Save</button>
+                <div class="topbar-sr">
+                    <input type="text" id="srNumber" class="topbar-sr-input" placeholder="SR# (optional)" title="Service Request number for tracking">
                 </div>
                 <div class="topbar-level-pills">
-                    <button class="level-pill selected" data-action-level="read_only" title="Read Only">🔍 RO</button>
-                    <button class="level-pill" data-action-level="diagnostic" title="Diagnostic">🔧 Diag</button>
-                    <button class="level-pill" data-action-level="full_control" title="Full Control">🚀 Full</button>
+                    <button class="level-pill selected" data-action-level="read_only" title="Read Only — safe monitoring">RO</button>
+                    <button class="level-pill" data-action-level="diagnostic" title="Diagnostic — run tests">Diag</button>
+                    <button class="level-pill" data-action-level="full_control" title="Full Control — power ops, BIOS changes">Full</button>
                 </div>
-                <div class="theme-toggle">
-                    <button id="themeToggle" class="btn btn-sm btn-secondary" title="Toggle Theme">
-                        <span class="theme-icon">🌙</span>
-                        <span class="theme-text">Dark</span>
-                    </button>
-                </div>
+                <button id="themeToggle" class="topbar-theme-btn" title="Toggle light/dark theme">
+                    <span class="theme-icon">🌙</span>
+                </button>
             </div>
         </header>
 

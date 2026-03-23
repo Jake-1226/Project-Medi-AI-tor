@@ -30,26 +30,23 @@
     --topbar-height: 56px;
 }
 
-/* Theme Toggle Styles */
-.theme-toggle {
-    margin-left: 12px;
-}
-
-.theme-toggle .btn {
+/* Theme Toggle — icon only */
+.topbar-theme-btn {
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    font-size: 12px;
-    background: var(--bg-card);
+    justify-content: center;
+    border-radius: 6px;
     border: 1px solid var(--border-color);
+    background: transparent;
     color: var(--text-secondary);
-    transition: all 0.2s ease;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
 }
-
-.theme-toggle .btn:hover {
+.topbar-theme-btn:hover {
     background: var(--bg-card-hover);
-    color: var(--text-primary);
     border-color: var(--accent);
 }
 
@@ -217,11 +214,21 @@ body.tech-body {
     align-items: center;
     gap: 14px;
 }
-.sr-field {
-    display: flex; align-items: center; gap: 6px; font-size: 0.82rem;
+/* SR# field — compact inline */
+.topbar-sr { display: flex; align-items: center; }
+.topbar-sr-input {
+    width: 120px;
+    padding: 5px 8px;
+    font-size: 0.78rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.2s;
 }
-.sr-field label { color: var(--text-muted); font-size: 0.78rem; }
-.sr-input { width: 110px !important; padding: 5px 8px !important; font-size: 0.82rem !important; }
+.topbar-sr-input:focus { border-color: var(--accent); }
+.topbar-sr-input::placeholder { color: var(--text-muted); }
 
 /* Action Level Pills */
 .topbar-level-pills { display: flex; gap: 4px; }
@@ -1234,24 +1241,7 @@ body.tech-body {
     flex-wrap: wrap;
 }
 
-.sr-field {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.sr-field label {
-    font-weight: 600;
-    color: var(--dell-blue);
-    font-size: 0.9rem;
-}
-
-.sr-input {
-    width: 180px;
-    padding: 6px 10px !important;
-    font-size: 0.9rem !important;
-    border-radius: 6px !important;
-}
+/* (sr-field removed — replaced by .topbar-sr) */
 
 .btn-sm {
     padding: 6px 14px;
