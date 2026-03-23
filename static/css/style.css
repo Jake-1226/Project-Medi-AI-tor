@@ -515,7 +515,7 @@ body.tech-body {
 }
 
 .header {
-    background: white;
+    background: var(--bg-card, white);
     border-radius: 15px;
     padding: 30px;
     margin-bottom: 30px;
@@ -543,7 +543,7 @@ body.tech-body {
 }
 
 .card {
-    background: white;
+    background: var(--bg-card, white);
     border-radius: 15px;
     padding: 25px;
     box-shadow: 0 5px 20px rgba(0,0,0,0.1);
@@ -748,7 +748,7 @@ body.tech-body {
 }
 
 .log-container {
-    background: #f8f9fa;
+    background: var(--bg-card, #f8f9fa);
     border: 1px solid #dee2e6;
     border-radius: 8px;
     padding: 15px;
@@ -829,7 +829,7 @@ body.tech-body {
 }
 
 .modal-content {
-    background: white;
+    background: var(--bg-card, white);
     margin: 5% auto;
     padding: 30px;
     border-radius: 15px;
@@ -915,7 +915,7 @@ body.tech-body {
 }
 
 .server-card {
-    background: white;
+    background: var(--bg-card, white);
     border-radius: 12px;
     padding: 20px;
     box-shadow: 0 3px 10px rgba(0,0,0,0.1);
@@ -960,7 +960,7 @@ body.tech-body {
     flex: 1;
     padding: 15px;
     border: 2px solid #e0e0e0;
-    background: white;
+    background: var(--bg-card, white);
     border-radius: 8px;
     cursor: pointer;
     text-align: center;
@@ -995,7 +995,7 @@ body.tech-body {
 .sub-tabs {
     display: flex;
     gap: 0;
-    border-bottom: 2px solid #e9ecef;
+    border-bottom: 2px solid var(--border-color, #e9ecef);
     margin-bottom: 20px;
     flex-wrap: wrap;
 }
@@ -1017,7 +1017,7 @@ body.tech-body {
 
 /* Section blocks */
 .section-block {
-    background: #f8f9fa;
+    background: var(--bg-card, #f8f9fa);
     border-radius: 10px;
     padding: 18px;
     margin-bottom: 20px;
@@ -1060,7 +1060,7 @@ body.tech-body {
     vertical-align: top;
 }
 
-.data-table tbody tr:nth-child(even) { background: #f8f9fa; }
+.data-table tbody tr:nth-child(even) { background: var(--bg-card, #f8f9fa); }
 .data-table tbody tr:hover { background: var(--dell-light-blue); }
 
 /* (light-theme metric tiles removed — dark theme version at .tech-body block) */
@@ -1164,10 +1164,10 @@ body.tech-body {
 }
 
 .component-card {
-    background: white;
+    background: var(--bg-card, white);
     border-radius: 10px;
     padding: 16px;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--border-color, #e9ecef);
     border-left: 4px solid var(--dell-blue);
 }
 
@@ -1186,7 +1186,7 @@ body.tech-body {
 }
 
 .component-card .detail-row:last-child { border-bottom: none; }
-.component-card .detail-label { color: #888; }
+.component-card .detail-label { color: var(--text-muted, #888); }
 .component-card .detail-value { font-weight: 600; color: #333; }
 
 .placeholder-text { color: #999; font-style: italic; }
@@ -1200,7 +1200,7 @@ body.tech-body {
 }
 
 .conn-info-bar .conn-item { display: flex; align-items: center; gap: 6px; }
-.conn-info-bar .conn-label { color: #888; }
+.conn-info-bar .conn-label { color: var(--text-muted, #888); }
 .conn-info-bar .conn-value { font-weight: 600; color: #333; }
 
 /* Thermal gauge */
@@ -1211,16 +1211,16 @@ body.tech-body {
 }
 
 .thermal-gauge {
-    background: white;
+    background: var(--bg-card, white);
     border-radius: 10px;
     padding: 14px;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--border-color, #e9ecef);
     text-align: center;
 }
 
 .thermal-gauge .gauge-name { font-size: 0.85rem; color: #666; margin-bottom: 6px; }
 .thermal-gauge .gauge-value { font-size: 1.8rem; font-weight: 700; }
-.thermal-gauge .gauge-range { font-size: 0.75rem; color: #aaa; margin-top: 2px; }
+.thermal-gauge .gauge-range { font-size: 0.75rem; color: var(--text-muted, #aaa); margin-top: 2px; }
 .gauge-ok { color: var(--success-green); }
 .gauge-warn { color: var(--warning-yellow); }
 .gauge-crit { color: var(--danger-red); }
@@ -1262,7 +1262,7 @@ body.tech-body {
     margin-top: 10px;
     padding: 12px;
     border-radius: 8px;
-    background: #f8f9fa;
+    background: var(--bg-card, #f8f9fa);
     border-left: 4px solid var(--info-blue);
     font-size: 0.9rem;
 }
@@ -1287,7 +1287,7 @@ body.tech-body {
 
 .bios-count {
     font-size: 0.85rem;
-    color: #888;
+    color: var(--text-muted, #888);
     margin-bottom: 8px;
 }
 
@@ -1326,8 +1326,8 @@ body.tech-body {
 }
 
 .monitoring-snapshot {
-    background: #f8f9fa;
-    border: 1px solid #e9ecef;
+    background: var(--bg-card, #f8f9fa);
+    border: 1px solid var(--border-color, #e9ecef);
     border-radius: 8px;
     padding: 14px;
     margin-bottom: 12px;
@@ -1335,7 +1335,7 @@ body.tech-body {
 
 .monitoring-snapshot .snap-time {
     font-size: 0.82rem;
-    color: #888;
+    color: var(--text-muted, #888);
     margin-bottom: 8px;
 }
 
@@ -1354,7 +1354,7 @@ body.tech-body {
 
 .post-code-label {
     font-size: 0.9rem;
-    color: #888;
+    color: var(--text-muted, #888);
     margin-top: 4px;
 }
 
@@ -1367,16 +1367,16 @@ body.tech-body {
 }
 
 .protocol-item {
-    background: #f8f9fa;
+    background: var(--bg-card, #f8f9fa);
     border-radius: 8px;
     padding: 10px;
     text-align: center;
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--border-color, #e9ecef);
 }
 
 .protocol-item .proto-name {
     font-size: 0.82rem;
-    color: #888;
+    color: var(--text-muted, #888);
     text-transform: uppercase;
 }
 
@@ -1403,7 +1403,7 @@ body.tech-body {
     display: flex;
     gap: 12px;
     font-size: 0.8rem;
-    color: #888;
+    color: var(--text-muted, #888);
     margin-top: 4px;
 }
 
@@ -1415,8 +1415,8 @@ body.tech-body {
 }
 
 .preset-card {
-    background: #f8f9fa;
-    border: 1px solid #e9ecef;
+    background: var(--bg-card, #f8f9fa);
+    border: 1px solid var(--border-color, #e9ecef);
     border-radius: 10px;
     padding: 16px;
     transition: box-shadow 0.2s;
@@ -1448,7 +1448,7 @@ body.tech-body {
 
 .example-label {
     font-size: 0.82rem;
-    color: #888;
+    color: var(--text-muted, #888);
     margin-bottom: 8px;
 }
 
@@ -1876,7 +1876,7 @@ body.tech-body {
 .ts-stat-alert { background: rgba(220,38,38,0.3); border: 1px solid rgba(220,38,38,0.5); }
 
 .ts-section {
-    background: white;
+    background: var(--bg-card, white);
     border: 1px solid #e2e8f0;
     border-radius: 10px;
     padding: 18px 20px;
@@ -2100,7 +2100,7 @@ body.tech-body {
     border-radius: 10px;
     margin-bottom: 10px;
     overflow: hidden;
-    background: white;
+    background: var(--bg-card, white);
 }
 .dd-section[open] { box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
 .dd-section-alert { border-left: 4px solid #dc2626; }
@@ -2167,7 +2167,7 @@ body.tech-body {
 .dd-stat-chip {
     font-size: 0.78rem;
     padding: 3px 10px;
-    background: white;
+    background: var(--bg-card, white);
     border: 1px solid #e2e8f0;
     border-radius: 14px;
     color: #475569;
@@ -2206,7 +2206,7 @@ body.tech-body {
     border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding: 10px 12px;
-    background: white;
+    background: var(--bg-card, white);
     transition: box-shadow 0.15s;
 }
 .dd-comp-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
@@ -2674,7 +2674,7 @@ body.tech-body {
     background: #e2e8f0;
 }
 .agent-bv-card {
-    background: white;
+    background: var(--bg-card, white);
     padding: 12px 8px;
     text-align: center;
 }
