@@ -33,13 +33,18 @@ class ServerGroup:
 
 @dataclass
 class ServerInfo:
-    """Server information and connection details"""
+    """Server information and connection details.
+    
+    Passwords are stored encrypted via the fleet manager's cipher.
+    Use fleet_manager.get_server_password(server_id) to retrieve plaintext.
+    """
     id: str
     name: str
     host: str
     port: int
     username: str
-    password: str
+    password: str  # stored encrypted when managed by FleetManager
+    _password_encrypted: bool = False
     model: Optional[str] = None
     service_tag: Optional[str] = None
     location: Optional[str] = None
@@ -77,7 +82,10 @@ class ServerInfo:
         }
 
 class FleetManager:
-    """Manages multiple servers and provides fleet-wide operations"""
+    """Manages multiple servers and provides fleet-wide operations.
+    
+    Credentials are encrypted at rest using Fernet symmetric encryption.
+    """
     
     def __init__(self):
         self.servers: Dict[str, ServerInfo] = {}
@@ -87,8 +95,33 @@ class FleetManager:
         self.fleet_metrics: Dict[str, Any] = {}
         self.alerts: List[Dict] = []
         
+        # Credential encryption
+        from cryptography.fernet import Fernet
+        self._cipher_key = Fernet.generate_key()
+        self._cipher = Fernet(self._cipher_key)
+        
         # Default groups
         self._create_default_groups()
+    
+    def _encrypt_password(self, plaintext: str) -> str:
+        """Encrypt a password for at-rest storage."""
+        return self._cipher.encrypt(plaintext.encode()).decode()
+    
+    def _decrypt_password(self, ciphertext: str) -> str:
+        """Decrypt a stored password."""
+        try:
+            return self._cipher.decrypt(ciphertext.encode()).decode()
+        except Exception:
+            return ciphertext  # fallback for unencrypted legacy data
+    
+    def get_server_password(self, server_id: str) -> Optional[str]:
+        """Retrieve the plaintext password for a server (decrypts from storage)."""
+        server = self.servers.get(server_id)
+        if not server:
+            return None
+        if server._password_encrypted:
+            return self._decrypt_password(server.password)
+        return server.password
     
     def _create_default_groups(self):
         """Create default server groups"""
@@ -137,7 +170,7 @@ class FleetManager:
                 logger.info(f"Updated existing server {existing_server.name} with new information")
                 return server_id
         
-        # If no duplicate found, create new server
+        # If no duplicate found, create new server with encrypted password
         server_id = str(uuid.uuid4())
         server = ServerInfo(
             id=server_id,
@@ -145,7 +178,8 @@ class FleetManager:
             host=host,
             port=port,
             username=username,
-            password=password,
+            password=self._encrypt_password(password),
+            _password_encrypted=True,
             model=model,
             service_tag=service_tag,
             location=location,

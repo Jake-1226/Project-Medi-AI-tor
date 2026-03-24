@@ -5,6 +5,7 @@ Authentication and authorization for Dell Server AI Agent
 import hashlib
 import secrets
 import logging
+import os
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import jwt
@@ -16,6 +17,15 @@ import base64
 from core.config import AgentConfig
 
 logger = logging.getLogger(__name__)
+
+# Default passwords are NEVER hardcoded — they are loaded from environment
+# variables at startup. If not set, cryptographically random passwords are
+# generated and logged (once) so the operator can use them.
+_ENV_PASSWORD_KEYS = {
+    "admin":    "AUTH_ADMIN_PASSWORD",
+    "operator": "AUTH_OPERATOR_PASSWORD",
+    "viewer":   "AUTH_VIEWER_PASSWORD",
+}
 
 class AuthenticationError(Exception):
     """Authentication failed exception"""
@@ -31,38 +41,35 @@ class AuthManager:
     def __init__(self, config: AgentConfig):
         self.config = config
         self.secret_key = self._generate_secret_key()
-        self.token_expiry = timedelta(hours=24)
+        self.token_expiry = timedelta(hours=1)         # Short-lived access token
+        self.refresh_expiry = timedelta(hours=24)       # Longer-lived refresh token
         self.failed_attempts = {}  # Track failed login attempts
         self.max_attempts = 5
         self.lockout_duration = timedelta(minutes=15)
         
-        # In-memory user store (in production, use a proper database)
-        self.users = {
-            "admin": {
-                "password_hash": self._hash_password("admin123"),  # Change in production!
-                "role": "admin",
-                "permissions": ["read_only", "diagnostic", "full_control"],
-                "created_at": datetime.now(),
-                "last_login": None,
-                "active": True
-            },
-            "operator": {
-                "password_hash": self._hash_password("operator123"),  # Change in production!
-                "role": "operator",
-                "permissions": ["read_only", "diagnostic"],
-                "created_at": datetime.now(),
-                "last_login": None,
-                "active": True
-            },
-            "viewer": {
-                "password_hash": self._hash_password("viewer123"),  # Change in production!
-                "role": "viewer",
-                "permissions": ["read_only"],
-                "created_at": datetime.now(),
-                "last_login": None,
-                "active": True
-            }
+        # User store — passwords loaded from environment variables, never hardcoded
+        self.users = {}
+        _role_perms = {
+            "admin":    ["read_only", "diagnostic", "full_control"],
+            "operator": ["read_only", "diagnostic"],
+            "viewer":   ["read_only"],
         }
+        for role, env_key in _ENV_PASSWORD_KEYS.items():
+            pw = os.getenv(env_key, "")
+            if not pw:
+                pw = secrets.token_urlsafe(16)
+                logger.warning(
+                    f"No {env_key} set — generated random password for '{role}': {pw}  "
+                    f"(set {env_key} in environment to use a fixed password)"
+                )
+            self.users[role] = {
+                "password_hash": self._hash_password(pw),
+                "role": role,
+                "permissions": _role_perms[role],
+                "created_at": datetime.now(),
+                "last_login": None,
+                "active": True,
+            }
         
         # Session store
         self.sessions = {}
@@ -78,7 +85,8 @@ class AuthManager:
     def _generate_encryption_key(self) -> bytes:
         """Generate encryption key for sensitive data"""
         password = self.secret_key.encode()
-        salt = b'dell_ai_agent_salt'  # In production, use a proper salt
+        # Salt from environment or auto-generated per deployment
+        salt = os.getenv("ENCRYPTION_SALT", "").encode() or secrets.token_bytes(16)
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
@@ -186,11 +194,23 @@ class AuthManager:
         
         token = jwt.encode(token_payload, self.secret_key, algorithm="HS256")
         
+        # Create refresh token (longer-lived, only contains session reference)
+        refresh_payload = {
+            "session_id": session_id,
+            "username": username,
+            "type": "refresh",
+            "exp": datetime.now() + self.refresh_expiry,
+            "iat": datetime.now(),
+        }
+        refresh_token = jwt.encode(refresh_payload, self.secret_key, algorithm="HS256")
+        
         logger.info(f"User {username} authenticated successfully")
         
         return {
             "token": token,
+            "refresh_token": refresh_token,
             "session_id": session_id,
+            "expires_in": int(self.token_expiry.total_seconds()),
             "user": {
                 "username": username,
                 "role": user["role"],
@@ -228,6 +248,33 @@ class AuthManager:
             raise AuthenticationError("Token expired")
         except jwt.InvalidTokenError:
             raise AuthenticationError("Invalid token")
+    
+    async def refresh_access_token(self, refresh_token: str) -> Dict[str, Any]:
+        """Issue a new access token using a valid refresh token."""
+        try:
+            payload = jwt.decode(refresh_token, self.secret_key, algorithms=["HS256"])
+            if payload.get("type") != "refresh":
+                raise AuthenticationError("Not a refresh token")
+            session_id = payload.get("session_id")
+            if not session_id or session_id not in self.sessions:
+                raise AuthenticationError("Session expired — please log in again")
+            session = self.sessions[session_id]
+            # Issue new short-lived access token
+            new_payload = {
+                "session_id": session_id,
+                "username": session["username"],
+                "role": session["role"],
+                "permissions": session["permissions"],
+                "exp": datetime.now() + self.token_expiry,
+                "iat": datetime.now(),
+            }
+            new_token = jwt.encode(new_payload, self.secret_key, algorithm="HS256")
+            session["last_activity"] = datetime.now()
+            return {"token": new_token, "expires_in": int(self.token_expiry.total_seconds())}
+        except jwt.ExpiredSignatureError:
+            raise AuthenticationError("Refresh token expired — please log in again")
+        except jwt.InvalidTokenError:
+            raise AuthenticationError("Invalid refresh token")
     
     async def authorize(self, user_info: Dict[str, Any], required_permission: str) -> bool:
         """Check if user has required permission"""

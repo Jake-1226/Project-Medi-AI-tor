@@ -296,6 +296,15 @@ async def startup_event():
     if config.demo_mode:
         logger.info("*** DEMO MODE ENABLED — using simulated server data ***")
     
+    if not config.verify_ssl:
+        logger.warning("SSL certificate verification is DISABLED (VERIFY_SSL=false). "
+                       "This is acceptable for iDRAC with self-signed certs but should be "
+                       "enabled in production with proper CA bundles.")
+    
+    if not config.require_https:
+        logger.warning("HTTPS is NOT required (REQUIRE_HTTPS=false). "
+                       "Enable in production to protect credentials in transit.")
+    
     # Initialize core components
     agent = DellAIAgent(config)
     realtime_monitor = RealtimeMonitor()
@@ -309,15 +318,8 @@ async def startup_event():
     automation_engine = AutomationEngine(agent)
     multi_server_manager = MultiServerManager(config)
     
-    # Initialize authentication
+    # Initialize authentication (passwords loaded from env by AuthManager)
     auth_manager = AuthManager(config)
-    # Override default passwords from environment if provided
-    for role in ("admin", "operator", "viewer"):
-        env_pw = os.getenv(f"AUTH_{role.upper()}_PASSWORD")
-        if env_pw:
-            auth_manager.users[role]["password_hash"] = auth_manager._hash_password(env_pw)
-            logger.info(f"Loaded custom password for {role} from environment")
-    
     logger.info("Authentication system initialized (3 default roles: admin, operator, viewer)")
     
     # Optional components (may not exist)
@@ -334,6 +336,59 @@ async def startup_event():
         third_party_api = None
     
     logger.info("Medi-AI-tor and all components initialized successfully")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Graceful shutdown — drain connections, stop monitoring, persist state."""
+    logger.info("Shutting down Medi-AI-tor...")
+    
+    # Stop health monitoring
+    try:
+        if health_monitor:
+            health_monitor.stop_all()
+            logger.info("Health monitors stopped")
+    except Exception as e:
+        logger.warning(f"Health monitor shutdown: {e}")
+    
+    # Stop realtime monitoring
+    try:
+        if realtime_monitor and realtime_monitor.monitoring_active:
+            await realtime_monitor.stop_monitoring()
+            logger.info("Realtime monitor stopped")
+    except Exception as e:
+        logger.warning(f"Realtime monitor shutdown: {e}")
+    
+    # Disconnect from iDRAC
+    try:
+        if agent and agent.is_connected():
+            await agent.disconnect()
+            logger.info("Disconnected from server")
+    except Exception as e:
+        logger.warning(f"Agent disconnect during shutdown: {e}")
+    
+    # Persist fleet data to disk
+    try:
+        if fleet_manager and fleet_manager.servers:
+            import json, os
+            data_dir = os.path.join(os.path.dirname(__file__), 'data')
+            os.makedirs(data_dir, exist_ok=True)
+            fleet_path = os.path.join(data_dir, 'fleet_state.json')
+            fleet_data = {sid: s.to_dict() for sid, s in fleet_manager.servers.items()}
+            with open(fleet_path, 'w') as f:
+                json.dump(fleet_data, f, indent=2, default=str)
+            logger.info(f"Fleet state persisted to {fleet_path} ({len(fleet_data)} servers)")
+    except Exception as e:
+        logger.warning(f"Fleet persistence during shutdown: {e}")
+    
+    # Clean up auth sessions
+    try:
+        if auth_manager:
+            auth_manager.cleanup_expired_sessions()
+            logger.info(f"Auth sessions cleaned up ({len(auth_manager.sessions)} active)")
+    except Exception as e:
+        logger.warning(f"Auth cleanup during shutdown: {e}")
+    
+    logger.info("Medi-AI-tor shutdown complete")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -393,6 +448,26 @@ async def auth_me(request: Request):
     """Get current user info (validates token)"""
     user = await _get_current_user(request)
     return {"status": "success", "user": user}
+
+@app.post("/api/auth/refresh")
+async def auth_refresh(request: Request):
+    """Refresh an expired access token using a valid refresh token."""
+    body = await request.json()
+    refresh_token = body.get("refresh_token", "")
+    if not refresh_token:
+        raise HTTPException(status_code=400, detail="refresh_token is required")
+    try:
+        result = await auth_manager.refresh_access_token(refresh_token)
+        response = JSONResponse(content={"status": "success", **result})
+        response.set_cookie(
+            key="auth_token", value=result["token"],
+            httponly=True, samesite="strict",
+            max_age=result["expires_in"],
+            secure=os.getenv("REQUIRE_HTTPS", "false").lower() == "true",
+        )
+        return response
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=str(e))
 
 @app.post("/api/auth/change-password")
 async def auth_change_password(request: Request, body: dict):
@@ -1164,21 +1239,47 @@ def _get_available_features(idrac: bool, os: bool) -> Dict[str, Any]:
 
 @app.get("/api/health")
 async def api_health_check():
-    """API health check endpoint"""
+    """API health check — validates agent and dependencies."""
+    checks = {}
+    overall = "healthy"
+    
+    # Core agent
+    checks["agent"] = "ok" if agent else "not_initialized"
+    if not agent:
+        overall = "degraded"
+    
+    # iDRAC connection
+    checks["idrac_connected"] = agent.is_connected() if agent else False
+    
+    # Auth manager
+    checks["auth"] = "ok" if auth_manager else "not_initialized"
+    active_sessions = len(auth_manager.sessions) if auth_manager else 0
+    checks["active_sessions"] = active_sessions
+    
+    # Fleet manager
+    checks["fleet_servers"] = len(fleet_manager.servers) if fleet_manager else 0
+    
+    # Realtime monitor
+    checks["monitoring_active"] = realtime_monitor.monitoring_active if realtime_monitor else False
+    
+    # Demo mode
+    checks["demo_mode"] = agent.config.demo_mode if agent else False
+    
+    if checks.get("agent") != "ok" or checks.get("auth") != "ok":
+        overall = "unhealthy"
+    
     return {
-        "status": "healthy",
-        "agent": "Medi-AI-tor v1.0.0",
-        "demo_mode": agent.config.demo_mode if agent else False,
+        "status": overall,
+        "agent": "Medi-AI-tor v2.0",
+        "checks": checks,
     }
 
 @app.get("/health")
 async def health_check():
-    """API health check endpoint"""
-    return {
-        "status": "healthy",
-        "agent": "Medi-AI-tor v1.0.0",
-        "demo_mode": agent.config.demo_mode if agent else False,
-    }
+    """Lightweight health check for load balancers."""
+    if not agent or not auth_manager:
+        return JSONResponse(status_code=503, content={"status": "unhealthy"})
+    return {"status": "healthy"}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
