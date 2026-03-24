@@ -58,7 +58,7 @@
             border-radius: 8px;
             color: #f1f5f9;
             font-size: 0.95rem;
-            transition: border-color 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
         .form-input:focus {
             outline: none;
@@ -89,8 +89,14 @@
             font-size: 0.85rem;
             margin-bottom: 16px;
             display: none;
+            animation: errorShake 0.3s ease;
         }
         .error-msg.visible { display: block; }
+        @keyframes errorShake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-4px); }
+            75% { transform: translateX(4px); }
+        }
         .roles-hint {
             margin-top: 24px;
             padding-top: 16px;

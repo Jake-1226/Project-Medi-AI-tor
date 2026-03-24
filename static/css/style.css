@@ -289,7 +289,7 @@ body.tech-body {
 }
 .topbar-toggle:hover { background: rgba(255,255,255,0.06); }
 .topbar-connection {
-    display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--text-secondary);
+    display: flex; align-items: center; gap: var(--sp-2); font-size: var(--text-base); color: var(--text-secondary);
 }
 .topbar-actions {
     margin-left: auto;
@@ -496,8 +496,8 @@ body.tech-body {
 /* ── Keyboard shortcut legend ── */
 .kbd-legend {
     position: fixed;
-    bottom: 90px;
-    right: 24px;
+    bottom: 24px;
+    left: calc(var(--sidebar-width) + 20px);
     display: flex;
     gap: 8px;
     padding: 6px 12px;
@@ -2871,9 +2871,9 @@ body.tech-body {
 
 /* Chat metrics bar */
 .agent-chat-metrics {
-    padding: 8px 12px;
-    border-top: 1px solid #e2e8f0;
-    background: #f8fafc;
+    padding: var(--sp-2) var(--sp-3);
+    border-top: 1px solid var(--border-color);
+    background: rgba(255,255,255,0.03);
 }
 .agent-metrics-row {
     display: flex;
@@ -2881,8 +2881,8 @@ body.tech-body {
     justify-content: space-around;
 }
 .agent-metric { text-align: center; flex: 1; }
-.agent-metric-val { display: block; font-size: 0.82rem; font-weight: 700; color: #4f46e5; }
-.agent-metric-lbl { display: block; font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; }
+.agent-metric-val { display: block; font-size: 0.82rem; font-weight: 700; color: var(--accent); }
+.agent-metric-lbl { display: block; font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; }
 
 /* Remediation cards */
 .agent-remediation-card {
@@ -2978,6 +2978,7 @@ body.tech-body {
 }
 .tech-body .sub-tab-content.active {
     display: block;
+    animation: tabFadeIn 0.15s ease;
 }
 
 /* ── Section blocks ── */

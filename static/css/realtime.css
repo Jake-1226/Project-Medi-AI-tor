@@ -139,11 +139,12 @@
     border: 1px solid var(--rt-border);
     border-radius: var(--rt-radius);
     padding: 14px 16px;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 .metric-card:hover {
     border-color: rgba(99,102,241,0.3);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    transform: translateY(-1px);
 }
 /* Status-based card borders */
 .metric-card[data-status="warning"] { border-left: 3px solid var(--rt-yellow); }
