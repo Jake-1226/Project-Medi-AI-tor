@@ -274,8 +274,7 @@ class DellAIAgent {
         if (!password) { if (passEl) passEl.classList.add('input-error'); valid = false; }
         if (!valid) { this.showAlert('Fill in all connection fields.', 'warning', { title: 'Missing fields' }); return; }
         
-        // Button loading state — prevent double-click
-        const connectBtn = document.getElementById('connectBtn');
+        // Button loading state
         const disconnectBtn = document.getElementById('disconnectBtn');
         if (connectBtn) { connectBtn.disabled = true; connectBtn.textContent = 'Connecting...'; connectBtn.classList.add('btn-loading'); }
         this.showLoading(true, 'Connecting to iDRAC...');
