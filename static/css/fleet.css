@@ -193,6 +193,7 @@
     border-radius: 50%;
     background: white;
 }
+[data-theme="dark"] .health-circle::before { background: #34495e; }
 
 .health-value {
     position: relative;

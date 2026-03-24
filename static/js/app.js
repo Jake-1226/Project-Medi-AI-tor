@@ -101,6 +101,14 @@ class DellAIAgent {
         
         // F1: Banner expand button
         document.getElementById('bannerExpandBtn')?.addEventListener('click', () => this._expandBanner());
+        // V1: Compact disconnect button
+        document.getElementById('compactDisconnectBtn')?.addEventListener('click', () => {
+            if (this.currentServer) {
+                this._showInlineConfirm(document.getElementById('actionResultContainer'),
+                    `Disconnect from ${this.currentServer.host}?`, false,
+                    () => this.disconnectFromServer());
+            }
+        });
         
         // P4: Auto-clear input error state on focus
         document.querySelectorAll('.form-input, .form-select, .form-textarea').forEach(el => {
@@ -258,7 +266,7 @@ class DellAIAgent {
         const connectBtn = document.getElementById('connectBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
         if (connectBtn) { connectBtn.disabled = true; connectBtn.textContent = 'Connecting...'; connectBtn.classList.add('btn-loading'); }
-        this.showLoading(true);
+        this.showLoading(true, 'Connecting to iDRAC...');
         
         try {
             const controller = new AbortController();
@@ -4113,8 +4121,14 @@ class DellAIAgent {
         while (logContainer.children.length > 100) { logContainer.removeChild(logContainer.firstChild); }
     }
     
-    showLoading(show) {
-        document.querySelectorAll('.loading-indicator').forEach(el => { el.style.display = show ? 'block' : 'none'; });
+    showLoading(show, context) {
+        document.querySelectorAll('.loading-indicator').forEach(el => {
+            el.style.display = show ? 'flex' : 'none';
+            if (show && context) {
+                const p = el.querySelector('p');
+                if (p) p.textContent = context;
+            }
+        });
     }
     
     saveSettings() {

@@ -43,7 +43,7 @@
         </nav>
         <div class="sidebar-footer">
             <div class="sidebar-version">Medi-AI-tor v2.0 — Dell Hackathon 2026</div>
-            <div class="sidebar-version" id="apiStatus" style="opacity:0.5;font-size:0.65rem"></div>
+            <div class="sidebar-version sidebar-api-status" id="apiStatus"></div>
         </div>
     </aside>
 
@@ -92,8 +92,9 @@
                 <div class="banner-compact-bar" id="bannerCompactBar">
                     <span class="compact-badge">Connected</span>
                     <span class="compact-server-id" id="compactServerId"></span>
-                    <span id="compactServerModel" style="opacity:0.6"></span>
+                    <span class="compact-model" id="compactServerModel"></span>
                     <button class="banner-expand-btn" id="bannerExpandBtn" type="button">Edit connection</button>
+                    <button class="btn btn-secondary btn-sm" id="compactDisconnectBtn" type="button">Disconnect</button>
                 </div>
 
                 <div class="connect-panels">
