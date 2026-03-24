@@ -47,6 +47,12 @@ class FleetManager {
                 if (search) { this.switchTab('servers'); search.focus(); }
             }
         });
+        // Close modals on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
+            }
+        });
     }
     
     setupEventListeners() {
@@ -237,7 +243,6 @@ class FleetManager {
                 this.updateUI();
             }
         } catch (error) {
-            console.error('Error loading fleet data:', error);
             this.showToast('Failed to load fleet data', 'error');
         }
     }
@@ -264,7 +269,6 @@ class FleetManager {
                 this.showToast('Fleet data refreshed', 'success');
             }
         } catch (error) {
-            console.error('Error refreshing fleet data:', error);
             this.showToast('Failed to refresh fleet data', 'error');
         } finally {
             this.showLoading(false);
@@ -451,7 +455,7 @@ class FleetManager {
                     <span class="env-badge">${server.environment || 'Unknown'}</span>
                 </td>
                 <td>
-                    <span class="status-badge ${server.status}">${server.status}</span>
+                    <span class="status-badge ${server.status}">${this.statusLabel(server.status)}</span>
                 </td>
                 <td>
                     <span class="health-badge ${this.getHealthLevel(server.health_score)}">${server.health_score.toFixed(1)}%</span>
@@ -553,7 +557,6 @@ class FleetManager {
                 this.showToast('Failed to connect to all servers', 'error');
             }
         } catch (error) {
-            console.error('Error connecting all servers:', error);
             this.showToast('Failed to connect to all servers', 'error');
         } finally {
             this.setButtonLoading('connectAllBtn', false);
@@ -576,7 +579,6 @@ class FleetManager {
                 this.showToast('Failed to disconnect from all servers', 'error');
             }
         } catch (error) {
-            console.error('Error disconnecting all servers:', error);
             this.showToast('Failed to disconnect from all servers', 'error');
         } finally {
             this.setButtonLoading('disconnectAllBtn', false);
@@ -595,7 +597,6 @@ class FleetManager {
                 throw new Error(data.message || 'Failed to connect server');
             }
         } catch (error) {
-            console.error('Error connecting server:', error);
             this.showToast('Failed to connect to server', 'error');
         }
     }
@@ -612,7 +613,6 @@ class FleetManager {
                 throw new Error(data.message || 'Failed to disconnect server');
             }
         } catch (error) {
-            console.error('Error disconnecting server:', error);
             this.showToast('Failed to disconnect from server', 'error');
         }
     }
@@ -627,11 +627,12 @@ class FleetManager {
     }
     
     hideAddServerModal() {
-        // Handle both HTML modal (classList) and dynamic modal (remove)
         const modal = document.getElementById('addServerModal');
         if (modal) {
             modal.classList.remove('active');
-            // If it's a dynamic modal (appended to body), remove it entirely
+            // P10: Clear form fields after closing
+            const form = document.getElementById('addServerForm');
+            if (form) form.reset();
             if (modal.parentElement === document.body) {
                 modal.remove();
             }
@@ -952,7 +953,6 @@ class FleetManager {
                 this.showToast('Failed to generate report', 'error');
             }
         } catch (error) {
-            console.error('Error generating report:', error);
             this.showToast('Failed to generate report', 'error');
         } finally {
             this.showLoading(false);
@@ -1069,6 +1069,12 @@ class FleetManager {
         return 'critical';
     }
     
+    // P9: Status text with icon for color-blind accessibility
+    statusLabel(status) {
+        const icons = { online: '●', offline: '○', error: '⚠', connecting: '◌' };
+        return `${icons[status] || '?'} ${status}`;
+    }
+
     getAlertIcon(type) {
         const icons = {
             critical: '🚨',
@@ -1277,7 +1283,6 @@ class FleetManager {
                 this.showToast(data.detail || 'Failed to create group', 'error');
             }
         } catch (error) {
-            console.error('Error creating group:', error);
             this.showToast('Failed to create group', 'error');
         } finally {
             this.showLoading(false);
@@ -1299,7 +1304,6 @@ class FleetManager {
                 this.switchTab('groups');
             }
         } catch (error) {
-            console.error('Error loading groups:', error);
             this.showToast('Failed to load groups', 'error');
         }
     }
@@ -1560,7 +1564,6 @@ class FleetManager {
                     this.showToast(`Failed to update server: ${error.detail}`, 'error');
                 }
             } catch (error) {
-                console.error('Error updating server:', error);
                 this.showToast('Failed to update server', 'error');
             } finally {
                 this.showLoading(false);
@@ -1595,7 +1598,6 @@ class FleetManager {
                 this.showToast(`Failed to delete server: ${error.detail}`, 'error');
             }
         } catch (error) {
-            console.error('Error deleting server:', error);
             this.showToast('Failed to delete server', 'error');
         } finally {
             this.showLoading(false);
@@ -1845,7 +1847,6 @@ class FleetManager {
             }
             
         } catch (error) {
-            console.error('Diagnostics error:', error);
             this.showToast('Failed to run diagnostics', 'error');
         } finally {
             this.showLoading(false);

@@ -1733,3 +1733,12 @@
 
 /* Notes text */
 .notes-text { color: #475569; font-size: 13px; line-height: 1.5; }
+
+/* Print stylesheet */
+@media print {
+    .fleet-header, .fleet-tabs, .toast-container, .loading-overlay,
+    .modal, .server-actions, .toolbar-right, .groups-toolbar { display: none !important; }
+    .fleet-main { padding: 10px; max-width: none; }
+    .server-card, .overview-card, .group-card, .alert-card { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
+    * { color: #000 !important; background: #fff !important; }
+}

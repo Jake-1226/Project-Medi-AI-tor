@@ -3,7 +3,6 @@
 class DellAIAgent {
     constructor() {
         this.currentServer = null;
-        this.theme = localStorage.getItem('theme') || 'light';
         this.fromFleet = false;
         this.fleetServerInfo = null;
         
