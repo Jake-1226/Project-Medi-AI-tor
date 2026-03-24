@@ -107,6 +107,10 @@
     box-sizing: border-box;
 }
 
+/* Text selection highlight */
+::selection { background: rgba(99, 102, 241, 0.3); color: var(--text-primary); }
+::-moz-selection { background: rgba(99, 102, 241, 0.3); color: var(--text-primary); }
+
 /* P8: Skip-to-content link (accessibility) */
 .skip-link {
     position: absolute;
@@ -3644,9 +3648,14 @@ body.tech-body {
     border-radius: 6px;
     padding: 10px;
     font-size: 0.78rem;
-    overflow-x: auto;
+    overflow: auto;
+    max-height: 400px;
     color: var(--text-secondary);
     margin-top: 8px;
+}
+.tech-body .ops-result {
+    max-height: 600px;
+    overflow-y: auto;
 }
 
 .tech-body ::-webkit-scrollbar {

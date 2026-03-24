@@ -1742,3 +1742,18 @@
     .server-card, .overview-card, .group-card, .alert-card { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
     * { color: #000 !important; background: #fff !important; }
 }
+
+/* P4: Word-break for long content */
+.alert-message, .alert-server-name, .server-name, .group-description {
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+/* P5: Scrollbar styling for dark theme */
+[data-theme="dark"] ::-webkit-scrollbar { width: 6px; height: 6px; }
+[data-theme="dark"] ::-webkit-scrollbar-track { background: transparent; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 3px; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #718096; }
+
+/* P10: Touch feedback for fleet cards */
+.server-card:active, .group-card:active, .alert-card:active { transform: scale(0.98); }
