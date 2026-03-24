@@ -146,6 +146,11 @@ class CustomerChat {
         if (hint) hint.textContent = enabled
             ? 'Press Enter to send · Shift+Enter for new line'
             : 'Connect to a server to start chatting';
+        // Toggle suggestion chips interactivity
+        document.querySelectorAll('.suggest-chip').forEach(c => {
+            c.style.pointerEvents = enabled ? '' : 'none';
+            c.style.opacity = enabled ? '' : '0.5';
+        });
     }
 
     // ─── Toast Notifications ────────────────────────────────
@@ -318,7 +323,10 @@ class CustomerChat {
         if (asState) asState.textContent = 'Idle';
         if (asFacts) asFacts.textContent = '0';
         if (asHyps) asHyps.textContent = '0';
-        if (asConf) asConf.textContent = '—';
+        if (asConf) asConf.textContent = '\u2014';
+        // Hide agent section on disconnect
+        const agentSec = document.getElementById('agentSection');
+        if (agentSec) agentSec.style.display = 'none';
         // Reset connect button
         const btn = document.getElementById('connectBtn');
         const btnContent = document.getElementById('connectBtnContent');
@@ -469,10 +477,19 @@ class CustomerChat {
         input.value = '';
         input.style.height = 'auto';
         this._sending = true;
+        
+        // Disable input while processing
+        const sendBtn = document.getElementById('chatSend');
+        input.disabled = true;
+        if (sendBtn) sendBtn.disabled = true;
 
         // Hide suggestions during conversation (but don't destroy them)
         const sug = document.getElementById('chatSuggestions');
         if (sug) sug.classList.add('hiding');
+        
+        // Close sidebar on mobile so chat is visible
+        document.getElementById('chatSidebar')?.classList.remove('open');
+        document.getElementById('sidebarOverlay')?.classList.remove('active');
 
         this.addMsg('user', msg);
 
@@ -493,14 +510,19 @@ class CustomerChat {
             // Check if we got SSE or a plain JSON response (e.g. error)
             const contentType = r.headers.get('content-type') || '';
             if (!contentType.includes('text/event-stream')) {
-                // Fallback: plain JSON response
-                const result = await r.json();
+                // Fallback: plain JSON response (could be error or non-stream result)
                 document.getElementById(thinkingId)?.remove();
-                if (result.type === 'error') {
-                    this.addMsg('system', result.message);
+                try {
+                    const result = await r.json();
+                    if (result.type === 'error') {
+                        this.addMsg('system', result.message || 'Something went wrong. Please try again.');
+                        this.updateAgentStatus('Error');
+                    } else {
+                        this._handleResult(result);
+                    }
+                } catch (_) {
+                    this.addMsg('system', `The server returned an unexpected response (${r.status}). Please try again.`);
                     this.updateAgentStatus('Error');
-                } else {
-                    this._handleResult(result);
                 }
                 return;
             }
@@ -565,6 +587,10 @@ class CustomerChat {
             this.updateAgentStatus('Error');
         } finally {
             this._sending = false;
+            // Re-enable input
+            if (input) { input.disabled = false; input.focus(); }
+            const _sb = document.getElementById('chatSend');
+            if (_sb) _sb.disabled = false;
         }
     }
 

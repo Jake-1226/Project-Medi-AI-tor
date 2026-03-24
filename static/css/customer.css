@@ -1519,7 +1519,7 @@ body {
 
 /* ─── Suggestion chips hide/show animation ─────────────── */
 .chat-suggestions {
-    transition: opacity 0.3s ease, max-height 0.3s ease, padding 0.3s ease;
+    transition: opacity 0.3s ease, max-height 0.3s ease, padding 0.3s ease, border-top-color 0.3s ease;
     max-height: 200px;
     overflow: hidden;
 }
