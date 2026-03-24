@@ -1144,6 +1144,7 @@ class DellAIAgent {
     addChatMsg(role, text) {
         const container = document.getElementById('agentChatMessages');
         if (!container) return '';
+        text = text || '';
         const id = 'chat-msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
         const div = document.createElement('div');
         div.id = id;
@@ -1284,7 +1285,7 @@ class DellAIAgent {
         const data = result.data || {};
         let html = `<div class="agent-msg-content"><div class="agent-remediation-card">`;
         html += `<div class="agent-remed-header">✅ Remediation Results</div>`;
-        html += `<p>${result.message}</p>`;
+        html += `<p>${result.message || 'Remediation completed.'}</p>`;
         if (data.results?.length) {
             html += '<div class="agent-remed-steps">';
             data.results.forEach(r => {
@@ -3989,11 +3990,11 @@ class DellAIAgent {
         body.setAttribute('data-theme', theme);
         
         if (theme === 'light') {
-            themeIcon.textContent = '☀️';
-            themeText.textContent = 'Light';
+            if (themeIcon) themeIcon.textContent = '☀️';
+            if (themeText) themeText.textContent = 'Light';
         } else {
-            themeIcon.textContent = '🌙';
-            themeText.textContent = 'Dark';
+            if (themeIcon) themeIcon.textContent = '🌙';
+            if (themeText) themeText.textContent = 'Dark';
         }
         
         localStorage.setItem('medi-ai-tor-theme', theme);

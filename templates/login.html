@@ -205,11 +205,12 @@
                 if (msg.toLowerCase().includes('locked')) {
                     msg = 'Account temporarily locked. Try again in 5 minutes.';
                     btn.disabled = true;
+                    btn._lockoutActive = true;
                     let secs = 30;
                     const timer = setInterval(() => {
                         secs--;
                         btn.textContent = `Locked (${secs}s)`;
-                        if (secs <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = 'Sign In'; }
+                        if (secs <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = 'Sign In'; btn._lockoutActive = false; }
                     }, 1000);
                 }
                 errEl.textContent = msg;
@@ -219,8 +220,10 @@
             errEl.textContent = 'Network error. Is the server running?';
             errEl.classList.add('visible');
         } finally {
-            btn.disabled = false;
-            btn.textContent = 'Sign In';
+            if (!btn._lockoutActive) {
+                btn.disabled = false;
+                btn.textContent = 'Sign In';
+            }
         }
     });
     </script>

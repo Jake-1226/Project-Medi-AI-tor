@@ -502,6 +502,11 @@ async function connectAndMonitor() {
 
         if (btn) { btn.textContent = 'Connected'; btn.style.background = '#22c55e'; }
         window.realtimeMonitor?.showNotification(`Connected to ${host} — monitoring started`, 'success');
+        window.realtimeMonitor?.updateConnectionStatus(true);
+
+        // Hide connection form after successful connect
+        const bar = document.getElementById('connectionBar');
+        if (bar) bar.style.display = 'none';
 
         // Step 3: Connect WebSocket for live updates
         window.realtimeMonitor?.connectWebSocket();

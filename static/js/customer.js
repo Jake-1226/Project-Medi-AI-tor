@@ -765,7 +765,7 @@ class CustomerChat {
                         <div class="inv-diag-title">${this.formatText(diag.root_cause)}</div>
                         <div class="inv-diag-meta">
                             <span class="inv-conf-badge" style="color:${confColor}">
-                                <span class="inv-conf-bar" style="width:${confidence}%;background:${confColor}"></span>
+                                <span class="inv-conf-bar" style="width:${Math.min(confidence, 100)}%;background:${confColor}"></span>
                                 ${confidence}% confidence
                             </span>
                             <span class="inv-cat-badge">${catIcon} ${category}</span>
@@ -1509,6 +1509,7 @@ class CustomerChat {
         safe = safe.replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
         // Numbered lists
         safe = safe.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+        safe = safe.replace(/(<li>(?:(?!<\/?[uo]l>).)*<\/li>\n?)+/g, (m) => `<ol>${m}</ol>`);
         // Newlines to <br> (but not inside <pre> or <ul>)
         safe = safe.replace(/\n/g, '<br>');
         // Clean up <br> inside <ul> and <pre>

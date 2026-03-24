@@ -3587,6 +3587,9 @@ body.tech-body {
 .tech-body .ops-category {
     margin-bottom: 20px;
 }
+.tech-body .ops-category:last-child {
+    margin-bottom: 0;
+}
 .tech-body .ops-cat-title {
     font-size: 0.78rem;
     font-weight: 700;

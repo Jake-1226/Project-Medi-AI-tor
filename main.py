@@ -941,6 +941,9 @@ async def chat_stream(msg: ChatMessage):
         finally:
             agent_brain.set_stream_callback(None)
 
+    if not msg.message or not msg.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
     if not agent.is_connected():
         return {"type": "error", "message": "Please connect to a server first."}
 

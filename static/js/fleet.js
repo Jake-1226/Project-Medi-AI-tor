@@ -536,7 +536,9 @@ class FleetManager {
             return;
         }
         
-        alertsContainer.innerHTML = filteredAlerts.map((alert, idx) => `
+        alertsContainer.innerHTML = filteredAlerts.map((alert) => {
+            const realIdx = this.alerts.indexOf(alert);
+            return `
             <div class="alert-card ${alert.type}">
                 <div class="alert-header">
                     <div class="alert-title">${alert.type.charAt(0).toUpperCase() + alert.type.slice(1)} Alert</div>
@@ -548,11 +550,11 @@ class FleetManager {
                     ${alert.metric ? `<div class="alert-metric">Metric: ${alert.metric}</div>` : ''}
                 </div>
                 <div class="alert-actions">
-                    <button class="alert-action" onclick="fleetManager.acknowledgeAlert(${idx})">Acknowledge</button>
-                    <button class="alert-action" onclick="fleetManager.viewAlertDetails(${idx})">Details</button>
+                    <button class="alert-action" onclick="fleetManager.acknowledgeAlert(${realIdx})">Acknowledge</button>
+                    <button class="alert-action" onclick="fleetManager.viewAlertDetails(${realIdx})">Details</button>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
     }
     
     async connectAllServers() {
@@ -752,6 +754,7 @@ class FleetManager {
                     <button class="btn btn-primary" onclick="fleetManager.openTechnicianDashboard('${serverId}')">Open Dashboard</button>
                     <button class="btn btn-outline" onclick="fleetManager.openRealtimeMonitor('${serverId}')">Real-time Monitor</button>
                     <button class="btn btn-outline" onclick="fleetManager.editServer('${serverId}')">Edit Server</button>
+                    <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Close</button>
                 </div>
             `;
             
@@ -1609,7 +1612,7 @@ class FleetManager {
                 if (response.ok) {
                     this.showToast('Server updated successfully', 'success');
                     modal.remove();
-                    this.loadFleetData(); // Refresh data
+                    await this.loadFleetData();
                 } else {
                     const error = await response.json();
                     this.showToast(`Failed to update server: ${error.detail}`, 'error');
@@ -1643,7 +1646,7 @@ class FleetManager {
             
             if (response.ok) {
                 this.showToast('Server deleted successfully', 'success');
-                this.loadFleetData(); // Refresh data
+                await this.loadFleetData();
             } else {
                 const error = await response.json();
                 this.showToast(`Failed to delete server: ${error.detail}`, 'error');
