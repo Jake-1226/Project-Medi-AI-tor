@@ -545,6 +545,8 @@ body {
     box-shadow: var(--shadow-sm);
     word-wrap: break-word;
     overflow-wrap: break-word;
+    word-break: break-word;
+    max-width: 100%;
 }
 .msg-text p { margin-bottom: 8px; }
 .msg-text p:last-child { margin-bottom: 0; }

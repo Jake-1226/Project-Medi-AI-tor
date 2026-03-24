@@ -455,7 +455,9 @@ class CustomerChat {
 
     // ─── Chat ─────────────────────────────────────────────
     async send() {
+        if (this._sending) return;
         const input = document.getElementById('chatInput');
+        if (!input) return;
         const msg = input.value.trim();
         if (!msg) return;
 
@@ -466,6 +468,7 @@ class CustomerChat {
 
         input.value = '';
         input.style.height = 'auto';
+        this._sending = true;
 
         // Hide suggestions during conversation (but don't destroy them)
         const sug = document.getElementById('chatSuggestions');
@@ -560,6 +563,8 @@ class CustomerChat {
             document.getElementById(thinkingId)?.remove();
             this.addMsg('system', `Network error: ${err.message}`);
             this.updateAgentStatus('Error');
+        } finally {
+            this._sending = false;
         }
     }
 
@@ -1073,6 +1078,7 @@ class CustomerChat {
     // ─── Message Rendering ────────────────────────────────
     addMsg(role, text) {
         const container = document.getElementById('chatMessages');
+        if (!container) return;
         const id = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
         const div = document.createElement('div');
         div.id = id;
@@ -1101,6 +1107,7 @@ class CustomerChat {
 
     addMsgHtml(role, html) {
         const container = document.getElementById('chatMessages');
+        if (!container) return;
         const id = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
         const div = document.createElement('div');
         div.id = id;
@@ -1147,6 +1154,7 @@ class CustomerChat {
         // Clean up any existing thinking panel timer
         if (this._thinkingTimer) { clearInterval(this._thinkingTimer); this._thinkingTimer = null; }
         const container = document.getElementById('chatMessages');
+        if (!container) return 'thinking-noop';
         const id = 'thinking-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
         const div = document.createElement('div');
         div.id = id;
@@ -1415,7 +1423,9 @@ class CustomerChat {
     }
 
     addFollowUps(options) {
+        if (!Array.isArray(options) || !options.length) return;
         const container = document.getElementById('chatMessages');
+        if (!container) return;
         const lastMsg = container.querySelector('.chat-msg.msg-agent:last-of-type .msg-text');
         const div = document.createElement('div');
         div.className = 'msg-followups';

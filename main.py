@@ -1718,7 +1718,7 @@ async def run_fleet_health_check(request: Request):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/alerts/{alert_index}/acknowledge")
-async def acknowledge_fleet_alert(alert_index: int, body: dict = {}, request: Request = None):
+async def acknowledge_fleet_alert(alert_index: int, body: dict = None, request: Request = None):
     """Acknowledge a fleet alert"""
     user = await _get_current_user(request)
     try:
@@ -1736,7 +1736,7 @@ async def acknowledge_fleet_alert(alert_index: int, body: dict = {}, request: Re
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/alerts/clear")
-async def clear_fleet_alerts(body: dict = {}, request: Request = None):
+async def clear_fleet_alerts(body: dict = None, request: Request = None):
     """Clear resolved/acknowledged fleet alerts"""
     user = await _get_current_user(request)
     try:
@@ -1749,7 +1749,7 @@ async def clear_fleet_alerts(body: dict = {}, request: Request = None):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/api/fleet/alerts")
-async def get_fleet_alerts(hours: int = 24, limit: int = 100, request: Request = None):
+async def get_fleet_alerts(hours: int = Query(default=24, ge=1, le=720), limit: int = Query(default=100, ge=1, le=1000), request: Request = None):
     """Get recent alerts from all servers"""
     user = await _get_current_user(request)
     try:
@@ -1872,7 +1872,7 @@ async def get_current_metrics():
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/monitoring/metrics/{metric_name}/history")
-async def get_metric_history(metric_name: str, minutes: int = 60):
+async def get_metric_history(metric_name: str, minutes: int = Query(default=60, ge=1, le=1440)):
     """Get historical data for a specific metric"""
     try:
         history = realtime_monitor.get_metric_history(metric_name, minutes)
@@ -2025,9 +2025,10 @@ async def get_fleet_analytics(time_range: str = "24h", metric: str = "health", r
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/analytics/report")
-async def generate_fleet_report(report_config: dict = {}, request: Request = None):
+async def generate_fleet_report(report_config: dict = None, request: Request = None):
     """Generate a fleet analytics report"""
     user = await _get_current_user(request)
+    report_config = report_config or {}
     try:
         overview = fleet_manager.get_fleet_overview()
         alerts = fleet_manager.get_recent_alerts(hours=168)
@@ -2129,7 +2130,7 @@ async def export_fleet_servers(format: str = "json", request: Request = None):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/api/fleet/export/alerts")
-async def export_fleet_alerts(format: str = "json", hours: int = 24, request: Request = None):
+async def export_fleet_alerts(format: str = "json", hours: int = Query(default=24, ge=1, le=720), request: Request = None):
     """Export fleet alerts data"""
     user = await _get_current_user(request)
     try:
@@ -2219,7 +2220,7 @@ async def get_server_snapshot():
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/api/server/timeline")
-async def get_server_timeline(limit: int = 50):
+async def get_server_timeline(limit: int = Query(default=50, ge=1, le=200)):
     """Get health snapshot timeline"""
     try:
         return {

@@ -396,6 +396,7 @@
     .realtime-dashboard { padding: 10px; }
     .metric-value { font-size: 1.4rem; }
     .header-content { flex-direction: column; align-items: flex-start; }
+    .alerts-list { max-height: 150px; }
 }
 
 /* Navigation links in header */

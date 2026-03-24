@@ -4070,7 +4070,7 @@ table tbody tr:hover { background: rgba(99,102,241,0.05); }
 @media print {
     .sidebar, .topbar, .quick-actions-bar, .agent-chat-fab, .agent-chat-panel,
     .loading-indicator, .kbd-legend, .disconnect-banner, .connect-actions,
-    .inline-confirm, .alert { display: none !important; }
+    .inline-confirm, .alert, .connect-banner, .connect-panels { display: none !important; }
     .main-content { margin: 0 !important; padding: 20px !important; }
     .tab-content { display: block !important; padding: 0 !important; }
     .connect-banner { border: 1px solid #ccc; box-shadow: none; }

@@ -422,7 +422,7 @@ class FleetManager {
                 </div>
                 <div class="server-metrics">
                     <div class="server-metric">
-                        <div class="metric-value-small">${server.health_score.toFixed(0)}%</div>
+                        <div class="metric-value-small">${(server.health_score ?? 0).toFixed(0)}%</div>
                         <div class="metric-label-small">Health</div>
                     </div>
                     <div class="server-metric">
@@ -472,7 +472,7 @@ class FleetManager {
                     <span class="status-badge ${server.status}">${this.statusLabel(server.status)}</span>
                 </td>
                 <td>
-                    <span class="health-badge ${this.getHealthLevel(server.health_score)}">${server.health_score.toFixed(1)}%</span>
+                    <span class="health-badge ${this.getHealthLevel(server.health_score)}">${(server.health_score ?? 0).toFixed(1)}%</span>
                 </td>
                 <td>${server.alert_count || 0}</td>
                 <td>${server.last_seen ? this.formatTime(server.last_seen) : 'Never'}</td>
@@ -604,17 +604,19 @@ class FleetManager {
         this.showToast(`Connecting to ${name}...`, 'info');
         try {
             const response = await fetch(`/api/fleet/servers/${serverId}/connect`, { method: 'POST', headers: this._headers(false) });
-            if (!this._checkAuth(response)) return;
+            if (!this._checkAuth(response)) return false;
             const data = await response.json();
             
             if (data.status === 'success') {
                 this.showToast(`Connected to ${name}`, 'success');
                 await this.refreshFleetData();
+                return true;
             } else {
                 throw new Error(data.message || 'Failed to connect server');
             }
         } catch (error) {
             this.showToast(`Failed to connect to ${name}`, 'error');
+            return false;
         }
     }
     
@@ -810,6 +812,15 @@ class FleetManager {
             filteredServers = filteredServers.filter(server => server.status === statusFilter);
         }
         
+        // Preserve active sort order
+        if (this._sortField) {
+            filteredServers.sort((a, b) => {
+                let va = a[this._sortField] ?? '', vb = b[this._sortField] ?? '';
+                if (typeof va === 'number') return this._sortAsc ? va - vb : vb - va;
+                return this._sortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+            });
+        }
+        
         // Update table
         const tbody = document.getElementById('serversTableBody');
         if (tbody) {
@@ -828,7 +839,7 @@ class FleetManager {
                         <span class="status-badge ${server.status}">${server.status}</span>
                     </td>
                     <td>
-                        <span class="health-badge ${this.getHealthLevel(server.health_score)}">${server.health_score.toFixed(1)}%</span>
+                        <span class="health-badge ${this.getHealthLevel(server.health_score)}">${(server.health_score ?? 0).toFixed(1)}%</span>
                     </td>
                     <td>${server.alert_count || 0}</td>
                     <td>${server.last_seen ? this.formatTime(server.last_seen) : 'Never'}</td>
@@ -1368,7 +1379,22 @@ class FleetManager {
         document.body.appendChild(modal);
         
         document.getElementById('saveEditGroupBtn').onclick = async () => {
-            this.showToast(`Group "${groupName}" updated`, 'success');
+            const desc = modal.querySelector('#editGroupDesc')?.value || '';
+            const serverIds = Array.from(modal.querySelectorAll('.edit-group-server-check:checked')).map(cb => cb.value);
+            try {
+                const response = await fetch(`/api/fleet/groups/${encodeURIComponent(groupName)}`, {
+                    method: 'PUT',
+                    headers: this._headers(),
+                    body: JSON.stringify({ name: groupName, description: desc, server_ids: serverIds })
+                });
+                if (response.ok) {
+                    this.showToast(`Group "${groupName}" updated`, 'success');
+                } else {
+                    this.showToast('Failed to update group', 'error');
+                }
+            } catch (e) {
+                this.showToast('Failed to update group', 'error');
+            }
             modal.remove();
             await this.loadFleetData();
             this.updateGroups();
@@ -1419,6 +1445,8 @@ class FleetManager {
         this.showLoading(false);
         this.showToast(`Connected to ${ids.length} server(s)`, 'success');
         await this.loadFleetData();
+        const selectAll = document.getElementById('selectAllServers');
+        if (selectAll) selectAll.checked = false;
     }
     
     async bulkDisconnect() {
@@ -1432,6 +1460,8 @@ class FleetManager {
         this.showLoading(false);
         this.showToast(`Disconnected ${ids.length} server(s)`, 'success');
         await this.loadFleetData();
+        const selectAll = document.getElementById('selectAllServers');
+        if (selectAll) selectAll.checked = false;
     }
     
     async bulkHealthCheck() {

@@ -356,6 +356,7 @@ class DellAIAgent {
     
     async disconnectFromServer() {
         this._stopAutoRefresh();
+        this.stopMonitoring();
         try {
             this.currentServer = null;
             this.showAlert('Disconnected from server', 'info');
@@ -1132,6 +1133,10 @@ class DellAIAgent {
             // Re-enable input after send completes
             if (input) { input.disabled = false; input.focus(); }
             if (sendBtn) sendBtn.disabled = false;
+            // Reset subtitle from transient states after a short delay
+            if (subtitle && (subtitle.textContent === 'Thinking...' || subtitle.textContent === 'Streaming...')) {
+                subtitle.textContent = this.currentServer ? `Connected to ${this.currentServer.host}` : 'Ready';
+            }
         }
         if (container) container.scrollTop = container.scrollHeight;
     }

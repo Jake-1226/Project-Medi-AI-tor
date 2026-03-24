@@ -106,6 +106,8 @@ class RealtimeMonitor {
     disconnectWebSocket() {
         if (this.websocket) { this.websocket.close(); this.websocket = null; }
         this.isConnected = false;
+        this.reconnectAttempts = 0;
+        this._connecting = false;
         this._stopPolling();
         this._stopChartUpdates();
         this.updateConnectionStatus(false);
