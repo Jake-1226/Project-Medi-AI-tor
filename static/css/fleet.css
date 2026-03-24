@@ -531,6 +531,20 @@
     background: #f8f9fa;
 }
 
+/* V9: Zebra striping for readability */
+.servers-table tbody tr:nth-child(even) {
+    background: #f9fafb;
+}
+.servers-table tbody tr:nth-child(even):hover {
+    background: #f1f5f9;
+}
+[data-theme="dark"] .servers-table tbody tr:nth-child(even) {
+    background: rgba(255,255,255,0.02);
+}
+[data-theme="dark"] .servers-table tbody tr:nth-child(even):hover {
+    background: #495057;
+}
+
 .health-badge {
     padding: 0.25rem 0.75rem;
     border-radius: 12px;
@@ -1663,6 +1677,17 @@
 [data-theme="dark"] .header-nav { border-left-color: #495057; }
 [data-theme="dark"] .detail-section { background: #495057; }
 [data-theme="dark"] .detail-section h3 { color: #bdc3c7; }
+
+/* V4: Dark-mode table cells, metric bars, detail rows */
+[data-theme="dark"] .servers-table td { border-bottom-color: #495057; color: #ecf0f1; }
+[data-theme="dark"] .metric-bar { background: #495057; }
+[data-theme="dark"] .health-bar-lg { background: #495057; }
+[data-theme="dark"] .detail-row { border-bottom-color: #495057; }
+[data-theme="dark"] .detail-label { color: #bdc3c7; }
+[data-theme="dark"] .detail-value { color: #ecf0f1; }
+[data-theme="dark"] .tag { background: #495057; color: #bdc3c7; }
+[data-theme="dark"] .server-checklist { border-color: #495057; }
+[data-theme="dark"] .checklist-item:hover { background: #495057; }
 
 /* ─── New Component Styles ─── */
 

@@ -731,7 +731,7 @@ body {
 .suggest-issue:hover { background: var(--red); color: white; border-color: var(--red); }
 
 .suggest-chip:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
-.suggest-chip:active { transform: translateY(0); }
+.suggest-chip:active { transform: scale(0.94); box-shadow: none; }
 
 /* ─── Chat Input Area ────────────────────────────────── */
 .chat-input-area {

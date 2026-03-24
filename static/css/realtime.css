@@ -94,7 +94,7 @@
     outline: none;
     transition: border-color 0.2s;
 }
-.input-sm:focus { border-color: var(--rt-accent); }
+.input-sm:focus { border-color: var(--rt-accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
 
 /* ─── Connection status ─── */
 .connection-status {
@@ -213,6 +213,19 @@
 .stat-label { font-size: 0.6rem; color: var(--rt-text-dim); text-transform: uppercase; margin-bottom: 2px; }
 .stat-value { font-size: 0.78rem; font-weight: 600; color: var(--rt-text-muted); }
 
+/* Skeleton pulse for placeholder "--" values */
+@keyframes skeletonPulse { 0%,100%{ opacity: 0.4; } 50%{ opacity: 1; } }
+.metric-value .value:empty::after,
+.stat-value:empty::after {
+    content: '—';
+    color: var(--rt-text-dim);
+    animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+.metric-value .value[data-loading="true"] {
+    color: var(--rt-text-dim);
+    animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
 /* ─── Charts ─── */
 .charts-section {
     display: grid;
@@ -253,6 +266,8 @@
     transition: all 0.2s;
 }
 .chart-button:hover { border-color: var(--rt-accent); color: var(--rt-text); }
+.chart-button:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--rt-accent); border-color: var(--rt-accent); }
+.chart-button:active { transform: scale(0.96); }
 .chart-button.active { background: var(--rt-accent); color: #fff; border-color: var(--rt-accent); }
 .chart-canvas { width: 100%; height: 220px; }
 
@@ -318,7 +333,19 @@
 .alert-metric { font-weight: 600; color: var(--rt-text); font-size: 0.8rem; margin-bottom: 2px; }
 .alert-message { font-size: 0.78rem; color: var(--rt-text-muted); }
 .alert-time { font-size: 0.68rem; color: var(--rt-text-dim); margin-top: 2px; }
-.no-alerts { text-align: center; padding: 20px; color: var(--rt-text-dim); font-size: 0.82rem; }
+.no-alerts {
+    text-align: center;
+    padding: 28px 20px;
+    color: var(--rt-text-dim);
+    font-size: 0.82rem;
+}
+.no-alerts::before {
+    content: '✓';
+    display: block;
+    font-size: 1.6rem;
+    margin-bottom: 6px;
+    opacity: 0.35;
+}
 
 /* ─── Buttons ─── */
 .btn {
@@ -337,6 +364,7 @@
 .btn-outline { background: transparent; color: var(--rt-text-muted); border-color: var(--rt-border); }
 .btn-outline:hover { border-color: var(--rt-accent); color: var(--rt-text); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--rt-accent); }
 .btn-sm { padding: 5px 10px; font-size: 0.78rem; }
 
 /* ─── Notification ─── */
