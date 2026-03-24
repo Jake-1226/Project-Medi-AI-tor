@@ -4124,10 +4124,8 @@ class DellAIAgent {
     showLoading(show, context) {
         document.querySelectorAll('.loading-indicator').forEach(el => {
             el.style.display = show ? 'flex' : 'none';
-            if (show && context) {
-                const p = el.querySelector('p');
-                if (p) p.textContent = context;
-            }
+            const p = el.querySelector('p');
+            if (p) p.textContent = show && context ? context : 'Processing...';
         });
     }
     

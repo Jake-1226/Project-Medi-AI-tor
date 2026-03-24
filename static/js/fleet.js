@@ -845,6 +845,10 @@ class FleetManager {
                     </td>
                 </tr>
             `).join('');
+            // V7: Show empty state when no servers match filter
+            if (filteredServers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:#7f8c8d">No servers match the current filters.</td></tr>';
+            }
         }
     }
     
