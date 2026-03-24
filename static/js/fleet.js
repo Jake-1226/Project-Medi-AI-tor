@@ -52,7 +52,7 @@ class FleetManager {
         // Close modals on Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
+                document.querySelectorAll('.modal.active').forEach(m => { m.classList.remove('active'); m.remove(); });
             }
         });
     }
@@ -83,7 +83,7 @@ class FleetManager {
         let _searchTimer = null;
         document.getElementById('serverSearch')?.addEventListener('input', (e) => {
             clearTimeout(_searchTimer);
-            _searchTimer = setTimeout(() => this.filterServers(), 200);
+            _searchTimer = setTimeout(() => this.filterServers(e.target.value), 200);
         });
         
         document.getElementById('environmentFilter')?.addEventListener('change', () => {
@@ -107,14 +107,6 @@ class FleetManager {
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal') || e.target.classList.contains('modal-overlay')) {
                 e.target.remove();
-            }
-        });
-        
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                // Close any open modals
-                document.querySelectorAll('.modal.active').forEach(modal => modal.remove());
             }
         });
         
@@ -195,7 +187,7 @@ class FleetManager {
                 this.refreshServersTable();
                 break;
             case 'groups':
-                this.refreshGroups();
+                this.updateGroups();
                 break;
             case 'alerts':
                 this.refreshAlerts();
@@ -345,11 +337,12 @@ class FleetManager {
         
         const total = Object.values(healthCounts).reduce((sum, count) => sum + count, 0);
         
-        // Update bars
-        document.getElementById('excellentBar').style.width = `${(healthCounts.excellent / total) * 100}%`;
-        document.getElementById('goodBar').style.width = `${(healthCounts.good / total) * 100}%`;
-        document.getElementById('warningBar').style.width = `${(healthCounts.warning / total) * 100}%`;
-        document.getElementById('criticalBar').style.width = `${(healthCounts.critical / total) * 100}%`;
+        // Update bars (guard against division by zero when fleet is empty)
+        const pct = (v) => total > 0 ? `${(v / total) * 100}%` : '0%';
+        document.getElementById('excellentBar').style.width = pct(healthCounts.excellent);
+        document.getElementById('goodBar').style.width = pct(healthCounts.good);
+        document.getElementById('warningBar').style.width = pct(healthCounts.warning);
+        document.getElementById('criticalBar').style.width = pct(healthCounts.critical);
         
         // Update counts
         document.getElementById('excellentCount').textContent = healthCounts.excellent;
@@ -1306,7 +1299,7 @@ class FleetManager {
                 document.getElementById('groupName').value = '';
                 document.getElementById('groupDescription').value = '';
                 await this.loadFleetData();
-                this.refreshGroups();
+                this.updateGroups();
             } else {
                 this.showToast(data.detail || 'Failed to create group', 'error');
             }
@@ -1328,7 +1321,7 @@ class FleetManager {
                 for (const [name, groupData] of Object.entries(data.groups || {})) {
                     this.groups.set(name, groupData);
                 }
-                this.refreshGroups();
+                this.updateGroups();
                 this.switchTab('groups');
             }
         } catch (error) {
@@ -1378,7 +1371,7 @@ class FleetManager {
             this.showToast(`Group "${groupName}" updated`, 'success');
             modal.remove();
             await this.loadFleetData();
-            this.refreshGroups();
+            this.updateGroups();
         };
     }
     
@@ -1390,7 +1383,7 @@ class FleetManager {
                 if (data.status === 'success') {
                     this.showToast(`Group "${groupName}" deleted`, 'success');
                     await this.loadFleetData();
-                    this.refreshGroups();
+                    this.updateGroups();
                 } else {
                     this.showToast(data.detail || 'Cannot delete this group', 'error');
                 }

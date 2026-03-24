@@ -36,7 +36,7 @@ class CustomerChat {
                 if (charCount) {
                     const len = input.value.length;
                     charCount.textContent = len > 0 ? `${len}/2000` : '';
-                    charCount.style.color = len > 1800 ? '#ef4444' : '';
+                    charCount.style.color = len > 1800 ? '#ef4444' : 'inherit';
                 }
             });
             input.addEventListener('keydown', (e) => {
@@ -556,6 +556,7 @@ class CustomerChat {
             }
 
         } catch (err) {
+            if (this._thinkingTimer) { clearInterval(this._thinkingTimer); this._thinkingTimer = null; }
             document.getElementById(thinkingId)?.remove();
             this.addMsg('system', `Network error: ${err.message}`);
             this.updateAgentStatus('Error');

@@ -17,6 +17,7 @@ class RealtimeMonitor {
         this._authToken = sessionStorage.getItem('auth_token') || '';
         this._pollTimer = null;
         this._chartUpdateTimer = null;
+        this._connecting = false;
 
         this.init();
     }
@@ -61,7 +62,9 @@ class RealtimeMonitor {
 
     // ─── Connection ──────────────────────────────────────
     connectWebSocket() {
+        if (this._connecting) return;
         if (this.websocket && this.websocket.readyState === WebSocket.OPEN) return;
+        this._connecting = true;
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const token = this._authToken;
@@ -71,6 +74,7 @@ class RealtimeMonitor {
             this.websocket = new WebSocket(wsUrl);
 
             this.websocket.onopen = () => {
+                this._connecting = false;
                 this.isConnected = true;
                 this.reconnectAttempts = 0;
                 this.updateConnectionStatus(true);
@@ -82,6 +86,7 @@ class RealtimeMonitor {
             this.websocket.onmessage = (event) => this.handleMessage(event);
 
             this.websocket.onclose = () => {
+                this._connecting = false;
                 this.isConnected = false;
                 this.updateConnectionStatus(false);
                 this._stopChartUpdates();
@@ -89,9 +94,11 @@ class RealtimeMonitor {
             };
 
             this.websocket.onerror = () => {
+                this._connecting = false;
                 this.showNotification('WebSocket error', 'error');
             };
         } catch (error) {
+            this._connecting = false;
             this.showNotification('Failed to connect WebSocket', 'error');
         }
     }
@@ -140,6 +147,7 @@ class RealtimeMonitor {
         try {
             // Check if server is already connected
             const statusR = await fetch('/api/server/quick-status');
+            if (!statusR.ok) return;
             const statusData = await statusR.json();
             const sd = statusData.data || statusData;
             
@@ -203,7 +211,7 @@ class RealtimeMonitor {
         card.setAttribute('data-status', m.current_status || 'normal');
 
         const valEl = card.querySelector('.metric-value .value');
-        if (valEl) valEl.textContent = m.current_value != null ? m.current_value.toFixed(1) : '--';
+        if (valEl) valEl.textContent = (typeof m.current_value === 'number') ? m.current_value.toFixed(1) : '--';
 
         const statusEl = card.querySelector('.metric-status');
         if (statusEl) {
@@ -326,7 +334,7 @@ class RealtimeMonitor {
                 this.addAlert({
                     type: m.current_status,
                     metric: name,
-                    message: `${m.description || name} is ${m.current_status}: ${m.current_value?.toFixed(1) || '?'}${m.unit || ''}`,
+                    message: `${m.description || name} is ${m.current_status}: ${typeof m.current_value === 'number' ? m.current_value.toFixed(1) : '?'}${m.unit || ''}`,
                     timestamp: new Date().toISOString()
                 });
             }
@@ -334,7 +342,8 @@ class RealtimeMonitor {
     }
 
     addAlert(alert) {
-        const exists = this.alerts.some(a => a.metric === alert.metric && a.type === alert.type && a.message === alert.message);
+        // Deduplicate by metric + type (not message, which contains changing values)
+        const exists = this.alerts.some(a => a.metric === alert.metric && a.type === alert.type);
         if (!exists) {
             this.alerts.unshift(alert);
             if (this.alerts.length > 50) this.alerts = this.alerts.slice(0, 50);

@@ -210,8 +210,10 @@ class DellAIAgent {
             };
             
             this.websocket.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                this.handleWebSocketMessage(data);
+                try {
+                    const data = JSON.parse(event.data);
+                    this.handleWebSocketMessage(data);
+                } catch (e) { /* ignore malformed WS messages */ }
             };
             
             this.websocket.onclose = () => {
@@ -1972,7 +1974,7 @@ class DellAIAgent {
             if (!response.ok) {
                 // Fallback to sequential if batch fails
                 this.log('Batch fetch failed, using sequential...', 'warning');
-                await this.executeAction('get_full_inventory');
+                try { await this.executeAction('get_full_inventory'); } catch (_) { /* silent */ }
                 return;
             }
             

@@ -1196,10 +1196,16 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            message = json.loads(data)
+            try:
+                message = json.loads(data)
+            except json.JSONDecodeError:
+                await websocket.send_text(json.dumps({"type": "error", "message": "Invalid JSON"}))
+                continue
+            
+            msg_type = message.get("type", "")
             
             # Process different message types
-            if message["type"] == "command":
+            if msg_type == "command":
                 result = await agent.execute_action(
                     action_level=message["action_level"],
                     command=message["command"],
@@ -1209,7 +1215,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "type": "response",
                     "data": result
                 }, ensure_ascii=False))
-            elif message["type"] == "troubleshoot":
+            elif msg_type == "troubleshoot":
                 recommendations = await agent.troubleshoot_issue(
                     issue_description=message["issue_description"],
                     action_level=message["action_level"]
@@ -1803,7 +1809,11 @@ async def websocket_monitoring(websocket: WebSocket):
         while True:
             try:
                 message = await websocket.receive_text()
-                data = json.loads(message)
+                try:
+                    data = json.loads(message)
+                except json.JSONDecodeError:
+                    await websocket.send_text(json.dumps({"type": "error", "message": "Invalid JSON"}))
+                    continue
                 
                 # Handle client messages
                 if data.get("action") == "start_monitoring":
@@ -2179,19 +2189,22 @@ async def get_server_snapshot():
         try:
             temps = await agent.execute_action(ActionLevel.READ_ONLY, "get_temperature_sensors", {})
             snapshot["thermal"] = temps
-        except: pass
+        except Exception as e:
+            logger.warning(f"Snapshot: thermal data unavailable: {e}")
         
         # Collect power
         try:
             power = await agent.execute_action(ActionLevel.READ_ONLY, "get_power_supplies", {})
             snapshot["power"] = power
-        except: pass
+        except Exception as e:
+            logger.warning(f"Snapshot: power data unavailable: {e}")
         
         # Collect health
         try:
             health = await agent.execute_action(ActionLevel.READ_ONLY, "health_check", {})
             snapshot["health"] = health
-        except: pass
+        except Exception as e:
+            logger.warning(f"Snapshot: health data unavailable: {e}")
         
         # Store snapshot
         _health_snapshots.append(snapshot)
@@ -2342,7 +2355,8 @@ async def get_diagnostics_summary():
                 "sensor_count": len(temp_list),
                 "status": "critical" if max_temp > 85 else "warning" if max_temp > 75 else "ok"
             }
-        except: pass
+        except Exception as e:
+            logger.warning(f"Diagnostics: thermal data unavailable: {e}")
         
         # Get power summary
         try:
@@ -2354,7 +2368,8 @@ async def get_diagnostics_summary():
                 "healthy_psus": healthy,
                 "status": "ok" if healthy == len(psus) else "critical" if healthy == 0 else "warning"
             }
-        except: pass
+        except Exception as e:
+            logger.warning(f"Diagnostics: power data unavailable: {e}")
         
         # Generate recommendations
         if summary.get("thermal", {}).get("status") == "critical":

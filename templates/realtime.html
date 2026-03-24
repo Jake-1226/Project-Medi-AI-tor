@@ -39,13 +39,17 @@
 
         <!-- Connection Bar -->
         <div class="connection-bar" id="connectionBar">
-            <div class="connection-form-inline">
-                <input type="text" id="monitorHost" placeholder="iDRAC IP or hostname" class="input-sm">
-                <input type="text" id="monitorUser" placeholder="Username" class="input-sm">
-                <input type="password" id="monitorPass" placeholder="Password" class="input-sm">
-                <input type="number" id="monitorPort" placeholder="443" value="443" class="input-sm input-port">
-                <button class="btn btn-primary btn-sm" id="monitorConnectBtn">Connect & Monitor</button>
-            </div>
+            <form class="connection-form-inline" id="monitorConnectionForm" role="form" aria-label="Monitoring Connection">
+                <label for="monitorHost" class="sr-only">iDRAC IP or hostname</label>
+                <input type="text" id="monitorHost" placeholder="iDRAC IP or hostname" class="input-sm" maxlength="253" aria-label="iDRAC IP or hostname" autocomplete="off">
+                <label for="monitorUser" class="sr-only">Username</label>
+                <input type="text" id="monitorUser" placeholder="Username" class="input-sm" maxlength="128" aria-label="Username" autocomplete="username">
+                <label for="monitorPass" class="sr-only">Password</label>
+                <input type="password" id="monitorPass" placeholder="Password" class="input-sm" maxlength="256" aria-label="Password" autocomplete="current-password">
+                <label for="monitorPort" class="sr-only">Port</label>
+                <input type="number" id="monitorPort" placeholder="443" value="443" class="input-sm input-port" min="1" max="65535" aria-label="Port">
+                <button class="btn btn-primary btn-sm" id="monitorConnectBtn" type="button">Connect & Monitor</button>
+            </form>
         </div>
 
         <!-- Metrics Grid -->

@@ -413,3 +413,6 @@
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--rt-border, #334155); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+/* Screen-reader-only utility */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
