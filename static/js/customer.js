@@ -327,6 +327,9 @@ class CustomerChat {
         this.updateConnectionUI(false);
         this.addMsg('system', 'Disconnected from server.');
         this.showToast('Disconnected', 'info');
+        // Restore suggestion chips for next session
+        const chips = document.getElementById('suggestionChips');
+        if (chips) chips.style.display = '';
     }
 
     updateConnectionUI(connected, host) {

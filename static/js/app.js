@@ -2546,6 +2546,9 @@ class DellAIAgent {
     // ─── Status color map (centralized for all render functions) ──
     static STATUS = { ok: '#10b981', warn: '#f59e0b', crit: '#ef4444', info: '#3b82f6', muted: '#6b7280' };
 
+    // Consistent timestamp format across all displays
+    _ts() { return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}); }
+
     _statusColor(status) {
         const s = (status || '').toLowerCase();
         if (s.includes('ok') || s.includes('online') || s.includes('healthy') || s.includes('enabled') || s === 'true') return DellAIAgent.STATUS.ok;
@@ -2988,7 +2991,7 @@ class DellAIAgent {
             tiles.push(`<div class="metric-tile ${cls}"><div class="tile-value">${data.logs.length}</div><div class="tile-label">Events</div><div class="tile-sub">${crits} critical, ${errs} errors</div></div>`);
         }
         if (tiles.length) {
-            const now = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+            const now = this._ts();
             c.innerHTML = `<div class="metric-tiles">${tiles.join('')}</div><div class="data-timestamp">Updated: ${now}</div>`;
         }
     }
@@ -3043,7 +3046,7 @@ class DellAIAgent {
                     </tr>`).join('')}
                 </tbody>
             </table>
-            <div class="data-timestamp">Refreshed: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
+            <div class="data-timestamp">Refreshed: ${this._ts()}</div>`;
     }
 
     // ─── System Info Tab: Memory ────────────────────────────────
@@ -3077,7 +3080,7 @@ class DellAIAgent {
                     </tr>`).join('')}
                 </tbody>
             </table>
-            <div class="data-timestamp">Refreshed: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
+            <div class="data-timestamp">Refreshed: ${this._ts()}</div>`;
     }
 
     // ─── System Info Tab: Storage ───────────────────────────────
@@ -3112,7 +3115,7 @@ class DellAIAgent {
                     </tr>`).join('')}
                 </tbody>
             </table>
-            <div class="data-timestamp">Refreshed: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
+            <div class="data-timestamp">Refreshed: ${this._ts()}</div>`;
     }
 
     // ─── System Info Tab: Network ───────────────────────────────
@@ -3145,7 +3148,7 @@ class DellAIAgent {
                     </tr>`).join('')}
                 </tbody>
             </table>
-            <div class="data-timestamp">Refreshed: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
+            <div class="data-timestamp">Refreshed: ${this._ts()}</div>`;
     }
 
     // ─── Health Tab: Overall ────────────────────────────────────
@@ -3181,7 +3184,7 @@ class DellAIAgent {
                     <tr><td>${comp}</td><td><span class="badge ${this._badge(st)}">${st}</span></td></tr>
                 `).join('')}</tbody>
             </table>` : ''}
-            <div class="data-timestamp">Health check as of: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
+            <div class="data-timestamp">Health check as of: ${this._ts()}</div>`;
         // Also populate Issues sub-tab
         this.displayIssues(status);
     }
@@ -3251,7 +3254,7 @@ class DellAIAgent {
                     </tr>`).join('')}
                 </tbody>
             </table>
-            <div class="data-timestamp">Temperature readings as of: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
+            <div class="data-timestamp">Temperature readings as of: ${this._ts()}</div>`;
     }
 
     // ─── Health Tab: Fans (appended to Thermal) ─────────────────
@@ -3309,7 +3312,7 @@ class DellAIAgent {
                         <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value"><span class="badge ${this._badge(ps.status)}">${this._v(ps.status)}</span></span></div>
                     </div>`).join('')}
             </div>
-            <div class="data-timestamp">PSU data as of: ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}</div>`;
+            <div class="data-timestamp">PSU data as of: ${this._ts()}</div>`;
     }
 
     displayPerformanceMetrics(metrics) {

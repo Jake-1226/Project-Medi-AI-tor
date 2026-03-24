@@ -259,9 +259,9 @@ class FleetManager {
         }
     }
     
-    async refreshFleetData() {
-        this.showLoading(true);
-        
+    async refreshFleetData(silent = false) {
+        // Don't show loading overlay on auto-refresh
+        if (!silent) this.showLoading(true);
         try {
             const response = await fetch('/api/fleet/overview', { headers: this._headers(false) });
             const data = await response.json();
@@ -278,13 +278,12 @@ class FleetManager {
                 }
                 
                 this.updateUI();
-                this.showToast('Fleet data refreshed', 'success');
+                if (!silent) this.showToast('Fleet data refreshed', 'success');
             }
         } catch (error) {
             this.showToast('Failed to refresh fleet data', 'error');
-        } finally {
-            this.showLoading(false);
         }
+        if (!silent) this.showLoading(false);
     }
     
     updateUI() {
@@ -1241,7 +1240,7 @@ class FleetManager {
         }
         
         this.refreshInterval = setInterval(() => {
-            this.refreshFleetData();
+            this.refreshFleetData(true); // silent auto-refresh
         }, this.refreshRate);
     }
     
