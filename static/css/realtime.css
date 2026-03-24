@@ -438,6 +438,7 @@
     .alerts-list { max-height: 150px; }
     .connection-form-inline { flex-direction: column; }
     .connection-form-inline input, .connection-form-inline button { width: 100%; }
+    .input-port { width: 100%; }
     .input-sm { min-width: 100%; }
 }
 

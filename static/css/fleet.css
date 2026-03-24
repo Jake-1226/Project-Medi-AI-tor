@@ -1857,3 +1857,9 @@
 [data-theme="dark"] .servers-table tbody tr:nth-child(even) {
     background: rgba(255,255,255,0.04);
 }
+
+/* Bugs 5-6: Fleet grids at 480px */
+@media (max-width: 480px) {
+    .overview-grid { grid-template-columns: 1fr; gap: 1rem; }
+    .server-cards { grid-template-columns: 1fr; }
+}
