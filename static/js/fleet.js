@@ -608,18 +608,21 @@ class FleetManager {
     }
     
     async connectServer(serverId) {
+        const name = this.servers.get(serverId)?.name || serverId;
+        this.showToast(`Connecting to ${name}...`, 'info');
         try {
             const response = await fetch(`/api/fleet/servers/${serverId}/connect`, { method: 'POST', headers: this._headers(false) });
+            if (!this._checkAuth(response)) return;
             const data = await response.json();
             
             if (data.status === 'success') {
-                this.showToast(`Connected to ${this.servers.get(serverId)?.name}`, 'success');
+                this.showToast(`Connected to ${name}`, 'success');
                 await this.refreshFleetData();
             } else {
                 throw new Error(data.message || 'Failed to connect server');
             }
         } catch (error) {
-            this.showToast('Failed to connect to server', 'error');
+            this.showToast(`Failed to connect to ${name}`, 'error');
         }
     }
     

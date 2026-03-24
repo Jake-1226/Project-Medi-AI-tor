@@ -167,6 +167,9 @@ class DellAIAgent {
             e.preventDefault();
             this.startTroubleshooting();
         });
+        // Auto-grow investigation textarea
+        const issueTA = document.getElementById('issueDescription');
+        if (issueTA) issueTA.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 200) + 'px'; });
 
         // Agent Chat
         document.getElementById('agentChatFab')?.addEventListener('click', () => this.toggleChatPanel());

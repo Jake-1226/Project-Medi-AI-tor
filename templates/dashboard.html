@@ -58,7 +58,7 @@
             </div>
             <div class="topbar-actions">
                 <div class="topbar-sr">
-                    <input type="text" id="srNumber" class="topbar-sr-input" placeholder="SR# (optional)" title="Service Request number for tracking">
+                    <input type="text" id="srNumber" class="topbar-sr-input" placeholder="SR# (optional)" title="Service Request number for tracking" maxlength="20">
                 </div>
                 <div class="topbar-level-pills">
                     <button class="level-pill selected" data-action-level="read_only" title="Read Only — safe monitoring">RO</button>
@@ -394,10 +394,10 @@
                     <button id="sendChatBtn" class="btn btn-primary">📤 Send</button>
                 </div>
                 <div class="suggestion-chips">
-                    <button class="chip" data-suggestion="Check server health">🏥 Check server health</button>
-                    <button class="chip" data-suggestion="Investigate slow performance">🔍 Investigate slow performance</button>
-                    <button class="chip" data-suggestion="Check temperature sensors">🌡️ Check temperature sensors</button>
-                    <button class="chip" data-suggestion="Get system inventory">📋 Get system inventory</button>
+                    <button class="chip" data-suggestion="Check server health" title="Ask the AI to run a health check">🏥 Check server health</button>
+                    <button class="chip" data-suggestion="Investigate slow performance" title="Start an AI investigation into performance issues">🔍 Investigate slow performance</button>
+                    <button class="chip" data-suggestion="Check temperature sensors" title="Ask about current temperature readings">🌡️ Check temperature sensors</button>
+                    <button class="chip" data-suggestion="Get system inventory" title="Fetch full hardware inventory">📋 Get system inventory</button>
                 </div>
             </div>
         </div>
