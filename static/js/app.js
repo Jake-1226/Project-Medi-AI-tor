@@ -61,7 +61,13 @@ class DellAIAgent {
     setupEventListeners() {
         // Connection form
         document.getElementById('connectBtn')?.addEventListener('click', () => this.connectToServer());
-        document.getElementById('disconnectBtn')?.addEventListener('click', () => this.disconnectFromServer());
+        document.getElementById('disconnectBtn')?.addEventListener('click', () => {
+            if (this.currentServer) {
+                this._showInlineConfirm(document.getElementById('actionResultContainer'),
+                    `Disconnect from ${this.currentServer.host}?`, false,
+                    () => this.disconnectFromServer());
+            } else { this.disconnectFromServer(); }
+        });
         
         // OS Connection form
         document.getElementById('osConnectBtn')?.addEventListener('click', () => this.connectToOS());
@@ -249,11 +255,15 @@ class DellAIAgent {
         this.showLoading(true);
         
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
             const response = await fetch(`/api/connect`, {
                 method: 'POST',
                 headers: this._getAuthHeaders(),
-                body: JSON.stringify({ host, username, password, port })
+                body: JSON.stringify({ host, username, password, port }),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
             
             const result = await response.json();
             
@@ -313,8 +323,10 @@ class DellAIAgent {
                 if (idracPanel) { idracPanel.classList.add('panel-error'); idracPanel.classList.remove('panel-connected'); }
             }
         } catch (error) {
-            const friendly = this._friendlyError(error);
-            this.showAlert(friendly, 'danger', { title: 'Connection failed', retry: () => this.connectToServer() });
+            const msg = error.name === 'AbortError'
+                ? 'Connection timed out after 30 seconds. Check that the iDRAC IP is correct and reachable.'
+                : this._friendlyError(error);
+            this.showAlert(msg, 'danger', { title: 'Connection failed', retry: () => this.connectToServer() });
             this.log(`Network error: ${error.message}`, 'error');
             if (connectBtn) { connectBtn.textContent = 'Connect iDRAC'; connectBtn.disabled = false; connectBtn.classList.remove('btn-loading'); }
         } finally {
@@ -408,7 +420,8 @@ class DellAIAgent {
             const parts = [];
             if (serverInfo.model) parts.push(serverInfo.model);
             if (serverInfo.service_tag) parts.push(serverInfo.service_tag);
-            model.textContent = parts.length ? `(${parts.join(' / ')})` : '';
+            if (serverInfo.power_state) parts.push(`Power: ${serverInfo.power_state}`);
+            model.textContent = parts.length ? `(${parts.join(' · ')})` : '';
         }
     }
 
@@ -4039,6 +4052,8 @@ class DellAIAgent {
         alert.querySelector('.alert-dismiss').addEventListener('click', () => alert.remove());
         if (options.retry) alert.querySelector('[data-retry]').addEventListener('click', () => { alert.remove(); options.retry(); });
         alertContainer.appendChild(alert);
+        // Limit visible alerts to 5
+        while (alertContainer.children.length > 5) alertContainer.removeChild(alertContainer.firstChild);
         setTimeout(() => { if (alert.parentNode) alert.remove(); }, duration);
     }
 

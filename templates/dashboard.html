@@ -114,7 +114,10 @@
                                 </div>
                                 <div class="connect-field">
                                     <label for="password">Password</label>
-                                    <input type="password" id="password" class="form-input" placeholder="Password" required autocomplete="current-password" aria-label="iDRAC Password">
+                                    <div style="position:relative">
+                                        <input type="password" id="password" class="form-input" placeholder="Password" required autocomplete="current-password" aria-label="iDRAC Password">
+                                        <button type="button" class="pass-toggle" onclick="const p=document.getElementById('password');p.type=p.type==='password'?'text':'password';this.textContent=p.type==='password'?'👁':'👁‍🗨'" title="Show/hide password" aria-label="Toggle password visibility">👁</button>
+                                    </div>
                                 </div>
                             </div>
                             <input type="hidden" id="port" value="443">
@@ -323,12 +326,12 @@
                             <div class="ai-input-actions">
                                 <button type="submit" id="startTroubleshootingBtn" class="btn btn-primary"><span>🔍</span> Investigate</button>
                                 <div class="example-chips">
-                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Server is overheating, getting temperature warnings and fans are running very loud'; document.getElementById('issueDescription').focus();">🌡️ Overheating</button>
-                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Getting correctable memory ECC errors on DIMM A2'; document.getElementById('issueDescription').focus();">🧠 ECC Errors</button>
-                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Server will not boot, no POST, amber power light'; document.getElementById('issueDescription').focus();">⚡ No POST</button>
-                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='RAID virtual disk is degraded, one disk predicted failure'; document.getElementById('issueDescription').focus();">💾 RAID Degraded</button>
-                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Server crashed with BSOD, SEL shows CPU IERR machine check error'; document.getElementById('issueDescription').focus();">🖥️ CPU IERR</button>
-                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Network connectivity intermittent, NIC link dropping'; document.getElementById('issueDescription').focus();">🌐 Network Drops</button>
+                                    <button type="button" class="chip" title="Click to fill — edit before submitting" onclick="document.getElementById('issueDescription').value='Server is overheating, getting temperature warnings and fans are running very loud'; document.getElementById('issueDescription').focus();">🌡️ Overheating</button>
+                                    <button type="button" class="chip" title="Click to fill — edit before submitting" onclick="document.getElementById('issueDescription').value='Getting correctable memory ECC errors on DIMM A2'; document.getElementById('issueDescription').focus();">🧠 ECC Errors</button>
+                                    <button type="button" class="chip" title="Click to fill — edit before submitting" onclick="document.getElementById('issueDescription').value='Server will not boot, no POST, amber power light'; document.getElementById('issueDescription').focus();">⚡ No POST</button>
+                                    <button type="button" class="chip" title="Click to fill — edit before submitting" onclick="document.getElementById('issueDescription').value='RAID virtual disk is degraded, one disk predicted failure'; document.getElementById('issueDescription').focus();">💾 RAID Degraded</button>
+                                    <button type="button" class="chip" title="Click to fill — edit before submitting" onclick="document.getElementById('issueDescription').value='Server crashed with BSOD, SEL shows CPU IERR machine check error'; document.getElementById('issueDescription').focus();">🖥️ CPU IERR</button>
+                                    <button type="button" class="chip" title="Click to fill — edit before submitting" onclick="document.getElementById('issueDescription').value='Network connectivity intermittent, NIC link dropping'; document.getElementById('issueDescription').focus();">🌐 Network Drops</button>
                                 </div>
                             </div>
                         </form>

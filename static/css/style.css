@@ -124,6 +124,22 @@
     top: 0;
 }
 
+/* Password visibility toggle */
+.pass-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    opacity: 0.5;
+    padding: 4px;
+    line-height: 1;
+}
+.pass-toggle:hover { opacity: 1; }
+
 body {
     font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: var(--bg-body);

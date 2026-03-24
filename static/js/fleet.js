@@ -44,8 +44,10 @@ class FleetManager {
         document.getElementById('addServerBtn')?.addEventListener('click', () => this.showAddServerModal());
         
         // Search and filter
+        let _searchTimer = null;
         document.getElementById('serverSearch')?.addEventListener('input', (e) => {
-            this.filterServers();
+            clearTimeout(_searchTimer);
+            _searchTimer = setTimeout(() => this.filterServers(), 200);
         });
         
         document.getElementById('environmentFilter')?.addEventListener('change', () => {
@@ -321,12 +323,15 @@ class FleetManager {
         document.getElementById('warningCount').textContent = healthCounts.warning;
         document.getElementById('criticalCount').textContent = healthCounts.critical;
         
-        // Update fleet health circle
+        // Update fleet health circle with dynamic gradient
         const fleetHealth = this.calculateAverageHealth();
         const healthCircle = document.getElementById('fleetHealthCircle');
         if (healthCircle) {
-            healthCircle.style.setProperty('--score', fleetHealth);
-            document.getElementById('fleetHealthValue').textContent = fleetHealth.toFixed(0);
+            const pct = Math.min(100, Math.max(0, fleetHealth));
+            const deg = (pct / 100) * 360;
+            const color = pct >= 80 ? '#27ae60' : pct >= 60 ? '#f39c12' : '#e74c3c';
+            healthCircle.style.background = `conic-gradient(${color} 0deg, ${color} ${deg}deg, #334155 ${deg}deg, #334155 360deg)`;
+            document.getElementById('fleetHealthValue').textContent = fleetHealth.toFixed(0) + '%';
         }
     }
     
