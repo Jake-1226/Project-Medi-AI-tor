@@ -13,6 +13,8 @@ class RealtimeMonitor {
         this.isMonitoring = false;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
+        // XSS prevention
+        this._esc = (s) => { const d = document.createElement('div'); d.textContent = String(s ?? ''); return d.innerHTML; };
         this.reconnectDelay = 5000;
         this._authToken = sessionStorage.getItem('auth_token') || '';
         this._pollTimer = null;
@@ -371,11 +373,11 @@ class RealtimeMonitor {
             list.innerHTML = '<div class="no-alerts">No active alerts</div>';
         } else {
             list.innerHTML = this.alerts.map(a => `
-                <div class="alert-item ${a.type}">
-                    <div class="alert-icon ${a.type}">${a.type === 'critical' ? '🔴' : '🟡'}</div>
+                <div class="alert-item ${this._esc(a.type)}">
+                    <div class="alert-icon ${this._esc(a.type)}">${a.type === 'critical' ? '🔴' : '🟡'}</div>
                     <div class="alert-content">
-                        <div class="alert-metric">${a.metric}</div>
-                        <div class="alert-message">${a.message}</div>
+                        <div class="alert-metric">${this._esc(a.metric)}</div>
+                        <div class="alert-message">${this._esc(a.message)}</div>
                         <div class="alert-time">${new Date(a.timestamp).toLocaleTimeString()}</div>
                     </div>
                 </div>

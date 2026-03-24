@@ -304,7 +304,7 @@ class MobileApp {
                 throw new Error(data.message || 'Failed to fetch metrics');
             }
         } catch (error) {
-            console.error('Error refreshing data:', error);
+            // Error logged via toast
             this.showToast('Connect to a server first', 'warning');
             this.updateConnectionStatus(false);
         } finally {
@@ -567,7 +567,7 @@ class MobileApp {
                 throw new Error(data.message || 'Connection failed');
             }
         } catch (error) {
-            console.error('Connection error:', error);
+            // Error logged via toast
             this.showToast('Failed to connect to server', 'error');
             this.updateConnectionStatus(false);
         } finally {

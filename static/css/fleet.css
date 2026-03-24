@@ -54,7 +54,7 @@
 .stat-value {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #3498db;
+    color: #0076CE;
     margin-bottom: 0.25rem;
 }
 
@@ -118,12 +118,12 @@
 }
 
 .tab-btn:hover {
-    color: #3498db;
+    color: #0076CE;
 }
 
 .tab-btn.active {
-    color: #3498db;
-    border-bottom-color: #3498db;
+    color: #0076CE;
+    border-bottom-color: #0076CE;
 }
 
 /* Main Content */
@@ -249,7 +249,7 @@
 }
 
 .metric-fill.good {
-    background: linear-gradient(90deg, #3498db, #5dade2);
+    background: linear-gradient(90deg, #0076CE, #2196F3);
 }
 
 .metric-fill.warning {
@@ -289,7 +289,7 @@
 }
 
 .env-count {
-    background: #3498db;
+    background: #0076CE;
     color: white;
     padding: 0.25rem 0.75rem;
     border-radius: 12px;
@@ -308,7 +308,7 @@
     align-items: center;
     gap: 1rem;
     padding: 0.75rem;
-    border-left: 4px solid #3498db;
+    border-left: 4px solid #0076CE;
     background: #f8f9fa;
     border-radius: 0 8px 8px 0;
     margin-bottom: 0.5rem;
@@ -461,9 +461,9 @@
 }
 
 .server-action-btn:hover {
-    background: #3498db;
+    background: #0076CE;
     color: white;
-    border-color: #3498db;
+    border-color: #0076CE;
 }
 
 /* Servers Table */
@@ -558,7 +558,7 @@
 }
 
 .health-badge.good {
-    background: #3498db;
+    background: #0076CE;
 }
 
 .health-badge.warning {
@@ -608,7 +608,7 @@
 }
 
 .group-count {
-    background: #3498db;
+    background: #0076CE;
     color: white;
     padding: 0.25rem 0.75rem;
     border-radius: 12px;
@@ -658,7 +658,7 @@
     border-radius: 12px;
     padding: 1.5rem;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    border-left: 4px solid #3498db;
+    border-left: 4px solid #0076CE;
 }
 
 .alert-card.critical {
@@ -695,7 +695,7 @@
 
 .alert-server-name {
     font-weight: 500;
-    color: #3498db;
+    color: #0076CE;
 }
 
 .alert-message {
@@ -718,9 +718,9 @@
 }
 
 .alert-action:hover {
-    background: #3498db;
+    background: #0076CE;
     color: white;
-    border-color: #3498db;
+    border-color: #0076CE;
 }
 
 /* Analytics */
@@ -789,7 +789,7 @@
 .summary-value {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #3498db;
+    color: #0076CE;
     margin-bottom: 0.5rem;
 }
 
@@ -911,7 +911,7 @@
 .form-group select:focus,
 .form-group textarea:focus {
     outline: none;
-    border-color: #3498db;
+    border-color: #0076CE;
 }
 
 /* Buttons */
@@ -930,7 +930,7 @@
 }
 
 .btn-primary {
-    background: #3498db;
+    background: #0076CE;
     color: white;
 }
 
@@ -958,12 +958,12 @@
 
 .btn-outline {
     background: white;
-    color: #3498db;
-    border: 1px solid #3498db;
+    color: #0076CE;
+    border: 1px solid #0076CE;
 }
 
 .btn-outline:hover {
-    background: #3498db;
+    background: #0076CE;
     color: white;
 }
 
@@ -994,7 +994,7 @@
     width: 40px;
     height: 40px;
     border: 4px solid #f3f3f3;
-    border-top: 4px solid #3498db;
+    border-top: 4px solid #0076CE;
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 1rem;
@@ -1057,7 +1057,7 @@
 }
 
 .toast.info {
-    border-left: 4px solid #3498db;
+    border-left: 4px solid #0076CE;
 }
 
 .toast-title {
@@ -1113,7 +1113,7 @@
 }
 
 .tag {
-    background: #3498db;
+    background: #0076CE;
     color: white;
     padding: 0.25rem 0.75rem;
     border-radius: 12px;
@@ -1400,7 +1400,7 @@
 
 .dropdown-menu a:hover {
     background-color: #f8f9fa;
-    color: #3498db;
+    color: #0076CE;
 }
 
 .dropdown-menu a.text-danger:hover {
@@ -1447,7 +1447,7 @@
 .form-group select:focus,
 .form-group textarea:focus {
     outline: none;
-    border-color: #3498db;
+    border-color: #0076CE;
 }
 
 .form-actions {
@@ -1484,12 +1484,12 @@
 
 .search-input:focus {
     outline: none;
-    border-color: #3498db;
+    border-color: #0076CE;
 }
 
 .search-btn {
     padding: 0.75rem 1rem;
-    background: #3498db;
+    background: #0076CE;
     color: white;
     border: none;
     border-radius: 8px;
@@ -1663,12 +1663,12 @@
 
 [data-theme="dark"] .btn-outline {
     background: #495057;
-    border-color: #3498db;
-    color: #3498db;
+    border-color: #0076CE;
+    color: #0076CE;
 }
 
 [data-theme="dark"] .btn-outline:hover {
-    background: #3498db;
+    background: #0076CE;
     color: white;
 }
 
@@ -1785,7 +1785,7 @@
 .server-card:active, .group-card:active, .alert-card:active { transform: scale(0.98); }
 
 /* Keyboard focus for fleet tabs */
-.tab-btn:focus-visible { outline: 2px solid #3498db; outline-offset: -2px; }
+.tab-btn:focus-visible { outline: 2px solid #0076CE; outline-offset: -2px; }
 
 /* V6: Truncate long text with ellipsis */
 .server-name, .alert-server-name, .group-name {
@@ -1810,13 +1810,13 @@
 
 /* Focus-visible on tab buttons */
 .tab-btn:focus-visible {
-    outline: 2px solid #3498db;
+    outline: 2px solid #0076CE;
     outline-offset: 2px;
 }
 
 /* Modal close button a11y */
 .modal-close:focus-visible {
-    outline: 2px solid #3498db;
+    outline: 2px solid #0076CE;
     outline-offset: 2px;
 }
 

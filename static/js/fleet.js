@@ -8,6 +8,8 @@ class FleetManager {
         this.servers = new Map();
         this.groups = new Map();
         this.alerts = [];
+        // XSS prevention helper
+        this._esc = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
         this.currentTab = 'overview';
         this.refreshInterval = null;
         this.refreshRate = 30000; // 30 seconds
@@ -419,10 +421,10 @@ class FleetManager {
         if (!serverCards) return;
         
         serverCards.innerHTML = Array.from(this.servers.values()).map(server => `
-            <div class="server-card" onclick="fleetManager.showServerDetails('${server.id}')">
+            <div class="server-card" onclick="fleetManager.showServerDetails('${this._esc(server.id)}')">
                 <div class="server-header">
-                    <div class="server-name">${server.name}</div>
-                    <div class="server-status ${server.status}"></div>
+                    <div class="server-name">${this._esc(server.name)}</div>
+                    <div class="server-status ${this._esc(server.status)}"></div>
                 </div>
                 <div class="server-metrics">
                     <div class="server-metric">
@@ -435,13 +437,13 @@ class FleetManager {
                     </div>
                 </div>
                 <div class="server-info">
-                    <div>📍 ${server.host}</div>
-                    ${server.model ? `<div>💾 ${server.model}</div>` : ''}
-                    <div>🏷️ ${server.environment || 'Unknown'}</div>
+                    <div>${this._esc(server.host)}</div>
+                    ${server.model ? `<div>${this._esc(server.model)}</div>` : ''}
+                    <div>${this._esc(server.environment || 'Unknown')}</div>
                 </div>
                 <div class="server-actions">
-                    <button class="server-action-btn" onclick="event.stopPropagation(); fleetManager.connectServer('${server.id}')">Connect</button>
-                    <button class="server-action-btn" onclick="event.stopPropagation(); fleetManager.disconnectServer('${server.id}')">Disconnect</button>
+                    <button class="server-action-btn" onclick="event.stopPropagation(); fleetManager.connectServer('${this._esc(server.id)}')">Connect</button>
+                    <button class="server-action-btn" onclick="event.stopPropagation(); fleetManager.disconnectServer('${this._esc(server.id)}')">Disconnect</button>
                 </div>
             </div>
         `).join('');

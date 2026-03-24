@@ -198,6 +198,11 @@ class DellAIAgent {
     }
     
     setupWebSocket() {
+        // Clean up previous WebSocket if any (prevent memory leak on reconnect)
+        if (this.websocket) {
+            try { this.websocket.close(); } catch (_) {}
+            this.websocket = null;
+        }
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws?token=${this._authToken || ''}`;
         
