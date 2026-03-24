@@ -1136,7 +1136,7 @@ async def auth_login(creds: LoginRequest, request: Request):
         return response
     except AuthenticationError as e:
         _audit("LOGIN_FAILED", ip=ip, user=creds.username, detail=str(e))
-        raise HTTPException(status_code=401, detail=str(e))
+        raise HTTPException(status_code=401, detail="Invalid username or password")
 
 @app.post("/api/auth/logout")
 async def auth_logout(request: Request):

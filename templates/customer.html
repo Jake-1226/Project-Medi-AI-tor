@@ -39,13 +39,13 @@
                         <span class="connect-card-icon">🖥️</span>
                         <div>
                             <div class="connect-card-title">Connect to Server</div>
-                            <div class="connect-card-sub">Enter your server's iDRAC details</div>
+                            <div class="connect-card-sub">Enter your server connection details</div>
                         </div>
                     </div>
                     <form id="connectForm" class="connect-form" role="form" aria-label="Server Connection">
                         <div class="form-field">
                             <label class="form-field-label" for="cHost">Server Address</label>
-                            <input type="text" id="cHost" class="c-input" placeholder="iDRAC IP or hostname" required autocomplete="off" maxlength="253">
+                            <input type="text" id="cHost" class="c-input" placeholder="Server IP (e.g. 192.168.1.100)" required autocomplete="off" maxlength="253">
                         </div>
                         <div class="form-field">
                             <label class="form-field-label" for="cUser">Username</label>
@@ -55,9 +55,10 @@
                             <label class="form-field-label" for="cPass">Password</label>
                             <input type="password" id="cPass" class="c-input" placeholder="Password" required autocomplete="current-password">
                         </div>
+                        <div style="font-size:0.7rem;color:var(--text-light);margin-top:2px">Use the credentials provided by your IT team or Dell support</div>
                         <input type="hidden" id="cPort" value="443">
                         <button type="submit" class="c-btn c-btn-connect" id="connectBtn">
-                            <span id="connectBtnContent">Connect to iDRAC</span>
+                            <span id="connectBtnContent">Connect to Server</span>
                         </button>
                     </form>
                     <div id="connectStatus"></div>
@@ -142,10 +143,10 @@
                 <div class="suggest-group">
                     <span class="suggest-group-label">Troubleshoot</span>
                     <div class="suggest-row-wrap">
-                        <button class="suggest-chip suggest-issue" data-msg="Power supply redundancy lost">🔌 PSU Failure</button>
+                        <button class="suggest-chip suggest-issue" data-msg="Power supply redundancy lost">🔌 Power Supply Issue</button>
                         <button class="suggest-chip suggest-issue" data-msg="Server is overheating and fans are loud">🌡️ Overheating</button>
-                        <button class="suggest-chip suggest-issue" data-msg="Memory ECC errors detected">🧠 Memory Errors</button>
-                        <button class="suggest-chip suggest-issue" data-msg="RAID virtual disk is degraded">💾 RAID Degraded</button>
+                        <button class="suggest-chip suggest-issue" data-msg="Memory errors detected">🧠 Memory Problem</button>
+                        <button class="suggest-chip suggest-issue" data-msg="Storage disk is degraded">💾 Storage Problem</button>
                     </div>
                 </div>
             </div>

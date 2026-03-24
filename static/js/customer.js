@@ -265,6 +265,10 @@ class CustomerChat {
                 this.connected = true;
                 this.serverInfo = { host, username: user, password: pass, port };
                 this.saveConnection();
+
+                // Security: clear password from DOM after use
+                const pwField = document.getElementById('cPass');
+                if (pwField) pwField.value = '';
                 
                 // Smooth transition: show success state on button before switching panels
                 btn.classList.remove('connecting');
@@ -288,7 +292,7 @@ class CustomerChat {
             } else {
                 btn.classList.remove('connecting');
                 btn.disabled = false;
-                btnContent.textContent = 'Connect to iDRAC';
+                btnContent.textContent = 'Connect to Server';
                 const errMsg = data.detail || 'Connection failed — check credentials and host';
                 status.innerHTML = `<div class="connect-error">
                     <span class="error-icon">⚠️</span>
@@ -299,9 +303,9 @@ class CustomerChat {
             clearInterval(progressTimer);
             btn.classList.remove('connecting');
             btn.disabled = false;
-            btnContent.textContent = 'Connect to iDRAC';
+            btnContent.textContent = 'Connect to Server';
             const errMsg = err.name === 'AbortError' 
-                ? 'Connection timed out — check that the iDRAC IP is correct and reachable' 
+                ? 'Connection timed out — check that the server IP is correct and reachable' 
                 : `Connection error: ${err.message}`;
             status.innerHTML = `<div class="connect-error">
                 <span class="error-icon">⚠️</span>
@@ -348,7 +352,7 @@ class CustomerChat {
         const btn = document.getElementById('connectBtn');
         const btnContent = document.getElementById('connectBtnContent');
         if (btn) { btn.disabled = false; btn.classList.remove('connecting', 'connected'); }
-        if (btnContent) btnContent.textContent = 'Connect to iDRAC';
+        if (btnContent) btnContent.textContent = 'Connect to Server';
         this.updateConnectionUI(false);
         this.addMsg('info', 'Disconnected. Whenever you\u2019re ready to check another server, just connect using the sidebar.');
         this.showToast('Disconnected', 'info');
@@ -459,7 +463,7 @@ class CustomerChat {
 
     saveConnection() {
         if (this.serverInfo) {
-            localStorage.setItem('mediAItor_conn', JSON.stringify({
+            sessionStorage.setItem('mediAItor_conn', JSON.stringify({
                 host: this.serverInfo.host,
                 port: this.serverInfo.port,
                 username: this.serverInfo.username
@@ -469,7 +473,7 @@ class CustomerChat {
 
     loadSaved() {
         try {
-            const saved = JSON.parse(localStorage.getItem('mediAItor_conn'));
+            const saved = JSON.parse(sessionStorage.getItem('mediAItor_conn'));
             if (saved?.host) {
                 document.getElementById('cHost').value = saved.host;
                 if (saved.port) document.getElementById('cPort').value = saved.port;
@@ -697,7 +701,7 @@ class CustomerChat {
         if (cpuMatch) html += `<div class="ov-spec"><span class="ov-spec-label">CPU</span><span class="ov-spec-val">${cpuMatch[1].trim()}</span></div>`;
         if (ramMatch) html += `<div class="ov-spec"><span class="ov-spec-label">RAM</span><span class="ov-spec-val">${ramMatch[1].trim()}</span></div>`;
         if (biosMatch) html += `<div class="ov-spec"><span class="ov-spec-label">BIOS</span><span class="ov-spec-val">${biosMatch[1].trim()}</span></div>`;
-        if (idracMatch) html += `<div class="ov-spec"><span class="ov-spec-label">iDRAC</span><span class="ov-spec-val">${idracMatch[1].trim()}</span></div>`;
+        if (idracMatch) html += `<div class="ov-spec"><span class="ov-spec-label">Server Mgmt</span><span class="ov-spec-val">${idracMatch[1].trim()}</span></div>`;
         html += '</div>';
         
         // Component health grid
@@ -809,10 +813,10 @@ class CustomerChat {
                         <div class="inv-diag-meta">
                             <span class="inv-conf-badge" style="color:${confColor}">
                                 <span class="inv-conf-bar" style="width:${Math.min(confidence, 100)}%;background:${confColor}"></span>
-                                ${confidence}% confidence
+                                ${confidence}% confidence (${this._confLabel(confidence)})
                             </span>
                             <span class="inv-cat-badge">${catIcon} ${category}</span>
-                            <span class="inv-evidence-badge">${(diag.evidence_chain || []).length} evidence points</span>
+                            <span class="inv-evidence-badge">${(diag.evidence_chain || []).length} data points checked</span>
                         </div>
                     </div>
                 </div>`;
@@ -843,7 +847,7 @@ class CustomerChat {
         // ── Reasoning chain (collapsible) ──
         if (chain.length > 0) {
             html += `<details class="inv-chain-details">
-                <summary class="inv-chain-summary">💭 ${chain.length}-step reasoning chain</summary>
+                <summary class="inv-chain-summary">💭 How I figured this out (${chain.length} steps)</summary>
                 <div class="inv-chain">`;
             chain.forEach(t => {
                 const icon = t.conclusion ? '✅' : t.next_action ? '🔍' : '💭';
@@ -1298,6 +1302,9 @@ class CustomerChat {
         this.scrollToBottom();
     }
 
+    /** Return a human-readable confidence descriptor */
+    _confLabel(c) { return c >= 90 ? 'Very High' : c >= 70 ? 'High' : c >= 50 ? 'Moderate' : 'Low'; }
+
     /** Convert internal tool names to friendly descriptions */
     _humanizeTool(tool) {
         const map = {
@@ -1307,6 +1314,7 @@ class CustomerChat {
             'temperature_sensors': 'reading temp sensors', 'get_temperature_sensors': 'reading temp sensors',
             'fans': 'checking fan speeds', 'check_fans': 'checking fan speeds',
             'power_supplies': 'checking power supplies', 'get_power_supplies': 'checking power supplies',
+            'psu': 'checking power supply', 'check_psu': 'checking power supply',
             'power': 'checking power status', 'check_power': 'checking power status',
             'memory': 'checking memory', 'check_memory': 'checking memory', 'get_memory': 'checking memory',
             'storage': 'checking storage', 'check_storage': 'checking storage', 'get_storage_info': 'checking storage',
@@ -1315,11 +1323,17 @@ class CustomerChat {
             'bios': 'checking BIOS settings', 'get_bios_attributes': 'reading BIOS settings',
             'sel_logs': 'reading system event logs', 'collect_logs': 'reading system logs',
             'boot_order': 'checking boot order', 'get_boot_order': 'checking boot order',
-            'idrac': 'checking iDRAC config', 'get_idrac_info': 'checking iDRAC config',
+            'idrac': 'checking server management', 'get_idrac_info': 'checking server management',
+            'redfish': 'querying server API', 'redfish_query': 'querying server API', 'check_redfish': 'querying server API',
             'full_inventory': 'pulling full hardware inventory', 'get_full_inventory': 'pulling full inventory',
         };
         const key = (tool || '').toLowerCase().replace(/^check_|^get_/, '');
         return map[tool] || map[key] || tool.replace(/_/g, ' ');
+    }
+
+    /** Alias for _humanizeTool — friendly tool name for non-technical users */
+    _friendlyToolName(tool) {
+        return this._humanizeTool(tool);
     }
 
     updateThinkingActionStart(panelId, data) {

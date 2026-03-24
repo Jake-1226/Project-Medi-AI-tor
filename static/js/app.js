@@ -865,11 +865,14 @@ class DellAIAgent {
                 // Now render the full deep-dive report below the investigation feed
                 this.renderFullAnalysisReport(result, issueDescription);
                 this.log(`🧠 Agentic investigation complete — ${(result.recommendations||[]).length} recommendations, confidence: ${diagnosis.confidence || '?'}%`, 'success');
+                // Auto-scroll results into view
+                container.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
             } else if (response.ok) {
                 // Fallback: non-agentic response (legacy endpoint returned)
                 this.renderFullAnalysisReport(result, issueDescription);
                 this.log(`🔍 Analysis complete — ${(result.recommendations||[]).length} recommendations`, 'success');
+                container.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } else {
                 container.innerHTML = `<div class="ts-error"><h4>❌ Investigation Failed</h4><p>${result.detail}</p></div>`;
                 this.log(`❌ Investigation failed: ${result.detail}`, 'error');
@@ -1724,6 +1727,32 @@ class DellAIAgent {
             container.appendChild(card);
         });
 
+        // Copy diagnosis + Raw JSON toggle (Engineer/Technician needs)
+        const toolbox = document.createElement('div');
+        toolbox.className = 'dd-toolbox';
+        toolbox.style.cssText = 'display:flex;gap:8px;margin-top:16px;flex-wrap:wrap';
+        toolbox.innerHTML = `
+            <button class="btn btn-sm btn-outline" id="copyDiagnosisBtn" title="Copy diagnosis text to clipboard">📋 Copy Diagnosis</button>
+            <button class="btn btn-sm btn-outline" id="toggleRawJsonBtn" title="Show raw Redfish JSON data">{ } Raw JSON</button>
+        `;
+        container.appendChild(toolbox);
+
+        document.getElementById('copyDiagnosisBtn')?.addEventListener('click', () => {
+            const text = container.innerText;
+            navigator.clipboard.writeText(text).then(() => this.showAlert('Diagnosis copied to clipboard', 'success'))
+                .catch(() => this.showAlert('Copy failed — try selecting text manually', 'warning'));
+        });
+        document.getElementById('toggleRawJsonBtn')?.addEventListener('click', () => {
+            let rawEl = document.getElementById('rawJsonSection');
+            if (rawEl) { rawEl.style.display = rawEl.style.display === 'none' ? 'block' : 'none'; return; }
+            rawEl = document.createElement('details');
+            rawEl.id = 'rawJsonSection';
+            rawEl.className = 'dd-section';
+            rawEl.innerHTML = `<summary class="dd-section-head"><span>{ } Raw Collected Data (JSON)</span></summary>
+                <div class="dd-section-body"><pre style="max-height:400px;overflow:auto;font-size:0.75rem;white-space:pre-wrap;word-break:break-all">${this._escapeHtml(JSON.stringify(result.collected_data || result, null, 2))}</pre></div>`;
+            container.appendChild(rawEl);
+        });
+
         setTimeout(() => container.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
     }
     
@@ -2165,6 +2194,15 @@ class DellAIAgent {
 
     confirmAndExecute(command, label) {
         if (!this._requireConnection('running diagnostics')) return;
+        // Dangerous operations require typed confirmation
+        const dangerOps = ['raid_delete_vd', 'drive_secure_erase', 'raid_reset_controller', 'bios_reset_defaults', 'idrac_reset'];
+        if (dangerOps.includes(command)) {
+            const confirmText = prompt(`\u26A0\uFE0F DESTRUCTIVE OPERATION: ${label}\n\nThis action cannot be undone.\nType "CONFIRM" to proceed:`);
+            if (confirmText !== 'CONFIRM') {
+                this.showAlert('Operation cancelled', 'info');
+                return;
+            }
+        }
         // F5: Inline confirmation instead of browser confirm()
         this._showInlineConfirm(
             document.getElementById('actionResultContainer'),
@@ -4195,6 +4233,9 @@ class DellAIAgent {
             // No auto-reconnect — user must enter password each session
         } catch (error) { this.log('Failed to load saved settings', 'error'); }
         this.loadSrNumber();
+        // Auto-populate SR# from URL parameter (e.g., /technician?sr=SR123456)
+        const urlSr = new URLSearchParams(window.location.search).get('sr') || new URLSearchParams(window.location.search).get('SR');
+        if (urlSr) { const srEl = document.getElementById('srNumber'); if (srEl) srEl.value = urlSr; }
     }
     
     updateUI() { this.updateConnectionStatus(false); }
