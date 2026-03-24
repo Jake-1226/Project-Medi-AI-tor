@@ -47,6 +47,12 @@ from core.enterprise import (
     parse_csv_import, maintenance_scheduler, rolling_update_orchestrator,
     ticketing_integration, server_lock_manager, task_manager,
 )
+from core.enterprise_extended import (
+    shift_handoff_manager, knowledge_base_manager, investigation_share_manager,
+    metric_history_store, custom_threshold_manager, incident_manager,
+    sla_tracker, onboarding_manager, search_glossary, GLOSSARY,
+    generate_investigation_html,
+)
 
 # main.py (top imports)
 from models.server_models import ActionLevel
@@ -690,6 +696,191 @@ async def complete_task(task_id: str, request: Request):
         return {"status": "success"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+# ═══════════════════════════════════════════════════════════════
+#  ENTERPRISE EXTENDED API — Gaps #31-#40
+# ═══════════════════════════════════════════════════════════════
+
+# #31: Shift Handoff
+@app.post("/api/handoff")
+async def create_handoff(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    h = shift_handoff_manager.create(
+        from_user=user["username"], shift=body.get("shift", ""),
+        summary=body.get("summary", ""), open_issues=body.get("open_issues"),
+        server_notes=body.get("server_notes"), priority_items=body.get("priority_items"),
+        to_user=body.get("to_user"))
+    _audit("HANDOFF_CREATED", user=user["username"], detail=h.id)
+    return {"status": "success", "handoff_id": h.id}
+
+@app.get("/api/handoff")
+async def list_handoffs(request: Request, shift: str = None):
+    await _get_current_user(request)
+    return {"status": "success", "handoffs": shift_handoff_manager.get_latest(shift)}
+
+@app.post("/api/handoff/{handoff_id}/acknowledge")
+async def acknowledge_handoff(handoff_id: str, request: Request):
+    user = await _get_current_user(request)
+    try:
+        shift_handoff_manager.acknowledge(handoff_id, user["username"])
+        return {"status": "success"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+# #32: Knowledge Base
+@app.get("/api/kb")
+async def search_kb(request: Request, q: str = "", category: str = None):
+    await _get_current_user(request)
+    if q:
+        return {"status": "success", "results": knowledge_base_manager.search(q, category)}
+    return {"status": "success", "stats": knowledge_base_manager.get_stats()}
+
+@app.get("/api/kb/{article_id}")
+async def get_kb_article(article_id: str, request: Request):
+    await _get_current_user(request)
+    article = knowledge_base_manager.get_article(article_id)
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+    return {"status": "success", "article": article}
+
+@app.post("/api/kb")
+async def create_kb_article(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    if "diagnosis" in body:
+        article = knowledge_base_manager.add_from_investigation(body["diagnosis"], user["username"], body.get("sr_number"))
+    else:
+        article = knowledge_base_manager.add_manual(
+            title=body["title"], root_cause=body.get("root_cause",""),
+            symptoms=body.get("symptoms",[]), resolution=body.get("resolution",""),
+            category=body.get("category","general"), created_by=user["username"],
+            tags=body.get("tags"), server_model=body.get("server_model"))
+    _audit("KB_ARTICLE_CREATED", user=user["username"], detail=article.id)
+    return {"status": "success", "article_id": article.id}
+
+# #33: Investigation Sharing
+@app.post("/api/investigations/share")
+async def share_investigation(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    s = investigation_share_manager.share(
+        investigation_data=body.get("investigation", {}), shared_by=user["username"],
+        shared_with=body.get("shared_with"), notes=body.get("notes",""),
+        server_id=body.get("server_id"), sr_number=body.get("sr_number"))
+    _audit("INVESTIGATION_SHARED", user=user["username"], detail=s.id)
+    return {"status": "success", "share_id": s.id}
+
+@app.get("/api/investigations/shared")
+async def get_shared_investigations(request: Request):
+    user = await _get_current_user(request)
+    return {"status": "success", "investigations": investigation_share_manager.get_shared_with_user(user["username"])}
+
+@app.get("/api/investigations/shared/{share_id}")
+async def get_shared_investigation(share_id: str, request: Request):
+    await _get_current_user(request)
+    result = investigation_share_manager.get_full(share_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Not found")
+    return {"status": "success", "investigation": result}
+
+# #34: Extended Metric History
+@app.get("/api/metrics/history")
+async def get_metric_history_extended(request: Request, server_id: str = None,
+                                       hours: int = Query(default=24, ge=1, le=720),
+                                       metric: str = None):
+    await _get_current_user(request)
+    data = metric_history_store.query(server_id, hours, metric)
+    return {"status": "success", "points": len(data), "data": data[:2000],
+            "stats": metric_history_store.get_stats()}
+
+# #35: Custom Thresholds
+@app.post("/api/thresholds")
+async def set_custom_threshold(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    custom_threshold_manager.set_threshold(
+        scope=body["scope"], metric=body["metric"],
+        warning=body.get("warning"), critical=body.get("critical"))
+    _audit("THRESHOLD_SET", user=user["username"], detail=f"{body['scope']}/{body['metric']}")
+    return {"status": "success"}
+
+@app.get("/api/thresholds")
+async def list_thresholds(request: Request, scope: str = None):
+    await _get_current_user(request)
+    return {"status": "success", "thresholds": custom_threshold_manager.list_overrides(scope)}
+
+# #36: Incident Management
+@app.post("/api/incidents")
+async def create_incident(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    inc = incident_manager.create_incident(
+        title=body["title"], description=body.get("description",""),
+        severity=body.get("severity","medium"), server_id=body.get("server_id"),
+        created_by=user["username"])
+    _audit("INCIDENT_CREATED", user=user["username"], detail=inc["id"])
+    return {"status": "success", "incident": inc}
+
+@app.get("/api/incidents")
+async def list_incidents(request: Request, status: str = None):
+    await _get_current_user(request)
+    return {"status": "success", "incidents": incident_manager.list_incidents(status)}
+
+@app.post("/api/incidents/{incident_id}/resolve")
+async def resolve_incident_api(incident_id: str, request: Request):
+    user = await _get_current_user(request)
+    try:
+        inc = incident_manager.resolve_incident(incident_id, user["username"])
+        _audit("INCIDENT_RESOLVED", user=user["username"], detail=incident_id)
+        return {"status": "success", "incident": inc}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+# #37: SLA Tracking
+@app.get("/api/sla/{server_id}")
+async def get_server_sla(server_id: str, request: Request, days: int = Query(default=30, ge=1, le=365)):
+    await _get_current_user(request)
+    return {"status": "success", "sla": sla_tracker.get_sla_report(server_id, days)}
+
+@app.get("/api/sla")
+async def get_fleet_sla(request: Request, days: int = Query(default=30, ge=1, le=365)):
+    await _get_current_user(request)
+    server_ids = list(fleet_manager.servers.keys()) if fleet_manager else []
+    return {"status": "success", "sla": sla_tracker.get_fleet_sla(server_ids, days)}
+
+# #38: Onboarding
+@app.get("/api/onboarding")
+async def get_onboarding(request: Request):
+    user = await _get_current_user(request)
+    return {"status": "success", "onboarding": onboarding_manager.get_progress(user["username"])}
+
+@app.post("/api/onboarding/{step_id}")
+async def complete_onboarding_step(step_id: str, request: Request):
+    user = await _get_current_user(request)
+    progress = onboarding_manager.complete_step(user["username"], step_id)
+    return {"status": "success", "onboarding": progress}
+
+# #39: Glossary
+@app.get("/api/glossary")
+async def get_glossary(request: Request, q: str = None):
+    # Public — no auth required for glossary
+    if q:
+        return {"status": "success", "results": search_glossary(q)}
+    return {"status": "success", "glossary": list(GLOSSARY.values()), "total": len(GLOSSARY)}
+
+# #40: Investigation Report Export (HTML)
+@app.post("/api/investigations/export/html")
+async def export_investigation_html(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    investigation = body.get("investigation", {})
+    server_info = body.get("server_info")
+    html = generate_investigation_html(investigation, server_info)
+    _audit("REPORT_EXPORTED", user=user["username"], detail="html")
+    return HTMLResponse(content=html, headers={
+        "Content-Disposition": f'attachment; filename="investigation-report-{datetime.now().strftime("%Y%m%d-%H%M%S")}.html"'
+    })
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
