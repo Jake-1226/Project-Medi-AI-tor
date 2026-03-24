@@ -1794,3 +1794,46 @@
     white-space: nowrap;
     max-width: 250px;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   UI/UX Audit Fixes — 2026-03-24
+   ═══════════════════════════════════════════════════════════════ */
+
+/* prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Focus-visible on tab buttons */
+.tab-btn:focus-visible {
+    outline: 2px solid #3498db;
+    outline-offset: 2px;
+}
+
+/* Modal close button a11y */
+.modal-close:focus-visible {
+    outline: 2px solid #3498db;
+    outline-offset: 2px;
+}
+
+/* Metrics grid mobile fix */
+@media (max-width: 480px) {
+    .metrics-grid { grid-template-columns: 1fr; }
+    .search-input { min-width: 100%; }
+    .modal-content { width: 98%; margin: 8px auto; }
+}
+
+/* Dark mode zebra striping fix */
+.dark .server-table tbody tr:nth-child(even) {
+    background: rgba(255,255,255,0.05);
+}
+
+/* Button disabled state */
+.btn:disabled, button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

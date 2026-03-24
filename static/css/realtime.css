@@ -417,3 +417,43 @@
 
 /* Screen-reader-only utility */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+/* ═══════════════════════════════════════════════════════════════
+   UI/UX Audit Fixes — 2026-03-24
+   ═══════════════════════════════════════════════════════════════ */
+
+/* prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Metric cards mobile fix */
+@media (max-width: 480px) {
+    .metrics-grid { grid-template-columns: 1fr; }
+    .chart-canvas { height: 150px; }
+    .alerts-list { max-height: 150px; }
+    .connection-form { flex-direction: column; }
+    .connection-form input, .connection-form button { width: 100%; }
+}
+
+/* Chart button focus visible */
+.chart-button:focus-visible {
+    outline: 2px solid var(--rt-accent, #6366f1);
+    outline-offset: 2px;
+}
+
+/* Button disabled state */
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Scrollbar styling */
+.alerts-list {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rt-border, #334155) transparent;
+}

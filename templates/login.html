@@ -82,6 +82,22 @@
         .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-login:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(99,102,241,0.3); }
 
+        /* a11y: reduced-motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        /* a11y: outline fallback for high-contrast mode */
+        .form-input:focus {
+            outline: 2px solid #6366f1;
+            outline-offset: -1px;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
+        }
+
         /* V6: Loading spinner inside button */
         .btn-login .login-spinner {
             display: inline-block;
@@ -132,6 +148,7 @@
     </style>
 </head>
 <body>
+    <noscript><div style="padding:40px;text-align:center;font-family:sans-serif;background:#0f172a;color:#f1f5f9;min-height:100vh;display:flex;align-items:center;justify-content:center"><div><h2>JavaScript Required</h2><p style="margin-top:12px;color:#94a3b8">Please enable JavaScript to use the login page.</p></div></div></noscript>
     <div class="login-card">
         <div class="login-header">
             <span style="font-size:2.5rem;display:block;margin-bottom:12px">🩺</span>

@@ -32,11 +32,17 @@ class CustomerChat {
         if (input) {
             input.addEventListener('input', () => {
                 input.style.height = 'auto';
-                input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+                const maxH = window.innerHeight > 600 ? 120 : 80;
+                input.style.height = Math.min(input.scrollHeight, maxH) + 'px';
                 if (charCount) {
                     const len = input.value.length;
-                    charCount.textContent = len > 0 ? `${len}/2000` : '';
-                    charCount.style.color = len > 1800 ? '#ef4444' : 'inherit';
+                    if (len > 1800) {
+                        charCount.textContent = `\u26A0\uFE0F ${len}/2000`;
+                        charCount.style.color = '#ef4444';
+                    } else {
+                        charCount.textContent = len > 0 ? `${len}/2000` : '';
+                        charCount.style.color = 'inherit';
+                    }
                 }
             });
             input.addEventListener('keydown', (e) => {
@@ -171,6 +177,17 @@ class CustomerChat {
                 setTimeout(() => toast.remove(), 300);
             }
         }, duration);
+        // a11y: Escape to dismiss all toasts
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                container.querySelectorAll('.toast').forEach(t => {
+                    t.classList.add('removing');
+                    setTimeout(() => t.remove(), 300);
+                });
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
     }
 
     // ─── Smart Scroll ───────────────────────────────────────

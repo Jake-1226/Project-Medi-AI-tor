@@ -12,6 +12,7 @@
     <style id="theme-styles"></style>
 </head>
 <body class="tech-body" data-theme="dark">
+    <noscript><div style="padding:40px;text-align:center;font-family:sans-serif;background:#1e293b;color:#f1f5f9;min-height:100vh;display:flex;align-items:center;justify-content:center"><div><h2>JavaScript Required</h2><p style="margin-top:12px;color:#94a3b8">Medi-AI-tor requires JavaScript to be enabled. Please enable JavaScript in your browser settings and reload.</p></div></div></noscript>
     <!-- P8: Skip to main content (accessibility) -->
     <a href="#main-content" class="skip-link">Skip to main content</a>
     <!-- ═══ SIDEBAR ═══ -->
@@ -51,7 +52,7 @@
     <main class="main-content" id="main-content" role="main">
         <!-- ── TOP BAR ── -->
         <header class="topbar">
-            <button class="topbar-toggle" id="sidebarToggle">☰</button>
+            <button class="topbar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">☰</button>
             <div id="connectionStatus" class="topbar-connection">
                 <span class="status-indicator status-offline"></span>
                 <span>Disconnected</span>

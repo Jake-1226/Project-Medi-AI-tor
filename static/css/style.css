@@ -4736,3 +4736,231 @@ table tbody tr:hover { background: rgba(99,102,241,0.05); }
 @media (max-width: 600px) {
     .connect-field-row { grid-template-columns: 1fr; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   UI/UX Audit Fixes — 2026-03-24
+   C1-C7 Critical, M1-M5 Major, m5-m6 Minor
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── C1: prefers-reduced-motion ────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* ── C2: Focus-visible on icon-only buttons ────────────────── */
+.topbar-toggle:focus-visible,
+.topbar-theme-btn:focus-visible,
+.sidebar-link:focus-visible,
+.level-pill:focus-visible,
+.banner-expand-btn:focus-visible,
+.pass-toggle:focus-visible,
+.modal-close:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* ── C3: Button disabled state ─────────────────────────────── */
+.btn:disabled,
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ── C4: Button loading state (spinner) ────────────────────── */
+.btn-loading {
+    opacity: 0.7;
+    pointer-events: none;
+    position: relative;
+}
+.btn-loading::after {
+    content: '';
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-left: 8px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+}
+
+/* ── C5+C6: Fix color contrast (WCAG AA) ──────────────────── */
+:root {
+    --text-secondary-fix: #cbd5e1; /* 7.5:1 on #0f172a */
+    --text-muted-fix: #94a3b8;     /* 4.6:1 on #0f172a — passes AA */
+}
+.sidebar-link,
+.sidebar-section-label,
+.sidebar-version,
+.topbar-sr-input::placeholder,
+.connect-optional,
+.connect-field label {
+    color: var(--text-secondary-fix, #cbd5e1);
+}
+
+/* ── C7: Stronger focus ring on form inputs ────────────────── */
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.25);
+}
+
+/* ── M1: Dark mode overrides for hardcoded-light components ── */
+
+/* Chips */
+[data-theme="dark"] .chip {
+    background: rgba(99,102,241,0.15);
+    border-color: rgba(99,102,241,0.3);
+    color: #a5b4fc;
+}
+[data-theme="dark"] .chip:hover {
+    background: rgba(99,102,241,0.25);
+}
+
+/* Recommendation cards */
+[data-theme="dark"] .recommendation-card {
+    background: linear-gradient(135deg, rgba(30,41,59,0.6), rgba(15,23,42,0.6));
+    border-color: var(--border-color);
+}
+
+/* Sub-tabs */
+[data-theme="dark"] .sub-tab {
+    color: var(--text-secondary-fix, #cbd5e1);
+}
+[data-theme="dark"] .sub-tab:hover {
+    background: rgba(99,102,241,0.1);
+    color: var(--text-primary);
+}
+[data-theme="dark"] .sub-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+/* Badges */
+[data-theme="dark"] .badge-ok { background: rgba(34,197,94,0.15); color: #4ade80; }
+[data-theme="dark"] .badge-warn { background: rgba(245,158,11,0.15); color: #fbbf24; }
+[data-theme="dark"] .badge-crit { background: rgba(239,68,68,0.15); color: #f87171; }
+[data-theme="dark"] .badge-info { background: rgba(59,130,246,0.15); color: #60a5fa; }
+
+/* Metric cards */
+[data-theme="dark"] .metric-card {
+    background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.06));
+    border-left-color: var(--accent);
+}
+[data-theme="dark"] .metric-value { color: var(--accent); }
+[data-theme="dark"] .metric-label { color: var(--text-secondary-fix); }
+
+/* Section blocks */
+[data-theme="dark"] .section-block h4 { color: var(--accent); }
+
+/* Log container */
+[data-theme="dark"] .log-container {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+/* ── M4: Missing .ops-btn styles ───────────────────────────── */
+.ops-btn-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--grid-gap);
+}
+.ops-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    cursor: pointer;
+    transition: border-color var(--ease), background var(--ease);
+    text-align: center;
+    color: var(--text-primary);
+}
+.ops-btn:hover {
+    border-color: var(--accent);
+    background: rgba(99,102,241,0.05);
+}
+.ops-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.ops-btn-icon { font-size: 1.4rem; }
+.ops-btn-label { font-weight: 600; font-size: var(--text-base); }
+.ops-btn-desc { font-size: var(--text-xs); color: var(--text-muted-fix, #94a3b8); line-height: 1.4; }
+.ops-btn-warn { border-color: rgba(245,158,11,0.3); }
+.ops-btn-warn:hover { border-color: var(--warning-yellow); background: rgba(245,158,11,0.05); }
+.ops-btn-danger { border-color: rgba(239,68,68,0.3); }
+.ops-btn-danger:hover { border-color: var(--danger-red); background: rgba(239,68,68,0.05); }
+
+/* ── M5: Scrollbar styling (dark mode) ─────────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-color, #334155); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted-fix, #94a3b8); }
+* { scrollbar-width: thin; scrollbar-color: var(--border-color, #334155) transparent; }
+
+/* ── M2+M3: Additional mobile responsiveness ──────────────── */
+@media (max-width: 600px) {
+    .connect-panels { grid-template-columns: 1fr; }
+    .component-cards { grid-template-columns: 1fr; }
+    .thermal-gauge-grid { grid-template-columns: repeat(2, 1fr); }
+    .presets-grid { grid-template-columns: 1fr; }
+    .quick-actions-bar { flex-direction: column; gap: var(--sp-2); }
+    .qa-divider { width: 100%; height: 1px; margin: var(--sp-2) 0; }
+    .monitoring-controls { flex-direction: column; gap: var(--sp-2); }
+    .log-stats-bar { gap: var(--sp-2); font-size: var(--text-xs); flex-wrap: wrap; }
+    .idrac-protocol-grid { grid-template-columns: repeat(2, 1fr); }
+    .post-code-value { font-size: 2rem; }
+    .topbar-sr-input { width: 90px; font-size: var(--text-xs); }
+    .level-pill { padding: 4px 8px; font-size: var(--text-xs); }
+}
+
+/* ── Compact bar text truncation ───────────────────────────── */
+.compact-server-id, .compact-model {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Disabled input styling ────────────────────────────────── */
+.form-input:disabled,
+.form-select:disabled,
+.form-textarea:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-card);
+}
+
+/* ── Component card + metric card hover ────────────────────── */
+.component-card:hover,
+.metric-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    transition: all var(--ease);
+}
+
+/* ── Data table responsive wrapper ─────────────────────────── */
+@media (max-width: 600px) {
+    .data-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { font-size: var(--text-xs); }
+    .data-table thead th, .data-table tbody td { padding: 6px 8px; }
+}
+
+/* ── Link focus ────────────────────────────────────────────── */
+a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}

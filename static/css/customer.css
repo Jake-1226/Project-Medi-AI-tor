@@ -1550,3 +1550,69 @@ body {
 .sidebar-heading { font-size: 0.75rem; }
 .suggest-label { font-size: 0.78rem; }
 .chat-input-hint { font-size: 0.75rem; }
+
+/* ═══════════════════════════════════════════════════════════════
+   UI/UX Audit Fixes — 2026-03-24
+   ═══════════════════════════════════════════════════════════════ */
+
+/* C1: prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* M6: Suggestion chips horizontal scroll on mobile */
+@media (max-width: 480px) {
+    .suggest-row-wrap {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 4px;
+    }
+    .suggest-row-wrap::-webkit-scrollbar { display: none; }
+    .suggest-chip { flex-shrink: 0; font-size: 0.78rem; }
+}
+
+/* M7: Textarea max-height responsive */
+@media (max-height: 600px) {
+    .chat-input { max-height: 80px !important; }
+}
+
+/* M5: Scrollbar styling for Firefox compat */
+.chat-messages, .thinking-steps, .info-card-list {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border, #334155) transparent;
+}
+
+/* Focus-visible on suggestion chips */
+.suggest-chip:focus-visible {
+    outline: 2px solid var(--primary, #6366f1);
+    outline-offset: 2px;
+}
+
+/* Sidebar toggle focus */
+.sidebar-toggle:focus-visible {
+    outline: 2px solid var(--primary, #6366f1);
+    outline-offset: 2px;
+}
+
+/* Thinking steps scrollbar */
+.thinking-steps::-webkit-scrollbar { width: 4px; }
+.thinking-steps::-webkit-scrollbar-thumb { background: var(--border, #334155); border-radius: 2px; }
+
+/* Follow-up chips mobile */
+@media (max-width: 480px) {
+    .follow-up-chip { font-size: 0.78rem; padding: 5px 12px; }
+    .msg-remed-actions { flex-direction: column; gap: 6px; }
+    .remed-approve, .remed-reject { width: 100%; }
+}
+
+/* Metrics grid mobile */
+@media (max-width: 480px) {
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .ov-health-grid { grid-template-columns: 1fr; }
+}
