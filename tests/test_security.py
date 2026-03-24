@@ -186,7 +186,7 @@ class TestAccountLockout:
         from security.auth import AuthManager
         from core.config import AgentConfig
         am = AuthManager(AgentConfig())
-        for _ in range(5):
+        for _ in range(am.max_attempts):
             am._record_failed_attempt("testuser")
         assert am._is_account_locked("testuser") is True
 

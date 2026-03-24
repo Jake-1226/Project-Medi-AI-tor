@@ -30,6 +30,7 @@ load_dotenv()
 from core.agent_core import DellAIAgent
 from core.config import AgentConfig
 from core.agent_brain import AgentBrain
+from core.session_manager import SessionConnectionManager
 from core.automation_engine import AutomationEngine
 from core.multi_server_manager import MultiServerManager
 from core.analytics_engine import AnalyticsEngine
@@ -309,8 +310,11 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(CorrelationIdMiddleware)
 
 # Initialize global components
-agent = None
-agent_brain = None
+# Per-session connection manager replaces the old global agent singleton.
+# Each authenticated user gets their own DellAIAgent + AgentBrain so that
+# connecting to Server-A on one session does NOT affect another session.
+session_mgr: Optional[SessionConnectionManager] = None
+app_config = None  # AgentConfig — shared read-only config
 automation_engine = None
 multi_server_manager = None
 analytics_engine = None
@@ -323,6 +327,22 @@ realtime_monitor = None
 health_monitor = None
 webhook_manager = None
 rbac_manager = None
+
+# ─── Per-Session Connection Helpers ──────────────────────────────
+async def _get_session_conn(request: Request):
+    """Resolve the current user's per-session agent + brain.
+    
+    For authenticated endpoints: extracts session_id from JWT → 
+    returns (or creates) a dedicated DellAIAgent + AgentBrain.
+    """
+    user = await _get_current_user(request)
+    sid = user.get("session_id", user.get("username", "anonymous"))
+    conn = await session_mgr.get_or_create(sid, user.get("username", "anonymous"))
+    return conn, user
+
+async def _get_default_conn():
+    """Get the shared default connection (for unauthenticated customer endpoints)."""
+    return await session_mgr.get_default()
 
 # Pydantic models for API
 class ServerConnection(BaseModel):
@@ -378,12 +398,13 @@ class OSConnection(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """Initialize the AI agent and all components on startup"""
-    global agent, agent_brain, automation_engine, multi_server_manager, analytics_engine
+    global session_mgr, app_config, automation_engine, multi_server_manager, analytics_engine
     global predictive_analytics, predictive_maintenance, voice_assistant, third_party_api
     global realtime_monitor, health_monitor, webhook_manager, rbac_manager
     global auth_manager
     
     config = AgentConfig.from_env()
+    app_config = config
     
     if config.demo_mode:
         logger.info("*** DEMO MODE ENABLED — using simulated server data ***")
@@ -397,17 +418,22 @@ async def startup_event():
         logger.warning("HTTPS is NOT required (REQUIRE_HTTPS=false). "
                        "Enable in production to protect credentials in transit.")
     
-    # Initialize core components
-    agent = DellAIAgent(config)
+    # Initialize per-session connection manager (replaces old global agent singleton)
+    session_mgr = SessionConnectionManager(config, max_sessions=100, idle_timeout_min=60)
+    logger.info("Per-session connection manager initialized (max 100 sessions, 60 min idle timeout)")
+    
+    # Initialize shared services
     realtime_monitor = RealtimeMonitor()
     health_monitor = HealthMonitor()
     webhook_manager = WebhookManager()
     rbac_manager = RBACManager()
-    agent_brain = AgentBrain(agent, config)
     predictive_analytics = PredictiveAnalytics(config)
     predictive_maintenance = PredictiveMaintenance(predictive_analytics)
     analytics_engine = AnalyticsEngine()
-    automation_engine = AutomationEngine(agent)
+    
+    # Create a default agent for automation engine (uses default session)
+    default_conn = await session_mgr.get_default()
+    automation_engine = AutomationEngine(default_conn.agent)
     multi_server_manager = MultiServerManager(config)
     
     # Initialize authentication (passwords loaded from env by AuthManager)
@@ -417,13 +443,13 @@ async def startup_event():
     # Optional components (may not exist)
     try:
         from integrations.voice_assistant import VoiceAssistant
-        voice_assistant = VoiceAssistant(agent)
+        voice_assistant = VoiceAssistant(default_conn.agent)
     except ImportError:
         voice_assistant = None
     
     try:
         from api.third_party_api import ThirdPartyAPI
-        third_party_api = ThirdPartyAPI(agent)
+        third_party_api = ThirdPartyAPI(default_conn.agent)
     except ImportError:
         third_party_api = None
     
@@ -455,11 +481,11 @@ async def shutdown_event():
     
     # Disconnect from iDRAC
     try:
-        if agent and agent.is_connected():
-            await agent.disconnect()
-            logger.info("Disconnected from server")
+        if session_mgr:
+            await session_mgr.shutdown()
+            logger.info("All session connections closed")
     except Exception as e:
-        logger.warning(f"Agent disconnect during shutdown: {e}")
+        logger.warning(f"Session manager shutdown: {e}")
     
     # Persist fleet data to disk
     try:
@@ -1209,8 +1235,11 @@ async def get_technician_dashboard(request: Request):
 
 @app.post("/api/connect")
 async def api_connect_to_server(connection: ServerConnection, request: Request):
-    """Connect to a Dell server using Redfish API — requires authentication"""
-    user = await _get_current_user(request)
+    """Connect to a Dell server using Redfish API — requires authentication.
+    Each authenticated session gets its own agent (per-session connection management).
+    """
+    conn, user = await _get_session_conn(request)
+    agent = conn.agent
     ip = request.client.host if request.client else "?"
     try:
         # Get actual values from UI fields
@@ -1230,7 +1259,7 @@ async def api_connect_to_server(connection: ServerConnection, request: Request):
             raise HTTPException(status_code=400, detail="Host cannot be empty")
         
         # Validate host is not localhost or invalid (skip in demo mode)
-        if not agent.config.demo_mode and host.strip().lower() in ['localhost', '127.0.0.1', '0.0.0.0']:
+        if not app_config.demo_mode and host.strip().lower() in ['localhost', '127.0.0.1', '0.0.0.0']:
             raise HTTPException(status_code=400, detail="Invalid host: Cannot connect to localhost")
         
         # Validate port
@@ -1246,7 +1275,7 @@ async def api_connect_to_server(connection: ServerConnection, request: Request):
             raise HTTPException(status_code=400, detail="Password cannot be empty")
         
         # Try to validate host connectivity first (skip in demo mode)
-        if not agent.config.demo_mode:
+        if not app_config.demo_mode:
             try:
                 import socket
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1267,6 +1296,7 @@ async def api_connect_to_server(connection: ServerConnection, request: Request):
             password=password,
             port=port
         )
+        conn.host = host
         
         # Auto-register server in fleet manager
         try:
@@ -1303,8 +1333,10 @@ async def api_connect_to_server(connection: ServerConnection, request: Request):
 
 @app.post("/connect")
 async def connect_to_server(connection: ServerConnection):
-    """Connect to a Dell server using Redfish API"""
+    """Connect to a Dell server using Redfish API (customer page — shared default connection)"""
     try:
+        conn = await _get_default_conn()
+        agent = conn.agent
         success = await agent.connect_to_server(
             host=connection.get_host(),
             username=connection.get_username(),
@@ -1343,11 +1375,11 @@ async def connect_to_server(connection: ServerConnection):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/disconnect")
-async def disconnect_from_server():
-    """Disconnect from the current server"""
+async def disconnect_from_server(request: Request):
+    """Disconnect from the current server (per-session)"""
     try:
-        if not agent:
-            raise HTTPException(status_code=500, detail="Agent not initialized")
+        conn, user = await _get_session_conn(request)
+        agent = conn.agent
         
         if not agent.is_connected():
             return {"status": "success", "message": "Already disconnected"}
@@ -1358,6 +1390,7 @@ async def disconnect_from_server():
         }
         
         await agent.disconnect()
+        conn.host = None
         
         return {
             "status": "success",
@@ -1373,7 +1406,8 @@ async def disconnect_from_server():
 @app.post("/api/execute")
 async def api_execute_action(action_req: AgentActionRequest, request: Request):
     """Execute an agent action based on the specified action level — requires authentication"""
-    user = await _get_current_user(request)
+    conn, user = await _get_session_conn(request)
+    agent = conn.agent
     # Check permission against action level
     al = action_req.action_level.value if hasattr(action_req.action_level, 'value') else str(action_req.action_level)
     if al not in user.get("permissions", []):
@@ -1397,8 +1431,10 @@ async def api_execute_action(action_req: AgentActionRequest, request: Request):
 
 @app.post("/execute")
 async def execute_action(request: AgentActionRequest):
-    """Execute an agent action based on the specified action level"""
+    """Execute an agent action based on the specified action level (customer — shared connection)"""
     try:
+        conn = await _get_default_conn()
+        agent = conn.agent
         result = await agent.execute_action(request.action_level, request.action, request.parameters)
         return {"status": "success", "data": result}
         
@@ -1410,6 +1446,8 @@ async def execute_action(request: AgentActionRequest):
 async def api_troubleshoot_server(request: TroubleshootingTask):
     """Start AI-powered troubleshooting via API"""
     try:
+        conn = await _get_default_conn()
+        agent = conn.agent
         result = await agent.troubleshoot_issue(
             issue_description=request.issue_description,
             action_level=request.action_level
@@ -1424,8 +1462,10 @@ async def api_troubleshoot_server(request: TroubleshootingTask):
 
 @app.post("/troubleshoot")
 async def troubleshoot_server(request: TroubleshootingTask):
-    """Start AI-powered troubleshooting for a server issue"""
+    """Start AI-powered troubleshooting for a server issue (customer — shared connection)"""
     try:
+        conn = await _get_default_conn()
+        agent = conn.agent
         # Only reconnect if not already connected to this host
         if not agent.is_connected() or (
             agent.current_session and
@@ -1458,9 +1498,12 @@ async def troubleshoot_server(request: TroubleshootingTask):
 
 # ─── Agentic Investigation Endpoint ──────────────────────────────
 @app.post("/api/investigate")
-async def api_investigate_server(request: TroubleshootingTask):
-    """Start an agentic AI investigation via API"""
+async def api_investigate_server(request: TroubleshootingTask, req: Request):
+    """Start an agentic AI investigation via API (per-session)"""
     try:
+        conn, user = await _get_session_conn(req)
+        agent = conn.agent
+        agent_brain = conn.brain
         if not agent.is_connected():
             raise HTTPException(status_code=400, detail="Not connected to server")
         
@@ -1487,8 +1530,11 @@ async def api_investigate_server(request: TroubleshootingTask):
 
 @app.post("/investigate")
 async def investigate_server(request: TroubleshootingTask):
-    """Start an agentic AI investigation — hypothesis-driven, streaming reasoning chain."""
+    """Start an agentic AI investigation — hypothesis-driven, streaming reasoning chain (customer — shared connection)."""
     try:
+        conn = await _get_default_conn()
+        agent = conn.agent
+        agent_brain = conn.brain
         # Only reconnect if not already connected to this host
         if not agent.is_connected() or (
             agent.current_session and
@@ -1532,9 +1578,12 @@ async def investigate_server(request: TroubleshootingTask):
 
 # ─── Chat Endpoint ─────────────────────────────────────────────
 @app.post("/api/chat")
-async def api_chat_with_agent(msg: ChatMessage):
-    """Multi-turn conversational interface with the AI agent via API"""
+async def api_chat_with_agent(msg: ChatMessage, request: Request):
+    """Multi-turn conversational interface with the AI agent via API (per-session)"""
     try:
+        conn, user = await _get_session_conn(request)
+        agent = conn.agent
+        agent_brain = conn.brain
         if not agent.is_connected():
             return {
                 "status": "error",
@@ -1554,8 +1603,11 @@ async def api_chat_with_agent(msg: ChatMessage):
 
 @app.post("/chat")
 async def chat_with_agent(msg: ChatMessage):
-    """Multi-turn conversational interface with the AI agent."""
+    """Multi-turn conversational interface with the AI agent (customer — shared connection)."""
     try:
+        conn = await _get_default_conn()
+        agent = conn.agent
+        agent_brain = conn.brain
         if not msg.message or not msg.message.strip():
             return {
                 "type": "error",
@@ -1584,9 +1636,13 @@ async def chat_with_agent(msg: ChatMessage):
 
 # ─── Streaming Chat Endpoint (SSE) ─────────────────────────────
 @app.post("/api/chat/stream")
-async def api_chat_stream(msg: ChatMessage):
-    """SSE streaming chat via API"""
+async def api_chat_stream(msg: ChatMessage, request: Request):
+    """SSE streaming chat via API (per-session)"""
     import asyncio
+    
+    conn, user = await _get_session_conn(request)
+    agent = conn.agent
+    agent_brain = conn.brain
     
     async def event_generator():
         try:
@@ -1640,8 +1696,12 @@ async def api_chat_stream(msg: ChatMessage):
 
 @app.post("/chat/stream")
 async def chat_stream(msg: ChatMessage):
-    """SSE streaming chat — sends live thinking steps as they happen."""
+    """SSE streaming chat — sends live thinking steps as they happen (customer — shared connection)."""
     import asyncio
+
+    conn = await _get_default_conn()
+    agent = conn.agent
+    agent_brain = conn.brain
 
     event_queue: asyncio.Queue = asyncio.Queue()
 
@@ -1839,9 +1899,11 @@ async def execute_os_command(body: dict, request: Request):
 
 # ─── Connection Status API ───────────────────────────────────────
 @app.get("/api/connection/status")
-async def get_connection_status():
-    """Get comprehensive connection status for both iDRAC and OS"""
+async def get_connection_status(request: Request):
+    """Get comprehensive connection status for both iDRAC and OS (per-session)"""
     try:
+        conn, user = await _get_session_conn(request)
+        agent = conn.agent
         idrac_connected = agent.is_connected() if agent else False
         os_connected = ssh_client.is_connected() if ssh_client else False
         
@@ -1923,22 +1985,32 @@ def _get_available_features(idrac: bool, os: bool) -> Dict[str, Any]:
 
 @app.get("/api/health")
 async def api_health_check():
-    """API health check — validates agent and dependencies."""
+    """API health check — validates session manager and dependencies."""
     checks = {}
     overall = "healthy"
     
-    # Core agent
-    checks["agent"] = "ok" if agent else "not_initialized"
-    if not agent:
+    # Core session manager
+    checks["session_manager"] = "ok" if session_mgr else "not_initialized"
+    if not session_mgr:
         overall = "degraded"
     
-    # iDRAC connection
-    checks["idrac_connected"] = agent.is_connected() if agent else False
+    # Default connection status
+    if session_mgr:
+        default_conn = await _get_default_conn()
+        checks["default_idrac_connected"] = default_conn.agent.is_connected() if default_conn.agent else False
+    else:
+        checks["default_idrac_connected"] = False
+    
+    # Active sessions
+    if session_mgr:
+        checks["active_sessions"] = session_mgr.get_status()["total_sessions"]
+    else:
+        checks["active_sessions"] = 0
     
     # Auth manager
     checks["auth"] = "ok" if auth_manager else "not_initialized"
-    active_sessions = len(auth_manager.sessions) if auth_manager else 0
-    checks["active_sessions"] = active_sessions
+    active_auth_sessions = len(auth_manager.sessions) if auth_manager else 0
+    checks["active_auth_sessions"] = active_auth_sessions
     
     # Fleet manager
     checks["fleet_servers"] = len(fleet_manager.servers) if fleet_manager else 0
@@ -1947,23 +2019,47 @@ async def api_health_check():
     checks["monitoring_active"] = realtime_monitor.monitoring_active if realtime_monitor else False
     
     # Demo mode
-    checks["demo_mode"] = agent.config.demo_mode if agent else False
+    checks["demo_mode"] = app_config.demo_mode if app_config else False
     
-    if checks.get("agent") != "ok" or checks.get("auth") != "ok":
+    if checks.get("session_manager") != "ok" or checks.get("auth") != "ok":
         overall = "unhealthy"
     
     return {
         "status": overall,
-        "agent": "Medi-AI-tor v2.0",
+        "agent": "Medi-AI-tor v2.0 (per-session)",
         "checks": checks,
     }
 
 @app.get("/health")
 async def health_check():
     """Lightweight health check for load balancers."""
-    if not agent or not auth_manager:
+    if not session_mgr or not auth_manager:
         return JSONResponse(status_code=503, content={"status": "unhealthy"})
     return {"status": "healthy"}
+
+# ─── Per-Session Connection Management Admin Endpoints ────────────
+@app.get("/api/sessions")
+async def list_agent_sessions(request: Request):
+    """List all active agent sessions — admin only."""
+    user = await _require_role(request, "admin")
+    return {"status": "success", "data": session_mgr.get_status()}
+
+@app.delete("/api/sessions/{session_id}")
+async def remove_agent_session(session_id: str, request: Request):
+    """Force-remove a specific agent session — admin only."""
+    user = await _require_role(request, "admin")
+    if session_id == "__default__":
+        raise HTTPException(status_code=400, detail="Cannot remove the default customer session")
+    # Find full session_id by prefix match
+    full_sid = None
+    for sid in session_mgr.connections:
+        if sid.startswith(session_id.rstrip(".")):
+            full_sid = sid
+            break
+    if not full_sid:
+        raise HTTPException(status_code=404, detail="Session not found")
+    await session_mgr.remove(full_sid)
+    return {"status": "success", "message": f"Session {session_id} removed"}
 
 # ─── Prometheus-Compatible Metrics ───────────────────────────
 _request_count = defaultdict(int)
@@ -1995,11 +2091,13 @@ async def prometheus_metrics():
         lines.append(f'http_request_duration_seconds_sum{{method="{method}",path="{path}",status="{status}"}} {total:.4f}')
     # Application-level metrics
     lines += ["# HELP medi_ai_tor_info Application info", "# TYPE medi_ai_tor_info gauge"]
-    lines.append(f'medi_ai_tor_info{{version="2.0",demo_mode="{agent.config.demo_mode if agent else "unknown"}"}} 1')
+    lines.append(f'medi_ai_tor_info{{version="2.0",demo_mode="{app_config.demo_mode if app_config else "unknown"}"}} 1')
     lines += ["# HELP medi_ai_tor_fleet_servers Total fleet servers", "# TYPE medi_ai_tor_fleet_servers gauge"]
     lines.append(f"medi_ai_tor_fleet_servers {len(fleet_manager.servers) if fleet_manager else 0}")
     lines += ["# HELP medi_ai_tor_active_sessions Active auth sessions", "# TYPE medi_ai_tor_active_sessions gauge"]
     lines.append(f"medi_ai_tor_active_sessions {len(auth_manager.sessions) if auth_manager else 0}")
+    lines += ["# HELP medi_ai_tor_agent_sessions Active agent sessions", "# TYPE medi_ai_tor_agent_sessions gauge"]
+    lines.append(f"medi_ai_tor_agent_sessions {session_mgr.get_status()['total_sessions'] if session_mgr else 0}")
     lines += ["# HELP medi_ai_tor_audit_events Total audit events", "# TYPE medi_ai_tor_audit_events counter"]
     lines.append(f"medi_ai_tor_audit_events {len(_audit_log)}")
     from starlette.responses import PlainTextResponse
@@ -2021,6 +2119,12 @@ async def websocket_endpoint(websocket: WebSocket):
     
     await websocket.accept()
     _audit("WS_CONNECT", user=ws_user.get("username", "?"))
+    
+    # Resolve per-session agent
+    sid = ws_user.get("session_id", ws_user.get("username", "anonymous"))
+    ws_conn = await session_mgr.get_or_create(sid, ws_user.get("username", "anonymous"))
+    ws_agent = ws_conn.agent
+    
     try:
         while True:
             data = await websocket.receive_text()
@@ -2034,7 +2138,7 @@ async def websocket_endpoint(websocket: WebSocket):
             
             # Process different message types
             if msg_type == "command":
-                result = await agent.execute_action(
+                result = await ws_agent.execute_action(
                     action_level=message["action_level"],
                     command=message["command"],
                     parameters=message.get("parameters", {})
@@ -2044,7 +2148,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "data": result
                 }, ensure_ascii=False))
             elif msg_type == "troubleshoot":
-                recommendations = await agent.troubleshoot_issue(
+                recommendations = await ws_agent.troubleshoot_issue(
                     issue_description=message["issue_description"],
                     action_level=message["action_level"]
                 )
@@ -2065,8 +2169,10 @@ async def websocket_endpoint(websocket: WebSocket):
 # ─── Health Scoring Endpoint ───────────────────────────────────────
 @app.post("/health-score")
 async def calculate_health_score(request: dict):
-    """Calculate comprehensive health score for server"""
+    """Calculate comprehensive health score for server (customer — shared connection)"""
     try:
+        conn = await _get_default_conn()
+        agent = conn.agent
         if not agent.is_connected():
             raise HTTPException(status_code=400, detail="Not connected to server")
         
@@ -2181,7 +2287,8 @@ async def run_predictive_analysis(request: dict):
 @app.post("/monitoring/start")
 async def start_health_monitoring(request: Request):
     """Start automated health monitoring + real-time metrics collection"""
-    user = await _get_current_user(request)
+    conn, user = await _get_session_conn(request)
+    agent = conn.agent
     _audit("MONITORING_START", user=user.get("username", "?"))
     try:
         from core.health_monitor import health_monitor
@@ -2487,7 +2594,8 @@ async def delete_fleet_server(server_id: str, request: Request):
 @app.post("/api/fleet/servers/{server_id}/diagnostics")
 async def run_server_diagnostics(server_id: str, request: Request):
     """Run diagnostics on a specific server"""
-    user = await _get_current_user(request)
+    conn, user = await _get_session_conn(request)
+    agent = conn.agent
     try:
         server = fleet_manager.get_server(server_id)
         if not server:
@@ -2610,19 +2718,24 @@ async def websocket_monitoring(websocket: WebSocket):
         await websocket.close(code=4001, reason="Authentication required")
         return
     try:
-        await auth_manager.validate_token(token)
+        ws_user = await auth_manager.validate_token(token)
     except Exception:
         await websocket.close(code=4001, reason="Invalid token")
         return
     await websocket.accept()
+    
+    # Resolve per-session agent
+    sid = ws_user.get("session_id", ws_user.get("username", "anonymous"))
+    ws_conn = await session_mgr.get_or_create(sid, ws_user.get("username", "anonymous"))
+    ws_agent = ws_conn.agent
     
     # Add connection to monitor
     realtime_monitor.add_websocket_connection(websocket)
     
     try:
         # Start monitoring if not already running
-        if not realtime_monitor.monitoring_active and agent.is_connected():
-            await realtime_monitor.start_monitoring(agent.redfish_client)
+        if not realtime_monitor.monitoring_active and ws_agent.is_connected():
+            await realtime_monitor.start_monitoring(ws_agent.redfish_client)
         
         # Send initial metrics as metrics_update so frontend handles it uniformly
         current_metrics = realtime_monitor.get_current_metrics()
@@ -2645,8 +2758,8 @@ async def websocket_monitoring(websocket: WebSocket):
                 
                 # Handle client messages
                 if data.get("action") == "start_monitoring":
-                    if agent.is_connected():
-                        await realtime_monitor.start_monitoring(agent.redfish_client)
+                    if ws_agent.is_connected():
+                        await realtime_monitor.start_monitoring(ws_agent.redfish_client)
                         await websocket.send_text(json.dumps({
                             "type": "monitoring_started",
                             "data": {"status": "success"}
@@ -2998,9 +3111,11 @@ async def export_fleet_alerts(format: str = "json", hours: int = Query(default=2
 _health_snapshots = []
 
 @app.get("/api/server/snapshot")
-async def get_server_snapshot():
+async def get_server_snapshot(request: Request):
     """Get a comprehensive snapshot of current server status - used for timeline/history"""
     try:
+        conn, user = await _get_session_conn(request)
+        agent = conn.agent
         if not agent.is_connected():
             raise HTTPException(status_code=400, detail="Not connected to server")
         
@@ -3062,10 +3177,12 @@ async def get_server_timeline(limit: int = Query(default=50, ge=1, le=200)):
 
 # ─── Quick Server Status (lightweight) ─────────────────────────
 @app.get("/api/server/quick-status")
-async def get_quick_status():
+async def get_quick_status(request: Request):
     """Lightweight server status — just the essentials for dashboard header.
     Uses cached data when available, only fetches system info if needed."""
     try:
+        conn, user = await _get_session_conn(request)
+        agent = conn.agent
         if not agent.is_connected():
             return {"status": "disconnected", "connected": False}
         
@@ -3107,13 +3224,14 @@ async def get_quick_status():
         return {"status": "success", "data": result}
     except Exception as e:
         logger.error(f"Quick status error: {e}")
-        return {"status": "error", "error": _sanitize_error(e), "connected": agent.is_connected()}
+        return {"status": "error", "error": _sanitize_error(e), "connected": False}
 
 # ─── Batch Execute (multiple commands in one request) ──────────
 @app.post("/api/execute/batch")
 async def batch_execute(body: dict, request: Request):
     """Execute multiple commands in a single request — requires authentication"""
-    user = await _get_current_user(request)
+    conn, user = await _get_session_conn(request)
+    agent = conn.agent
     ip = request.client.host if request.client else "?"
     _audit("BATCH_EXECUTE", ip=ip, user=user.get("username", "?"), detail=f"{len(body.get('commands', []))} cmds")
     try:
@@ -3145,9 +3263,11 @@ async def batch_execute(body: dict, request: Request):
 
 # ─── Quick Diagnostics Summary ─────────────────────────────────
 @app.get("/api/server/diagnostics-summary")
-async def get_diagnostics_summary():
+async def get_diagnostics_summary(request: Request):
     """Get a quick one-shot diagnostics summary of the connected server"""
     try:
+        conn, user = await _get_session_conn(request)
+        agent = conn.agent
         if not agent.is_connected():
             raise HTTPException(status_code=400, detail="Not connected to server")
         
