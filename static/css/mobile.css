@@ -1100,9 +1100,8 @@
 /* prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
+        animation: none !important;
+        transition: none !important;
     }
 }
 
@@ -1117,8 +1116,8 @@
 
 /* Quick stats grid for very small screens */
 @media (max-width: 360px) {
-    .quick-stats-grid { grid-template-columns: 1fr; }
-    .action-buttons-grid { grid-template-columns: 1fr; }
+    .quick-stats { grid-template-columns: 1fr; }
+    .action-buttons { grid-template-columns: 1fr; }
     .analytics-summary { grid-template-columns: 1fr 1fr; }
 }
 

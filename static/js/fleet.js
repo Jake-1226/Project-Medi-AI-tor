@@ -54,7 +54,7 @@ class FleetManager {
         // Close modals on Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                document.querySelectorAll('.modal.active').forEach(m => { m.classList.remove('active'); m.remove(); });
+                document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
             }
         });
     }

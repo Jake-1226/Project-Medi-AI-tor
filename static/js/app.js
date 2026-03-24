@@ -4023,38 +4023,57 @@ class DellAIAgent {
         const themeStyles = document.getElementById('theme-styles');
         
         if (theme === 'light') {
+            // Override CSS variables to match the names used in style.css
             themeStyles.innerHTML = `
                 :root {
-                    --bg-primary: #ffffff;
-                    --bg-secondary: #f8f9fa;
-                    --bg-tertiary: #e9ecef;
-                    --text-primary: #212529;
-                    --text-secondary: #6c757d;
-                    --border-color: #dee2e6;
-                    --sidebar-bg: #343a40;
-                    --sidebar-text: #ffffff;
-                    --card-bg: #ffffff;
-                    --card-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    --bg-body: #f1f5f9;
+                    --bg-sidebar: #1e293b;
+                    --bg-card: #ffffff;
+                    --bg-card-hover: #f8fafc;
+                    --bg-input: #ffffff;
+                    --border-color: #cbd5e1;
+                    --text-primary: #0f172a;
+                    --text-secondary: #475569;
+                    --text-muted: #64748b;
+                    --text-secondary-fix: #475569;
+                    --text-muted-fix: #64748b;
+                    --accent: #4f46e5;
+                    --accent-hover: #4338ca;
                 }
-                .tech-body { background: var(--bg-secondary); }
-                .sidebar { background: var(--sidebar-bg); }
-                .card { background: var(--card-bg); box-shadow: var(--card-shadow); }
+                .tech-body { background: var(--bg-body); color: var(--text-primary); }
+                .sidebar { background: var(--bg-sidebar); }
+                .sidebar-link { color: #cbd5e1; }
+                .sidebar-link:hover { color: #f1f5f9; }
+                .sidebar-link.active { color: #f1f5f9; }
+                .sidebar-section-label { color: #94a3b8; }
+                .sidebar-version { color: #94a3b8; }
+                .topbar { background: #ffffff; border-bottom-color: var(--border-color); }
+                .topbar-toggle { color: var(--text-primary); }
+                .connect-banner { background: var(--bg-card); border-color: var(--border-color); }
+                .connect-panel { background: var(--bg-card); border-color: var(--border-color); }
+                .form-input { background: var(--bg-input); border-color: var(--border-color); color: var(--text-primary); }
+                .form-input::placeholder { color: var(--text-muted); }
+                .card, .section-card, .component-card, .metric-card { 
+                    background: var(--bg-card); border-color: var(--border-color); color: var(--text-primary); 
+                }
+                .sub-tab { color: var(--text-secondary); }
+                .sub-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+                .data-table thead th { background: #f8fafc; color: var(--text-secondary); border-color: var(--border-color); }
+                .data-table tbody td { border-color: var(--border-color); color: var(--text-primary); }
+                .log-container { background: var(--bg-card); border-color: var(--border-color); }
+                .chip { background: #eef2ff; border-color: #c7d2fe; color: #4338ca; }
+                .recommendation-card { background: linear-gradient(135deg, #f8fafc, #ffffff); border-color: var(--border-color); }
+                .badge-ok { background: #dcfce7; color: #166534; }
+                .badge-warn { background: #fef9c3; color: #854d0e; }
+                .badge-crit { background: #fee2e2; color: #991b1b; }
+                .badge-info { background: #dbeafe; color: #1e40af; }
+                .alert { border-color: var(--border-color); }
+                .section-block { background: #f8fafc; }
+                .section-block h4 { color: var(--accent); }
             `;
         } else {
-            themeStyles.innerHTML = `
-                :root {
-                    --bg-primary: #1a1a1a;
-                    --bg-secondary: #2d2d2d;
-                    --bg-tertiary: #404040;
-                    --text-primary: #e0e0e0;
-                    --text-secondary: #a0a0a0;
-                    --border-color: #404040;
-                    --sidebar-bg: #1e1e1e;
-                    --sidebar-text: #ffffff;
-                    --card-bg: #2d2d2d;
-                    --card-shadow: 0 4px 6px rgba(0,0,0,0.3);
-                }
-            `;
+            // Dark mode — restore defaults (style.css :root is already dark)
+            themeStyles.innerHTML = '';
         }
     }
 

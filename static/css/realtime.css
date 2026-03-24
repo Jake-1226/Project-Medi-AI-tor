@@ -436,8 +436,15 @@
     .metrics-grid { grid-template-columns: 1fr; }
     .chart-canvas { height: 150px; }
     .alerts-list { max-height: 150px; }
-    .connection-form { flex-direction: column; }
-    .connection-form input, .connection-form button { width: 100%; }
+    .connection-form-inline { flex-direction: column; }
+    .connection-form-inline input, .connection-form-inline button { width: 100%; }
+    .input-sm { min-width: 100%; }
+}
+
+/* #19: Ultra-small screens — shorter charts */
+@media (max-width: 360px) {
+    .chart-canvas { height: 100px; }
+    .metrics-grid { gap: 6px; }
 }
 
 /* Chart button focus visible */

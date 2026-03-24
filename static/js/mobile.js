@@ -28,6 +28,7 @@ class MobileApp {
         // Navigation
         document.getElementById('menuBtn')?.addEventListener('click', () => this.toggleNav());
         document.getElementById('closeNavBtn')?.addEventListener('click', () => this.closeNav());
+        this._setupNavClickOutside();
         
         // Page navigation
         document.querySelectorAll('.nav-item, .footer-nav-item').forEach(item => {
@@ -213,6 +214,18 @@ class MobileApp {
     closeNav() {
         const nav = document.getElementById('mobileNav');
         nav.classList.remove('active');
+    }
+
+    // #18: Close nav when tapping outside
+    _setupNavClickOutside() {
+        document.addEventListener('click', (e) => {
+            const nav = document.getElementById('mobileNav');
+            const menuBtn = document.getElementById('menuBtn');
+            if (nav && nav.classList.contains('active') &&
+                !nav.contains(e.target) && menuBtn && !menuBtn.contains(e.target)) {
+                this.closeNav();
+            }
+        });
     }
     
     navigateToPage(page) {

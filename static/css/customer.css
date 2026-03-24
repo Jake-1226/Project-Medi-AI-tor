@@ -1615,4 +1615,21 @@ body {
 @media (max-width: 480px) {
     .metrics-grid { grid-template-columns: repeat(2, 1fr); }
     .ov-health-grid { grid-template-columns: 1fr; }
+
+    /* #5: Toast overflow on mobile */
+    .toast { min-width: auto; max-width: calc(100vw - 32px); }
+    .toast-container { right: 8px; left: 8px; }
+
+    /* #6: Char count / hint text overlap */
+    .chat-input-hint {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        text-align: left;
+    }
+
+    /* #15: Overview card badges overflow */
+    .ov-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .ov-badges { flex-wrap: wrap; }
 }

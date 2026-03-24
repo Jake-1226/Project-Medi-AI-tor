@@ -1837,3 +1837,23 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* #7: Fleet table responsive — horizontal scroll on tablets */
+@media (max-width: 1024px) {
+    .servers-table th, .servers-table td { padding: 0.6rem 0.4rem; font-size: 0.78rem; }
+}
+@media (max-width: 768px) {
+    .servers-table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .servers-table { min-width: 800px; }
+    .overview-grid { grid-template-columns: 1fr; }
+    .modal-content { max-width: 95%; width: 95%; }
+    .modal-content.modal-lg { max-width: 95%; }
+}
+@media (max-width: 1024px) {
+    .overview-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* #20: Dark mode zebra striping more visible */
+[data-theme="dark"] .servers-table tbody tr:nth-child(even) {
+    background: rgba(255,255,255,0.04);
+}
