@@ -234,14 +234,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Reject requests that exceed per-IP rate limits."""
     # Tighter limits for sensitive paths
-    SENSITIVE = {'/api/connect': 10, '/api/os/connect': 10, '/api/os/execute': 20,
-                 '/api/auth/login': 10, '/api/execute': 60, '/api/chat': 60,
-                 '/api/chat/stream': 30}
+    SENSITIVE = {'/api/connect': 120, '/api/os/connect': 120, '/api/os/execute': 300,
+                 '/api/auth/login': 120, '/api/execute': 600, '/api/chat': 300,
+                 '/api/chat/stream': 300}
     
     async def dispatch(self, request: Request, call_next):
         ip = request.client.host if request.client else "unknown"
         path = request.url.path
-        limit = self.SENSITIVE.get(path, 120)  # default 120 req/min
+        limit = self.SENSITIVE.get(path, 1000)  # 1000 req/min default
         if not _rate_check(ip, limit=limit, window=60):
             _audit("RATE_LIMIT", ip=ip, detail=path)
             return JSONResponse(status_code=429, content={"detail": "Too many requests. Please slow down."})

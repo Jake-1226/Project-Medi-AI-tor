@@ -44,8 +44,8 @@ class AuthManager:
         self.token_expiry = timedelta(hours=1)         # Short-lived access token
         self.refresh_expiry = timedelta(hours=24)       # Longer-lived refresh token
         self.failed_attempts = {}  # Track failed login attempts
-        self.max_attempts = 5
-        self.lockout_duration = timedelta(minutes=15)
+        self.max_attempts = 20
+        self.lockout_duration = timedelta(minutes=5)
         
         # User store — passwords loaded from environment variables, never hardcoded
         self.users = {}
