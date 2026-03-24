@@ -45,8 +45,8 @@ class RealtimeMonitor {
             const raw = sessionStorage.getItem('activeServerConnection');
             if (!raw) return;
             const conn = JSON.parse(raw);
-            const hostEl = document.getElementById('monitor-host');
-            const userEl = document.getElementById('monitor-user');
+            const hostEl = document.getElementById('monitorHost');
+            const userEl = document.getElementById('monitorUser');
             if (hostEl && !hostEl.value && conn.host) hostEl.value = conn.host;
             if (userEl && !userEl.value && conn.username) userEl.value = conn.username;
         } catch (_) { /* ignore */ }

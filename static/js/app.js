@@ -2020,6 +2020,12 @@ class DellAIAgent {
                         { action: 'get_idrac_info', parameters: {} },
                         { action: 'get_lifecycle_logs', parameters: {} },
                         { action: 'performance_analysis', parameters: {} },
+                        { action: 'get_firmware_inventory', parameters: {} },
+                        { action: 'get_post_codes', parameters: {} },
+                        { action: 'get_jobs', parameters: {} },
+                        { action: 'get_boot_order', parameters: {} },
+                        { action: 'get_idrac_network_config', parameters: {} },
+                        { action: 'get_lifecycle_status', parameters: {} },
                     ]
                 })
             });
@@ -2126,8 +2132,14 @@ class DellAIAgent {
         if (data.jobs) this.displayJobs(data.jobs);
         if (data.tsr_result) this.displayTsrResult(data.tsr_result);
         if (data.logs) { this.rawLogs = data.logs; this.renderFilteredLogs(); }
-        if (data.bios) this.displayBiosAttributes(data.bios);
+        if (data.bios) this.displayBios(data.bios);
+        if (data.firmware_inventory) this.displayFirmware(data.firmware_inventory);
         if (data.performance_metrics) this.displayPerformanceMetrics(data.performance_metrics);
+        if (data.boot_order) this.displayBootOrder?.(data.boot_order);
+        if (data.idrac_network) this.displayIdracNetwork?.(data.idrac_network);
+        if (data.idrac_users) this.displayIdracUsers?.(data.idrac_users);
+        if (data.ssl_certificates) this.displaySslCerts?.(data.ssl_certificates);
+        if (data.lifecycle_status) this.displayLifecycleStatus?.(data.lifecycle_status);
         // Build overview metrics from whatever we have
         this.buildOverviewMetrics(data);
     }

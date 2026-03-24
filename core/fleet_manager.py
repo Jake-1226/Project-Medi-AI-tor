@@ -314,11 +314,11 @@ class FleetManager:
             # Import here to avoid circular imports
             from integrations.redfish_client import RedfishClient
             
-            # Create connection
+            # Create connection (decrypt stored password)
             client = RedfishClient(
                 host=server.host,
                 username=server.username,
-                password=server.password,
+                password=self._decrypt_password(server.password),
                 port=server.port
             )
             
