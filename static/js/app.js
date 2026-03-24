@@ -641,7 +641,7 @@ class DellAIAgent {
     
     async updateConnectionMode() {
         try {
-            const response = await fetch('/api/connection/status');
+            const response = await fetch('/api/connection/status', { headers: this._getAuthHeaders() });
             const data = await response.json();
             if (data.status !== 'success') return;
             
