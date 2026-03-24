@@ -433,7 +433,8 @@ class CustomerChat {
         if (this.serverInfo) {
             localStorage.setItem('mediAItor_conn', JSON.stringify({
                 host: this.serverInfo.host,
-                port: this.serverInfo.port
+                port: this.serverInfo.port,
+                username: this.serverInfo.username
             }));
         }
     }
@@ -444,7 +445,7 @@ class CustomerChat {
             if (saved?.host) {
                 document.getElementById('cHost').value = saved.host;
                 if (saved.port) document.getElementById('cPort').value = saved.port;
-                // username and password intentionally NOT restored from localStorage
+                if (saved.username) document.getElementById('cUser').value = saved.username;
             }
         } catch (e) {}
     }

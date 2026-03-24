@@ -249,3 +249,26 @@ See `ARCHITECTURE.md` for the full design document including:
 - Agent tools reference (15+ tools with Redfish endpoint mappings)
 - Remediation safety model (action levels, approval gates)
 - Business value metrics
+
+---
+
+## Design System
+
+### Layout Tokens (`:root` in style.css)
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--sp-1` to `--sp-6`, `--sp-8` | 4-32px | All padding/margin/gap |
+| `--radius-sm/md/lg/xl` | 6-12px | Border radius scale |
+| `--grid-gap` | 10px | Grid gaps |
+| `--content-padding` | 20px (12px mobile) | Tab content gutter |
+| `--text-xs/sm/base/md/lg` | 0.72-1.05rem | Type scale |
+| `--ease` | 0.15s ease | All transitions |
+
+### Interaction States
+All interactive elements must have: `:hover`, `:focus-visible`, `:active`, `:disabled` (buttons).
+See "INTERACTION STATES" section in style.css (line ~3947).
+
+### Error Handling
+- User-facing errors: `showAlert(msg, type, {title, retry})`
+- Catch blocks: `this._friendlyError(error)` for sanitization
+- Preconditions: `this._requireConnection(action)` for unified messaging

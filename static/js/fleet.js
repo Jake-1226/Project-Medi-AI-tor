@@ -35,6 +35,8 @@ class FleetManager {
     }
     
     init() {
+        this._sortField = null;
+        this._sortAsc = true;
         this.setupEventListeners();
         this.loadFleetData();
         this.startAutoRefresh();
@@ -56,6 +58,16 @@ class FleetManager {
     }
     
     setupEventListeners() {
+        // Column sort
+        document.querySelectorAll('.sortable').forEach(th => {
+            th.style.cursor = 'pointer';
+            th.addEventListener('click', () => {
+                const field = th.dataset.sort;
+                if (this._sortField === field) this._sortAsc = !this._sortAsc;
+                else { this._sortField = field; this._sortAsc = true; }
+                this.updateServersTable();
+            });
+        });
         // Tab navigation
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -443,7 +455,17 @@ class FleetManager {
         const tbody = document.getElementById('serversTableBody');
         if (!tbody) return;
         
-        tbody.innerHTML = Array.from(this.servers.values()).map(server => `
+        let servers = Array.from(this.servers.values());
+        // P1: Apply sort if active
+        if (this._sortField) {
+            servers.sort((a, b) => {
+                let va = a[this._sortField] ?? '', vb = b[this._sortField] ?? '';
+                if (typeof va === 'number') return this._sortAsc ? va - vb : vb - va;
+                return this._sortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+            });
+        }
+        
+        tbody.innerHTML = servers.map(server => `
             <tr>
                 <td><input type="checkbox" class="server-row-check" value="${server.id}" data-server-id="${server.id}"></td>
                 <td>

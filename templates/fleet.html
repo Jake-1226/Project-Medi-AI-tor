@@ -7,7 +7,7 @@
     <title>Fleet Management — Medi-AI-tor</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/fleet.css">
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🩺</text></svg>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -168,12 +168,12 @@
                         <thead>
                             <tr>
                                 <th><input type="checkbox" id="selectAllServers"></th>
-                                <th>Name</th>
+                                <th class="sortable" data-sort="name">Name ↕</th>
                                 <th>Host</th>
                                 <th>Environment</th>
-                                <th>Status</th>
-                                <th>Health</th>
-                                <th>Alerts</th>
+                                <th class="sortable" data-sort="status">Status ↕</th>
+                                <th class="sortable" data-sort="health_score">Health ↕</th>
+                                <th class="sortable" data-sort="alert_count">Alerts ↕</th>
                                 <th>Last Seen</th>
                                 <th>Actions</th>
                             </tr>

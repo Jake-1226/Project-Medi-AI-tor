@@ -44,6 +44,10 @@ class DellAIAgent {
         this._setQuickActionsEnabled(false);
         // P10: Show API status in sidebar
         this._checkApiHealth();
+        // P6: Warn before navigating away while connected
+        window.addEventListener('beforeunload', (e) => {
+            if (this.currentServer) { e.preventDefault(); e.returnValue = ''; }
+        });
     }
 
     async _checkApiHealth() {
@@ -1978,7 +1982,6 @@ class DellAIAgent {
                     this.showAlert(`Partial data: ${failedCmds.length} source(s) failed`, 'warning');
                 } else {
                     this.log('Dashboard data loaded', 'success');
-                    this.showAlert('Data loaded successfully', 'success');
                 }
             }
         } catch (err) {
