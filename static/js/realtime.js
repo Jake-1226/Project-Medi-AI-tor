@@ -308,15 +308,15 @@ class RealtimeMonitor {
         };
 
         pushTo(this.chartInstances.temperature, [
-            this.metrics.inlet_temp?.current_value || 0,
-            this.metrics.cpu_temp?.current_value || 0
+            this.metrics.inlet_temp?.current_value ?? null,
+            this.metrics.cpu_temp?.current_value ?? null
         ]);
         pushTo(this.chartInstances.power, [
-            this.metrics.power_consumption?.current_value || 0,
-            this.metrics.power_efficiency?.current_value || 0
+            this.metrics.power_consumption?.current_value ?? null,
+            this.metrics.power_efficiency?.current_value ?? null
         ]);
         pushTo(this.chartInstances.health, [
-            this.metrics.overall_health?.current_value || 0
+            this.metrics.overall_health?.current_value ?? null
         ]);
     }
 

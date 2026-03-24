@@ -289,6 +289,10 @@ class DellAIAgent {
                 this.showAlert('Connected to server successfully!', 'success');
                 this.log(`Connected to server: ${host}`, 'success');
                 
+                // Clear password field from DOM for security
+                const pwField = document.getElementById('password');
+                if (pwField) pwField.value = '';
+                
                 // P7: Update chat panel subtitle with connected server
                 const chatSub = document.getElementById('agentChatSubtitle');
                 if (chatSub) chatSub.textContent = `Connected to ${host}`;

@@ -41,6 +41,8 @@ class FleetManager {
         this.loadFleetData();
         this.startAutoRefresh();
         this.updateUI();
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => this.stopAutoRefresh());
         // Keyboard shortcut: Ctrl+K focuses server search
         document.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -256,6 +258,8 @@ class FleetManager {
         if (!silent) this.showLoading(true);
         try {
             const response = await fetch('/api/fleet/overview', { headers: this._headers(false) });
+            if (!this._checkAuth(response)) return;
+            if (!response.ok) throw new Error(`Server error (${response.status})`);
             const data = await response.json();
             
             if (data.status === 'success') {
@@ -432,8 +436,8 @@ class FleetManager {
                 </div>
                 <div class="server-info">
                     <div>📍 ${server.host}</div>
+                    ${server.model ? `<div>💾 ${server.model}</div>` : ''}
                     <div>🏷️ ${server.environment || 'Unknown'}</div>
-                    <div>👁 ${server.location || 'Unknown'}</div>
                 </div>
                 <div class="server-actions">
                     <button class="server-action-btn" onclick="event.stopPropagation(); fleetManager.connectServer('${server.id}')">Connect</button>
@@ -839,7 +843,7 @@ class FleetManager {
                         <span class="env-badge">${server.environment || 'Unknown'}</span>
                     </td>
                     <td>
-                        <span class="status-badge ${server.status}">${server.status}</span>
+                        <span class="status-badge ${server.status}">${this.statusLabel(server.status)}</span>
                     </td>
                     <td>
                         <span class="health-badge ${this.getHealthLevel(server.health_score)}">${(server.health_score ?? 0).toFixed(1)}%</span>
@@ -1003,16 +1007,16 @@ class FleetManager {
         body.innerHTML = `
             <div class="report-content">
                 <div class="report-header-info">
-                    <p><strong>Generated:</strong> ${new Date(report.generated_at).toLocaleString()}</p>
+                    <p><strong>Generated:</strong> ${report.generated_at ? new Date(report.generated_at).toLocaleString() : new Date().toLocaleString()}</p>
                 </div>
                 <h3>Fleet Summary</h3>
                 <div class="report-grid">
-                    <div class="report-stat"><span class="stat-val">${summary.total_servers}</span><span class="stat-lbl">Total Servers</span></div>
-                    <div class="report-stat"><span class="stat-val">${summary.online_servers}</span><span class="stat-lbl">Online</span></div>
-                    <div class="report-stat"><span class="stat-val">${summary.offline_servers}</span><span class="stat-lbl">Offline</span></div>
-                    <div class="report-stat"><span class="stat-val">${summary.error_servers}</span><span class="stat-lbl">Error</span></div>
+                    <div class="report-stat"><span class="stat-val">${summary.total_servers ?? 0}</span><span class="stat-lbl">Total Servers</span></div>
+                    <div class="report-stat"><span class="stat-val">${summary.online_servers ?? 0}</span><span class="stat-lbl">Online</span></div>
+                    <div class="report-stat"><span class="stat-val">${summary.offline_servers ?? 0}</span><span class="stat-lbl">Offline</span></div>
+                    <div class="report-stat"><span class="stat-val">${summary.error_servers ?? 0}</span><span class="stat-lbl">Error</span></div>
                     <div class="report-stat"><span class="stat-val">${(summary.average_health_score || 0).toFixed(1)}%</span><span class="stat-lbl">Avg Health</span></div>
-                    <div class="report-stat"><span class="stat-val">${summary.total_alerts}</span><span class="stat-lbl">Alerts</span></div>
+                    <div class="report-stat"><span class="stat-val">${summary.total_alerts ?? 0}</span><span class="stat-lbl">Alerts</span></div>
                 </div>
                 ${report.server_details && report.server_details.length > 0 ? `
                 <h3>Server Details</h3>

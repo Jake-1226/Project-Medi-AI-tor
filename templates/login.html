@@ -191,6 +191,13 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             });
+
+            if (!res.ok && !res.headers.get('content-type')?.includes('application/json')) {
+                errEl.textContent = `Server error (${res.status}). Try again later.`;
+                errEl.classList.add('visible');
+                return;
+            }
+
             const data = await res.json();
 
             if (res.ok && data.status === 'success') {

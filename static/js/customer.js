@@ -1494,16 +1494,22 @@ class CustomerChat {
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
-        // Code blocks (triple backtick)
+        // Extract code blocks and inline code into placeholders to protect from bold/italic
+        const codeSlots = [];
         safe = safe.replace(/```(\w*)\n?([\s\S]*?)```/g, (m, lang, code) => {
-            return `<pre class="code-block"><code>${code.trim()}</code></pre>`;
+            codeSlots.push(`<pre class="code-block"><code>${code.trim()}</code></pre>`);
+            return `\x00CODE${codeSlots.length - 1}\x00`;
         });
-        // Inline code
-        safe = safe.replace(/`([^`]+)`/g, '<code>$1</code>');
+        safe = safe.replace(/`([^`]+)`/g, (m, code) => {
+            codeSlots.push(`<code>${code}</code>`);
+            return `\x00CODE${codeSlots.length - 1}\x00`;
+        });
         // Bold
         safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         // Italic
         safe = safe.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        // Restore code placeholders
+        safe = safe.replace(/\x00CODE(\d+)\x00/g, (m, idx) => codeSlots[parseInt(idx)]);
         // Bullet lists (lines starting with • or -)
         safe = safe.replace(/^[•\-]\s+(.+)$/gm, '<li>$1</li>');
         safe = safe.replace(/(<li>.*<\/li>\n?)+/g, (m) => `<ul>${m}</ul>`);
