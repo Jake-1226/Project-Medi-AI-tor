@@ -42,8 +42,20 @@ class DellAIAgent {
         this.updateUI();
         this.setupKeyboardShortcuts();
         this.injectAgentThinkingStyles();
-        // F8: Start with quick-actions disabled until connected
         this._setQuickActionsEnabled(false);
+        // P10: Show API status in sidebar
+        this._checkApiHealth();
+    }
+
+    async _checkApiHealth() {
+        try {
+            const t0 = Date.now();
+            const r = await fetch('/api/health');
+            const latency = Date.now() - t0;
+            const d = await r.json();
+            const el = document.getElementById('apiStatus');
+            if (el) el.textContent = `API: ${d.status || 'ok'} · ${latency}ms`;
+        } catch (_) {}
     }
     
     setupEventListeners() {
@@ -1854,6 +1866,11 @@ class DellAIAgent {
         const tabName = tabElement.dataset.tab;
         document.querySelectorAll(`.sidebar-link[data-tab="${tabName}"], .tab[data-tab="${tabName}"]`).forEach(el => el.classList.add('active'));
         
+        // P4: Update browser tab title to reflect current section
+        const tabLabels = { overview: 'Overview', system: 'System Info', health: 'Health', logs: 'Logs',
+                           troubleshooting: 'AI Investigation', operations: 'Operations', advanced: 'Advanced' };
+        document.title = `${tabLabels[tabName] || tabName} — Medi-AI-tor`;
+        
         // Show corresponding content
         const content = document.getElementById(`${tabName}Content`);
         if (content) {
@@ -2146,7 +2163,10 @@ class DellAIAgent {
                 html += '<br><small>Try: Check network path, verify IP, try iDRAC Direct USB connection.</small>';
                 this.log(`iDRAC at ${host} is NOT reachable`, 'error');
             }
-            if (resultDiv) resultDiv.innerHTML = html;
+            if (resultDiv) {
+                const ts = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+                resultDiv.innerHTML = `<small style="color:var(--text-muted)">${ts}</small> ${html}`;
+            }
         } catch (error) {
             if (resultDiv) resultDiv.innerHTML = `<span class="badge badge-crit">ERROR</span> ${error.message}`;
             this.log(`iDRAC check error: ${error.message}`, 'error');

@@ -1,5 +1,7 @@
 # Medi-AI-tor
 
+![Tests](https://img.shields.io/badge/tests-124%20passed-brightgreen) ![Python](https://img.shields.io/badge/python-3.12-blue) ![License](https://img.shields.io/badge/license-hackathon-orange)
+
 **AI-powered Dell server diagnostics that think like a senior support engineer.**
 
 Medi-AI-tor connects to Dell iDRAC controllers via Redfish API, collects live telemetry, forms hypotheses about what's wrong, gathers evidence, and arrives at a root-cause diagnosis with an evidence chain — in ~30 seconds instead of 45+ minutes.

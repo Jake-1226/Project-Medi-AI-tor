@@ -440,6 +440,9 @@ class FleetManager {
                 </td>
             </tr>
         `).join('');
+        // P6: Show server count
+        const countEl = document.getElementById('serverTableCount');
+        if (countEl) countEl.textContent = `${this.servers.size} server${this.servers.size !== 1 ? 's' : ''}`;
     }
     
     updateGroups() {

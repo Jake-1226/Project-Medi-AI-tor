@@ -26,12 +26,18 @@ class CustomerChat {
             this.send();
         });
 
-        // Auto-resize textarea
+        // Auto-resize textarea + character counter
         const input = document.getElementById('chatInput');
+        const charCount = document.getElementById('charCount');
         if (input) {
             input.addEventListener('input', () => {
                 input.style.height = 'auto';
                 input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+                if (charCount) {
+                    const len = input.value.length;
+                    charCount.textContent = len > 0 ? `${len}/2000` : '';
+                    charCount.style.color = len > 1800 ? '#ef4444' : '';
+                }
             });
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {

@@ -107,6 +107,23 @@
     box-sizing: border-box;
 }
 
+/* P8: Skip-to-content link (accessibility) */
+.skip-link {
+    position: absolute;
+    top: -100px;
+    left: 0;
+    background: var(--accent);
+    color: #fff;
+    padding: 8px 16px;
+    z-index: 10000;
+    font-size: 0.85rem;
+    border-radius: 0 0 8px 0;
+    transition: top 0.2s;
+}
+.skip-link:focus {
+    top: 0;
+}
+
 body {
     font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: var(--bg-body);
@@ -4624,6 +4641,7 @@ table tbody tr:hover { background: rgba(99,102,241,0.05); }
     .topbar { padding: 0 var(--sp-3); }
     .topbar-toggle { display: flex; }
     .topbar-level-pills { display: none; }
+    .topbar-sr { display: none; }
     .connect-banner { padding: var(--sp-3); }
     .connect-panels { grid-template-columns: 1fr; }
     .quick-actions-bar { padding: var(--sp-2) var(--sp-3); flex-wrap: wrap; }
