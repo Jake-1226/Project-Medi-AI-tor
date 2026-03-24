@@ -1062,10 +1062,10 @@ class FleetManager {
     convertToCSV(data) {
         if (data.length === 0) return '';
         
-        const headers = Object.keys(data[0]);
+        const headers = Object.keys(data[0]).filter(k => k !== 'password');
         const csvContent = [
             headers.join(','),
-            ...data.map(row => headers.map(header => `"${row[header] || ''}"`).join(','))
+            ...data.map(row => headers.map(h => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(','))
         ].join('\n');
         
         return csvContent;
@@ -1100,7 +1100,8 @@ class FleetManager {
         }
     }
     
-    showToast(message, type = 'info', duration = 3000) {
+    showToast(message, type = 'info', duration) {
+        if (!duration) duration = (type === 'error' || type === 'danger') ? 6000 : 3000;
         const container = document.getElementById('toastContainer');
         if (!container) return;
         

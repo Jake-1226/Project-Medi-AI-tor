@@ -38,6 +38,7 @@
             <a class="sidebar-link sidebar-external" href="/fleet" target="_blank"><span class="sidebar-icon">🚢</span>Fleet Management<span class="sidebar-ext-badge">↗</span></a>
             <a class="sidebar-link sidebar-external" href="/monitoring" target="_blank"><span class="sidebar-icon">📈</span>Real-time Monitor<span class="sidebar-ext-badge">↗</span></a>
             <a class="sidebar-link sidebar-external" href="/" target="_blank"><span class="sidebar-icon">💬</span>Customer Chat<span class="sidebar-ext-badge">↗</span></a>
+            <a class="sidebar-link sidebar-external" href="https://github.com" target="_blank"><span class="sidebar-icon">📖</span>Documentation<span class="sidebar-ext-badge">↗</span></a>
         </nav>
         <div class="sidebar-footer">
             <div class="sidebar-version">Medi-AI-tor v2.0 — Dell Hackathon 2026</div>
@@ -322,12 +323,12 @@
                             <div class="ai-input-actions">
                                 <button type="submit" id="startTroubleshootingBtn" class="btn btn-primary"><span>🔍</span> Investigate</button>
                                 <div class="example-chips">
-                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Server is overheating, getting temperature warnings and fans are running very loud'; document.getElementById('startTroubleshootingBtn').click();">🌡️ Overheating</button>
-                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Getting correctable memory ECC errors on DIMM A2'; document.getElementById('startTroubleshootingBtn').click();">🧠 ECC Errors</button>
-                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Server will not boot, no POST, amber power light'; document.getElementById('startTroubleshootingBtn').click();">⚡ No POST</button>
-                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='RAID virtual disk is degraded, one disk predicted failure'; document.getElementById('startTroubleshootingBtn').click();">💾 RAID Degraded</button>
-                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Server crashed with BSOD, SEL shows CPU IERR machine check error'; document.getElementById('startTroubleshootingBtn').click();">🖥️ CPU IERR</button>
-                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Network connectivity intermittent, NIC link dropping'; document.getElementById('startTroubleshootingBtn').click();">🌐 Network Drops</button>
+                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Server is overheating, getting temperature warnings and fans are running very loud'; document.getElementById('issueDescription').focus();">🌡️ Overheating</button>
+                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Getting correctable memory ECC errors on DIMM A2'; document.getElementById('issueDescription').focus();">🧠 ECC Errors</button>
+                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Server will not boot, no POST, amber power light'; document.getElementById('issueDescription').focus();">⚡ No POST</button>
+                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='RAID virtual disk is degraded, one disk predicted failure'; document.getElementById('issueDescription').focus();">💾 RAID Degraded</button>
+                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Server crashed with BSOD, SEL shows CPU IERR machine check error'; document.getElementById('issueDescription').focus();">🖥️ CPU IERR</button>
+                                    <button type="button" class="chip" onclick="document.getElementById('issueDescription').value='Network connectivity intermittent, NIC link dropping'; document.getElementById('issueDescription').focus();">🌐 Network Drops</button>
                                 </div>
                             </div>
                         </form>

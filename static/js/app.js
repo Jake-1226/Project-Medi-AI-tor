@@ -107,7 +107,11 @@ class DellAIAgent {
         // Lifecycle logs
         document.getElementById('refreshLcLogsBtn')?.addEventListener('click', () => this.fetchLifecycleLogs());
         document.getElementById('lcSeverityFilter')?.addEventListener('change', () => this.renderFilteredLcLogs());
-        document.getElementById('lcSearchInput')?.addEventListener('input', () => this.renderFilteredLcLogs());
+        let _lcSearchTimer = null;
+        document.getElementById('lcSearchInput')?.addEventListener('input', () => {
+            clearTimeout(_lcSearchTimer);
+            _lcSearchTimer = setTimeout(() => this.renderFilteredLcLogs(), 200);
+        });
         
         // Monitoring
         document.getElementById('startMonitoringBtn')?.addEventListener('click', () => this.startMonitoring());
@@ -137,7 +141,12 @@ class DellAIAgent {
         
         // Log filters
         document.getElementById('logSeverityFilter')?.addEventListener('change', () => this.renderFilteredLogs());
-        document.getElementById('logSearchInput')?.addEventListener('input', () => this.renderFilteredLogs());
+        // Log search with debounce for performance on large log sets
+        let _logSearchTimer = null;
+        document.getElementById('logSearchInput')?.addEventListener('input', () => {
+            clearTimeout(_logSearchTimer);
+            _logSearchTimer = setTimeout(() => this.renderFilteredLogs(), 200);
+        });
         
         // Form submissions
         document.getElementById('connectionForm')?.addEventListener('submit', (e) => {
@@ -236,7 +245,7 @@ class DellAIAgent {
         // Button loading state — prevent double-click
         const connectBtn = document.getElementById('connectBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
-        if (connectBtn) { connectBtn.disabled = true; connectBtn.textContent = 'Connecting...'; }
+        if (connectBtn) { connectBtn.disabled = true; connectBtn.textContent = 'Connecting...'; connectBtn.classList.add('btn-loading'); }
         this.showLoading(true);
         
         try {
@@ -255,7 +264,7 @@ class DellAIAgent {
                 this.log(`Connected to server: ${host}`, 'success');
                 
                 // Update button states
-                if (connectBtn) { connectBtn.textContent = 'Connected'; connectBtn.disabled = true; }
+                if (connectBtn) { connectBtn.textContent = 'Connected'; connectBtn.disabled = true; connectBtn.classList.remove('btn-loading'); }
                 if (disconnectBtn) disconnectBtn.disabled = false;
                 
                 // Update iDRAC status dot + panel state
@@ -264,11 +273,11 @@ class DellAIAgent {
                 const idracPanel = document.getElementById('idracPanel');
                 if (idracPanel) { idracPanel.classList.add('panel-connected'); idracPanel.classList.remove('panel-error'); }
                 
-                // Update topbar with server identity
+                // Update topbar with server identity (click to copy host)
                 const statusEl = document.querySelector('.topbar-connection');
                 if (statusEl) {
                     statusEl.innerHTML = `<span class="status-indicator status-online"></span> 
-                        <strong>${this.currentServer.host}</strong>
+                        <strong title="Click to copy" style="cursor:pointer" onclick="navigator.clipboard.writeText('${this.currentServer.host}').then(()=>app.showAlert('Copied ${this.currentServer.host}','info'))">${this.currentServer.host}</strong>
                         <span style="opacity:0.6;margin-left:4px">Connected</span>`;
                 }
                 
@@ -297,7 +306,7 @@ class DellAIAgent {
             } else {
                 this.showAlert(`Connection failed: ${result.detail}`, 'danger');
                 this.log(`Connection failed: ${result.detail}`, 'error');
-                if (connectBtn) { connectBtn.textContent = 'Connect iDRAC'; connectBtn.disabled = false; }
+                if (connectBtn) { connectBtn.textContent = 'Connect iDRAC'; connectBtn.disabled = false; connectBtn.classList.remove('btn-loading'); }
                 const idracDot = document.getElementById('idracStatusDot');
                 if (idracDot) { idracDot.classList.add('error'); idracDot.classList.remove('connected'); }
                 const idracPanel = document.getElementById('idracPanel');
@@ -307,7 +316,7 @@ class DellAIAgent {
             const friendly = this._friendlyError(error);
             this.showAlert(friendly, 'danger', { title: 'Connection failed', retry: () => this.connectToServer() });
             this.log(`Network error: ${error.message}`, 'error');
-            if (connectBtn) { connectBtn.textContent = 'Connect iDRAC'; connectBtn.disabled = false; }
+            if (connectBtn) { connectBtn.textContent = 'Connect iDRAC'; connectBtn.disabled = false; connectBtn.classList.remove('btn-loading'); }
         } finally {
             this.showLoading(false);
         }
