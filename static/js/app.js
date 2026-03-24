@@ -468,7 +468,7 @@ class DellAIAgent {
         const yesBtn = div.querySelector('.confirm-yes');
         const noBtn = div.querySelector('.confirm-no');
         // Double-click prevention: disable after first click
-        yesBtn.addEventListener('click', () => { yesBtn.disabled = true; div.remove(); onConfirm(); });
+        yesBtn.addEventListener('click', () => { yesBtn.disabled = true; noBtn.disabled = true; onConfirm(); div.remove(); });
         noBtn.addEventListener('click', () => { div.remove(); if (previousFocus) previousFocus.focus(); });
         if (anchorEl) {
             anchorEl.style.display = 'block';
@@ -1137,8 +1137,8 @@ class DellAIAgent {
             // Re-enable input after send completes
             if (input) { input.disabled = false; input.focus(); }
             if (sendBtn) sendBtn.disabled = false;
-            // Reset subtitle from transient states after a short delay
-            if (subtitle && (subtitle.textContent === 'Thinking...' || subtitle.textContent === 'Streaming...')) {
+            // Always reset subtitle after send completes
+            if (subtitle) {
                 subtitle.textContent = this.currentServer ? `Connected to ${this.currentServer.host}` : 'Ready';
             }
         }
@@ -1984,7 +1984,11 @@ class DellAIAgent {
             if (!response.ok) {
                 // Fallback to sequential if batch fails
                 this.log('Batch fetch failed, using sequential...', 'warning');
-                try { await this.executeAction('get_full_inventory'); } catch (_) { /* silent */ }
+                try {
+                    await this.executeAction('get_full_inventory');
+                } catch (_) {
+                    this.showAlert('Could not load server data. Check the connection and try Refresh.', 'danger');
+                }
                 return;
             }
             
@@ -3001,7 +3005,7 @@ class DellAIAgent {
                 const st = (ps.status || '').toLowerCase();
                 return st.includes('ok') || st.includes('enabled');
             }).length;
-            const cls = healthy === data.power_supplies.length ? 'tile-ok' : 'tile-crit';
+            const cls = healthy === data.power_supplies.length ? 'tile-ok' : healthy === 0 ? 'tile-crit' : 'tile-warn';
             tiles.push(`<div class="metric-tile ${cls}"><div class="tile-value">${totalW}W</div><div class="tile-label">PSU</div><div class="tile-sub">${healthy}/${data.power_supplies.length} healthy</div></div>`);
         }
         if (data.logs && data.logs.length) {
@@ -3682,6 +3686,7 @@ class DellAIAgent {
 
     stopMonitoring() {
         if (this.monitoringInterval) { clearInterval(this.monitoringInterval); this.monitoringInterval = null; }
+        this.monitoringSnapshots = [];
         document.getElementById('startMonitoringBtn').disabled = false;
         document.getElementById('stopMonitoringBtn').disabled = true;
         const badge = document.getElementById('monitoringStatus');

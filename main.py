@@ -591,7 +591,7 @@ async def disconnect_from_server():
             raise HTTPException(status_code=500, detail="Agent not initialized")
         
         if not agent.is_connected():
-            raise HTTPException(status_code=400, detail="No active connection")
+            return {"status": "success", "message": "Already disconnected"}
         
         server_info = {
             "hostname": agent.current_session.server_host if agent.current_session else "unknown",
@@ -2361,6 +2361,7 @@ async def get_diagnostics_summary():
             }
         except Exception as e:
             logger.warning(f"Diagnostics: thermal data unavailable: {e}")
+            summary["thermal"] = {"max_temperature": 0, "sensor_count": 0, "status": "unknown"}
         
         # Get power summary
         try:
@@ -2374,6 +2375,7 @@ async def get_diagnostics_summary():
             }
         except Exception as e:
             logger.warning(f"Diagnostics: power data unavailable: {e}")
+            summary["power"] = {"total_psus": 0, "healthy_psus": 0, "status": "unknown"}
         
         # Generate recommendations
         if summary.get("thermal", {}).get("status") == "critical":

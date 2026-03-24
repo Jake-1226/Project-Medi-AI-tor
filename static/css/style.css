@@ -1458,7 +1458,7 @@ body.tech-body {
 
 .component-card .detail-row:last-child { border-bottom: none; }
 .component-card .detail-label { color: var(--text-muted, #888); }
-.component-card .detail-value { font-weight: 600; color: #333; }
+.component-card .detail-value { font-weight: 600; color: var(--text-primary, #333); }
 
 .placeholder-text { color: var(--text-muted); font-style: italic; }
 
@@ -1472,7 +1472,7 @@ body.tech-body {
 
 .conn-info-bar .conn-item { display: flex; align-items: center; gap: 6px; }
 .conn-info-bar .conn-label { color: var(--text-muted, #888); }
-.conn-info-bar .conn-value { font-weight: 600; color: #333; }
+.conn-info-bar .conn-value { font-weight: 600; color: var(--text-primary, #333); }
 
 /* Thermal gauge */
 .thermal-gauge-grid {
@@ -1489,7 +1489,7 @@ body.tech-body {
     text-align: center;
 }
 
-.thermal-gauge .gauge-name { font-size: 0.85rem; color: #666; margin-bottom: 6px; }
+.thermal-gauge .gauge-name { font-size: 0.85rem; color: var(--text-secondary, #666); margin-bottom: 6px; }
 .thermal-gauge .gauge-value { font-size: 1.8rem; font-weight: 700; }
 .thermal-gauge .gauge-range { font-size: 0.75rem; color: var(--text-muted, #aaa); margin-top: 2px; }
 .gauge-ok { color: var(--success-green); }
@@ -4731,6 +4731,7 @@ table tbody tr:hover { background: rgba(99,102,241,0.05); }
     .header h1 { font-size: 2rem; }
     .btn-group { flex-direction: column; }
     .action-level-selector { flex-direction: column; }
+    .kbd-legend { left: 20px; }
 }
 @media (max-width: 600px) {
     .connect-field-row { grid-template-columns: 1fr; }
