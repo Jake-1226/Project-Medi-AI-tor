@@ -1259,7 +1259,7 @@ async def api_connect_to_server(connection: ServerConnection, request: Request):
             raise HTTPException(status_code=400, detail="Host cannot be empty")
         
         # Validate host is not localhost or invalid (skip in demo mode)
-        if not app_config.demo_mode and host.strip().lower() in ['localhost', '127.0.0.1', '0.0.0.0']:
+        if (not app_config or not app_config.demo_mode) and host.strip().lower() in ['localhost', '127.0.0.1', '0.0.0.0']:
             raise HTTPException(status_code=400, detail="Invalid host: Cannot connect to localhost")
         
         # Validate port
@@ -1275,7 +1275,7 @@ async def api_connect_to_server(connection: ServerConnection, request: Request):
             raise HTTPException(status_code=400, detail="Password cannot be empty")
         
         # Try to validate host connectivity first (skip in demo mode)
-        if not app_config.demo_mode:
+        if not app_config or not app_config.demo_mode:
             try:
                 import socket
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1597,6 +1597,8 @@ async def api_chat_with_agent(msg: ChatMessage, request: Request):
             "status": "success",
             "response": response
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Chat error: {str(e)}")
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
@@ -1925,6 +1927,8 @@ async def get_connection_status(request: Request):
         }
         
         return {"status": "success", "connection": status}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Connection status error: {e}")
         return {"status": "success", "connection": {
@@ -2654,14 +2658,14 @@ async def run_fleet_health_check(request: Request):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/alerts/{alert_index}/acknowledge")
-async def acknowledge_fleet_alert(alert_index: int, body: dict = None, request: Request = None):
+async def acknowledge_fleet_alert(alert_index: int, request: Request, body: dict = None):
     """Acknowledge a fleet alert"""
     user = await _get_current_user(request)
     try:
         alerts = fleet_manager.get_recent_alerts(hours=168, limit=1000)
         if 0 <= alert_index < len(alerts):
             alerts[alert_index]["acknowledged"] = True
-            alerts[alert_index]["acknowledged_by"] = body.get("acknowledged_by", "user")
+            alerts[alert_index]["acknowledged_by"] = (body or {}).get("acknowledged_by", user.get("username", "user"))
             alerts[alert_index]["acknowledged_at"] = datetime.now().isoformat()
             return {"status": "success", "message": "Alert acknowledged"}
         raise HTTPException(status_code=404, detail="Alert not found")
@@ -2672,7 +2676,7 @@ async def acknowledge_fleet_alert(alert_index: int, body: dict = None, request: 
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/alerts/clear")
-async def clear_fleet_alerts(body: dict = None, request: Request = None):
+async def clear_fleet_alerts(request: Request, body: dict = None):
     """Clear resolved/acknowledged fleet alerts"""
     user = await _get_current_user(request)
     try:
@@ -2685,7 +2689,7 @@ async def clear_fleet_alerts(body: dict = None, request: Request = None):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/api/fleet/alerts")
-async def get_fleet_alerts(hours: int = Query(default=24, ge=1, le=720), limit: int = Query(default=100, ge=1, le=1000), request: Request = None):
+async def get_fleet_alerts(request: Request, hours: int = Query(default=24, ge=1, le=720), limit: int = Query(default=100, ge=1, le=1000)):
     """Get recent alerts from all servers"""
     user = await _get_current_user(request)
     try:
@@ -2924,7 +2928,7 @@ async def remove_server_from_group(group_name: str, server_id: str, request: Req
 
 # ─── Fleet Analytics Endpoints ──────────────────────────────
 @app.get("/api/fleet/analytics")
-async def get_fleet_analytics(time_range: str = "24h", metric: str = "health", request: Request = None):
+async def get_fleet_analytics(request: Request, time_range: str = "24h", metric: str = "health"):
     """Get fleet analytics data"""
     user = await _get_current_user(request)
     try:
@@ -2966,7 +2970,7 @@ async def get_fleet_analytics(time_range: str = "24h", metric: str = "health", r
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.post("/api/fleet/analytics/report")
-async def generate_fleet_report(report_config: dict = None, request: Request = None):
+async def generate_fleet_report(request: Request, report_config: dict = None):
     """Generate a fleet analytics report"""
     user = await _get_current_user(request)
     report_config = report_config or {}
@@ -3032,7 +3036,7 @@ async def generate_fleet_report(report_config: dict = None, request: Request = N
 
 # ─── Export Endpoints ──────────────────────────────
 @app.get("/api/fleet/export/servers")
-async def export_fleet_servers(format: str = "json", request: Request = None):
+async def export_fleet_servers(request: Request, format: str = "json"):
     """Export fleet servers data"""
     user = await _get_current_user(request)
     try:
@@ -3071,7 +3075,7 @@ async def export_fleet_servers(format: str = "json", request: Request = None):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/api/fleet/export/alerts")
-async def export_fleet_alerts(format: str = "json", hours: int = Query(default=24, ge=1, le=720), request: Request = None):
+async def export_fleet_alerts(request: Request, format: str = "json", hours: int = Query(default=24, ge=1, le=720)):
     """Export fleet alerts data"""
     user = await _get_current_user(request)
     try:
@@ -3222,6 +3226,8 @@ async def get_quick_status(request: Request):
             result["error"] = str(e)
         
         return {"status": "success", "data": result}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Quick status error: {e}")
         return {"status": "error", "error": _sanitize_error(e), "connected": False}

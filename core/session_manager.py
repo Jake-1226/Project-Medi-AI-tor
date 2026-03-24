@@ -62,11 +62,13 @@ class SessionConnectionManager:
 
             # Enforce max sessions
             if len(self.connections) >= self.max_sessions:
-                # Evict oldest idle session
-                oldest = min(self.connections.values(), key=lambda c: c.last_activity)
-                logger.info(f"Evicting idle session {oldest.session_id} (user={oldest.username}) to make room")
-                await self._disconnect(oldest)
-                del self.connections[oldest.session_id]
+                # Evict oldest idle session (never evict the default customer session)
+                evictable = [c for c in self.connections.values() if c.session_id != "__default__"]
+                if evictable:
+                    oldest = min(evictable, key=lambda c: c.last_activity)
+                    logger.info(f"Evicting idle session {oldest.session_id} (user={oldest.username}) to make room")
+                    await self._disconnect(oldest)
+                    del self.connections[oldest.session_id]
 
             # Create new agent + brain for this session
             from core.agent_core import DellAIAgent
@@ -114,11 +116,19 @@ class SessionConnectionManager:
         """Return status of all active sessions."""
         sessions = []
         for sid, conn in self.connections.items():
+            try:
+                connected = conn.agent.is_connected() if conn.agent else False
+                host = None
+                if connected and conn.agent and conn.agent.current_session:
+                    host = conn.agent.current_session.server_host
+            except Exception:
+                connected = False
+                host = None
             sessions.append({
                 "session_id": sid[:8] + "..." if len(sid) > 8 else sid,
                 "username": conn.username,
-                "host": conn.agent.current_session.server_host if conn.agent and conn.agent.current_session else None,
-                "connected": conn.agent.is_connected() if conn.agent else False,
+                "host": host,
+                "connected": connected,
                 "created_at": conn.created_at.isoformat(),
                 "last_activity": conn.last_activity.isoformat(),
                 "idle_seconds": int((datetime.now() - conn.last_activity).total_seconds()),
