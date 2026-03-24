@@ -79,8 +79,8 @@ class AuthManager:
         self.cipher = Fernet(self.encryption_key)
     
     def _generate_secret_key(self) -> str:
-        """Generate a secret key for JWT tokens"""
-        return secrets.token_urlsafe(32)
+        """Get secret key from env (shared across workers) or generate random."""
+        return os.getenv('SECRET_KEY', '') or secrets.token_urlsafe(32)
     
     def _generate_encryption_key(self) -> bytes:
         """Generate encryption key for sensitive data"""
@@ -188,8 +188,8 @@ class AuthManager:
             "username": username,
             "role": user["role"],
             "permissions": user["permissions"],
-            "exp": datetime.now() + self.token_expiry,
-            "iat": datetime.now()
+            "exp": datetime.utcnow() + self.token_expiry,
+            "iat": datetime.utcnow()
         }
         
         token = jwt.encode(token_payload, self.secret_key, algorithm="HS256")
@@ -199,8 +199,8 @@ class AuthManager:
             "session_id": session_id,
             "username": username,
             "type": "refresh",
-            "exp": datetime.now() + self.refresh_expiry,
-            "iat": datetime.now(),
+            "exp": datetime.utcnow() + self.refresh_expiry,
+            "iat": datetime.utcnow(),
         }
         refresh_token = jwt.encode(refresh_payload, self.secret_key, algorithm="HS256")
         
@@ -265,8 +265,8 @@ class AuthManager:
                 "username": session["username"],
                 "role": session["role"],
                 "permissions": session["permissions"],
-                "exp": datetime.now() + self.token_expiry,
-                "iat": datetime.now(),
+                "exp": datetime.utcnow() + self.token_expiry,
+                "iat": datetime.utcnow(),
             }
             new_token = jwt.encode(new_payload, self.secret_key, algorithm="HS256")
             session["last_activity"] = datetime.now()
