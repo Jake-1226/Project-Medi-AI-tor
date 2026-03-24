@@ -34,13 +34,14 @@ class DellAIAgent {
     }
     
     init() {
-        this.setupEventListeners();
-        this.setupWebSocket();
+        console.log('[MediAI] init() starting...');
+        try { this.setupEventListeners(); console.log('[MediAI] setupEventListeners OK'); } catch(e) { console.error('[MediAI] setupEventListeners FAILED:', e); }
+        try { this.setupWebSocket(); } catch(e) { console.error('[MediAI] setupWebSocket FAILED:', e); }
         this.loadSavedSettings();
         this.checkFleetServerConnection();
         this.updateUI();
         this.setupKeyboardShortcuts();
-        this.injectAgentThinkingStyles();
+        try { this.injectAgentThinkingStyles(); } catch(e) { console.error('[MediAI] injectAgentThinkingStyles FAILED:', e); }
         this._setQuickActionsEnabled(false);
         // P10: Show API status in sidebar
         this._checkApiHealth();
@@ -1939,6 +1940,11 @@ class DellAIAgent {
     }
     
     switchTab(tabElement) {
+        console.log('[MediAI] switchTab called:', tabElement?.dataset?.tab, tabElement);
+        if (!tabElement || !tabElement.dataset?.tab) {
+            console.error('[MediAI] switchTab: invalid element', tabElement);
+            return;
+        }
         // Save scroll position of current tab before switching
         const currentContent = document.querySelector('.tab-content.active');
         if (currentContent) {
