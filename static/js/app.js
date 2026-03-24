@@ -2016,6 +2016,10 @@ class DellAIAgent {
                         { action: 'get_network_interfaces', parameters: {} },
                         { action: 'health_check', parameters: {} },
                         { action: 'collect_logs', parameters: {} },
+                        { action: 'get_bios_attributes', parameters: {} },
+                        { action: 'get_idrac_info', parameters: {} },
+                        { action: 'get_lifecycle_logs', parameters: {} },
+                        { action: 'performance_analysis', parameters: {} },
                     ]
                 })
             });
@@ -2106,6 +2110,7 @@ class DellAIAgent {
         if (data.processors) this.displayProcessors(data.processors);
         if (data.memory) this.displayMemory(data.memory);
         if (data.storage_devices) this.displayStorage(data.storage_devices);
+        if (data.network_interfaces) this.displayNetworkAdapters(data.network_interfaces);
         if (data.network_adapters) this.displayNetworkAdapters(data.network_adapters);
         if (data.power_supplies) this.displayPowerSupplies(data.power_supplies);
         if (data.fans) this.displayFans(data.fans);
@@ -2120,6 +2125,9 @@ class DellAIAgent {
         if (data.lifecycle_logs) { this.rawLcLogs = data.lifecycle_logs; this.renderFilteredLcLogs(); }
         if (data.jobs) this.displayJobs(data.jobs);
         if (data.tsr_result) this.displayTsrResult(data.tsr_result);
+        if (data.logs) { this.rawLogs = data.logs; this.renderFilteredLogs(); }
+        if (data.bios) this.displayBiosAttributes(data.bios);
+        if (data.performance_metrics) this.displayPerformanceMetrics(data.performance_metrics);
         // Build overview metrics from whatever we have
         this.buildOverviewMetrics(data);
     }
