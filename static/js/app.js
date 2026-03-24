@@ -4362,5 +4362,12 @@ class DellAIAgent {
 }
 
 // Initialize the application
-const app = new DellAIAgent();
-window.DellAIAgent = DellAIAgent;
+try {
+    const app = new DellAIAgent();
+    window.app = app;
+    window.DellAIAgent = DellAIAgent;
+    console.log('[Medi-AI-tor] App initialized successfully. Tab count:', document.querySelectorAll('.sidebar-link[data-tab]').length, 'Ops buttons:', document.querySelectorAll('.ops-btn').length);
+} catch (e) {
+    console.error('[Medi-AI-tor] INIT FAILED:', e);
+    document.body.innerHTML = '<div style="padding:40px;color:red"><h2>App Init Error</h2><pre>' + e.stack + '</pre></div>';
+}
