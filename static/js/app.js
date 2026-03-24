@@ -248,6 +248,11 @@ class DellAIAgent {
     }
     
     async connectToServer() {
+        // Guard against double-click / double-submit
+        const connectBtn = document.getElementById('connectBtn');
+        if (connectBtn?.disabled || this._connectingInProgress) return;
+        this._connectingInProgress = true;
+
         const hostEl = document.getElementById('serverHost');
         const userEl = document.getElementById('username');
         const passEl = document.getElementById('password');
@@ -355,6 +360,7 @@ class DellAIAgent {
             if (connectBtn) { connectBtn.textContent = 'Connect iDRAC'; connectBtn.disabled = false; connectBtn.classList.remove('btn-loading'); }
         } finally {
             this.showLoading(false);
+            this._connectingInProgress = false;
         }
     }
     

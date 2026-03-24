@@ -1650,3 +1650,8 @@ body {
     color: #64748b;
     border-color: #cbd5e1;
 }
+
+/* B1: Bigger touch targets on suggestion chips for mobile */
+@media (max-width: 480px) {
+    .suggest-chip { min-height: 44px; padding: 10px 16px; }
+}

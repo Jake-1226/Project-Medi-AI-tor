@@ -95,8 +95,17 @@ class RealtimeMonitor {
 
             this.websocket.onerror = () => {
                 this._connecting = false;
-                this.showNotification('WebSocket error', 'error');
+                this.showNotification('WebSocket error — falling back to polling', 'warning');
             };
+
+            // Timeout: if WS doesn't connect in 8s, show fallback message
+            setTimeout(() => {
+                if (this._connecting && !this.isConnected) {
+                    this._connecting = false;
+                    this.showNotification('Live connection unavailable — using periodic refresh instead', 'warning');
+                    this.updateConnectionStatus(false, 'polling');
+                }
+            }, 8000);
         } catch (error) {
             this._connecting = false;
             this.showNotification('Failed to connect WebSocket', 'error');

@@ -73,6 +73,16 @@ class CustomerChat {
             });
         });
 
+        // Copy Chat button
+        document.getElementById('copyChatBtn')?.addEventListener('click', () => {
+            const msgs = document.getElementById('chatMessages');
+            if (msgs) {
+                navigator.clipboard.writeText(msgs.innerText)
+                    .then(() => this.showToast('Chat copied to clipboard', 'success'))
+                    .catch(() => this.showToast('Copy failed', 'warning'));
+            }
+        });
+
         // Mobile sidebar toggle
         const sidebarToggle = document.getElementById('sidebarToggle');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
@@ -152,6 +162,9 @@ class CustomerChat {
         if (hint) hint.textContent = enabled
             ? 'Press Enter to send · Shift+Enter for new line'
             : 'Connect to a server to start chatting';
+        // Show/hide copy chat button
+        const copyBtn = document.getElementById('copyChatBtn');
+        if (copyBtn) copyBtn.style.display = enabled ? '' : 'none';
         // Toggle suggestion chips interactivity
         document.querySelectorAll('.suggest-chip').forEach(c => {
             c.style.pointerEvents = enabled ? '' : 'none';
@@ -287,13 +300,22 @@ class CustomerChat {
                 document.getElementById('sidebarOverlay')?.classList.remove('active');
 
                 // Directly send overview (no visible text in input)
+                this.showToast('Connected! Getting your server info...', 'success', 3000);
                 this.addMsg('agent', `Great, I'm connected to **${this._escapeHtml(host)}**! Let me pull up a quick overview of your server...`);
                 this._sendDirect('Give me a server overview');
             } else {
                 btn.classList.remove('connecting');
                 btn.disabled = false;
                 btnContent.textContent = 'Connect to Server';
-                const errMsg = data.detail || 'Connection failed — check credentials and host';
+                const rawErr = data.detail || 'Connection failed';
+                // Friendly error for customers
+                let errMsg = rawErr;
+                if (rawErr.toLowerCase().includes('credentials') || rawErr.toLowerCase().includes('unauthorized') || rawErr.toLowerCase().includes('401'))
+                    errMsg = 'Login failed — please double-check your username and password';
+                else if (rawErr.toLowerCase().includes('connect') || rawErr.toLowerCase().includes('reach') || rawErr.toLowerCase().includes('timeout'))
+                    errMsg = "Can't reach that server — is the IP address correct? Check with your IT team.";
+                else if (rawErr.toLowerCase().includes('host'))
+                    errMsg = 'Invalid server address — please enter a valid IP or hostname';
                 status.innerHTML = `<div class="connect-error">
                     <span class="error-icon">⚠️</span>
                     <span class="error-text">${this._escapeHtml(errMsg)}</span>
