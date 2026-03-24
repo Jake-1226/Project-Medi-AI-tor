@@ -2,16 +2,8 @@
 
 class DellAIAgent {
     constructor() {
-        this.currentPage = 'overview';
-        this.isConnected = false;
         this.currentServer = null;
-        this.agent = null;
-        this.chatMessages = [];
-        this.investigationResults = null;
-        this.remediationResults = null;
         this.theme = localStorage.getItem('theme') || 'light';
-        this.autoRefresh = true;
-        this.refreshInterval = null;
         this.fromFleet = false;
         this.fleetServerInfo = null;
         
@@ -1143,14 +1135,6 @@ class DellAIAgent {
             this.showChatFollowUps(followups.slice(0, 4));
         }
         container.scrollTop = container.scrollHeight;
-    }
-
-    quickChat(msg) {
-        const input = document.getElementById('agentChatInput');
-        if (input) {
-            input.value = msg;
-            this.sendChatMessage();
-        }
     }
 
     showChatFollowUps(options) {
@@ -2556,7 +2540,7 @@ class DellAIAgent {
             if (devs.length === 0) return html + '<p>No storage devices found.</p>';
             for (const d of devs) {
                 const status = (d.status || '').toLowerCase();
-                const statusBadge = status.includes('ok') || status.includes('online') ? badge('OK','#10b981') : status.includes('warning') ? badge('WARN','#f59e0b') : status.includes('crit') || status.includes('fail') ? badge('CRITICAL','#ef4444') : badge(v(d.status),'#6b7280');
+                const statusBadge = sbadge(d.status);
                 html += `<div style="margin:8px 0;padding:10px;background:var(--bg-input);border-radius:8px;border:1px solid var(--border-color)">`;
                 html += `<div style="display:flex;justify-content:space-between;align-items:center"><strong>${v(d.name || d.model)}</strong>${statusBadge}</div>`;
                 html += tbl(
@@ -2581,7 +2565,7 @@ class DellAIAgent {
                 const pw = p.power_watts || 0;
                 totalWatts += pw;
                 const status = (p.status || '').toLowerCase();
-                const statusBadge = status.includes('ok') ? badge('OK','#10b981') : badge(v(p.status),'#f59e0b');
+                const statusBadge = sbadge(p.status);
                 html += `<div style="margin:6px 0;padding:8px;background:var(--bg-input);border-radius:6px">`;
                 html += `<div style="display:flex;justify-content:space-between"><strong>${v(p.name)}</strong>${statusBadge}</div>`;
                 html += tbl(row('Power Draw', `${pw} W`) + row('Capacity', p.capacity_watts ? `${p.capacity_watts} W` : 'N/A') + row('Model', v(p.model)) + row('Serial', v(p.serial_number)));
@@ -2616,7 +2600,7 @@ class DellAIAgent {
             for (const f of fans) {
                 const rpm = f.speed_rpm || 0;
                 const status = (f.status || '').toLowerCase();
-                const statusBadge = status.includes('ok') ? badge('OK','#10b981') : badge(v(f.status),'#f59e0b');
+                const statusBadge = sbadge(f.status);
                 html += `<div style="margin:4px 0;display:flex;align-items:center;gap:8px;font-size:0.8rem">`;
                 html += `<span style="min-width:150px;color:var(--text-muted)">${v(f.name)}</span>`;
                 html += statusBadge;
@@ -2727,7 +2711,7 @@ class DellAIAgent {
             html += `<tr style="border-bottom:1px solid var(--border-color)"><th style="text-align:left;padding:4px 6px;color:var(--text-muted)">Job ID</th><th style="text-align:left;padding:4px 6px;color:var(--text-muted)">Name</th><th style="text-align:left;padding:4px 6px;color:var(--text-muted)">Status</th><th style="text-align:left;padding:4px 6px;color:var(--text-muted)">% Complete</th></tr>`;
             for (const j of jobs) {
                 const jStatus = (j.job_status || j.JobState || '').toLowerCase();
-                const sb = jStatus.includes('completed') ? badge('Done','#10b981') : jStatus.includes('running') || jStatus.includes('progress') ? badge('Running','#3b82f6') : jStatus.includes('fail') ? badge('Failed','#ef4444') : badge(v(j.job_status || j.JobState),'#6b7280');
+                const sb = sbadge(j.job_status || j.JobState);
                 html += `<tr style="border-bottom:1px solid var(--border-color)"><td style="padding:4px 6px;font-family:monospace">${v(j.job_id || j.Id)}</td><td style="padding:4px 6px">${v(j.name || j.Name)}</td><td style="padding:4px 6px">${sb}</td><td style="padding:4px 6px">${v(j.percent_complete || j.PercentComplete)}%</td></tr>`;
             }
             html += `</table>`;
@@ -2741,7 +2725,7 @@ class DellAIAgent {
             let html = `<div class="ops-result-title">🔌 Network Interfaces (${nics.length})</div>`;
             for (const n of nics) {
                 const status = (n.status || '').toLowerCase();
-                const statusBadge = status.includes('ok') ? badge('OK','#10b981') : badge(v(n.status),'#6b7280');
+                const statusBadge = sbadge(n.status);
                 html += `<div style="margin:6px 0;padding:8px;background:var(--bg-input);border-radius:6px;border:1px solid var(--border-color)">`;
                 html += `<div style="display:flex;justify-content:space-between"><strong>${v(n.name)}</strong>${statusBadge}</div>`;
                 html += tbl(row('MAC', v(n.mac_address)) + row('Speed', n.speed_mbps ? `${n.speed_mbps} Mbps` : 'N/A') + row('Link', v(n.link_status)));
@@ -4101,7 +4085,7 @@ class DellAIAgent {
             }
             
             // No auto-reconnect — user must enter password each session
-        } catch (error) { console.error('Failed to load saved settings:', error); }
+        } catch (error) { this.log('Failed to load saved settings', 'error'); }
         this.loadSrNumber();
     }
     
@@ -4126,7 +4110,7 @@ class DellAIAgent {
                 this.connectToFleetServer();
                 
             } catch (error) {
-                console.error('Error parsing fleet server info:', error);
+                this.log('Error parsing fleet server info', 'error');
                 sessionStorage.removeItem('fleetServerConnection');
             }
         } else if (serverId && serverName) {
@@ -4195,15 +4179,6 @@ class DellAIAgent {
         
         // Clean up the sessionStorage handoff
         sessionStorage.removeItem('fleetServerConnection');
-    }
-    
-    returnToFleet() {
-        if (this.fromFleet) {
-            window.close();
-            setTimeout(() => {
-                window.location.href = '/fleet';
-            }, 1000);
-        }
     }
 }
 
