@@ -42,6 +42,11 @@ from core.rbac import RBACManager
 from core.alert_system import alert_system
 from core.fleet_manager import fleet_manager
 from security.auth import AuthManager, AuthenticationError, AuthorizationError
+from core.enterprise import (
+    custom_role_manager, server_permission_manager, get_ui_capabilities,
+    parse_csv_import, maintenance_scheduler, rolling_update_orchestrator,
+    ticketing_integration, server_lock_manager, task_manager,
+)
 
 # main.py (top imports)
 from models.server_models import ActionLevel
@@ -464,6 +469,227 @@ async def shutdown_event():
         logger.warning(f"Auth cleanup during shutdown: {e}")
     
     logger.info("Medi-AI-tor shutdown complete")
+
+# ═══════════════════════════════════════════════════════════════
+#  ENTERPRISE FEATURES API — Gaps #21-#30
+# ═══════════════════════════════════════════════════════════════
+
+# #23: UI Capabilities (role-based feature gating)
+@app.get("/api/auth/capabilities")
+async def auth_capabilities(request: Request):
+    """Return UI feature flags based on user's role and permissions."""
+    user = await _get_current_user(request)
+    caps = get_ui_capabilities(user["role"], user["permissions"])
+    return {"status": "success", "capabilities": caps, "role": user["role"]}
+
+# #22: Custom Roles CRUD
+@app.get("/api/roles")
+async def list_roles(request: Request):
+    user = await _get_current_user(request)
+    return {"status": "success", "roles": custom_role_manager.list_roles()}
+
+@app.post("/api/roles")
+async def create_role(request: Request):
+    user = await _get_current_user(request)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    body = await request.json()
+    try:
+        role = custom_role_manager.create_role(body["name"], body["permissions"], body.get("description", ""))
+        _audit("ROLE_CREATED", user=user["username"], detail=body["name"])
+        return {"status": "success", "role": role}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# #21: Per-server permissions
+@app.post("/api/permissions/scope")
+async def set_user_scope(request: Request):
+    user = await _get_current_user(request)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    body = await request.json()
+    server_permission_manager.set_user_scope(
+        body["username"], body.get("server_ids"), body.get("group_names"))
+    _audit("SCOPE_SET", user=user["username"], detail=f"scope for {body['username']}")
+    return {"status": "success"}
+
+@app.get("/api/permissions/scope/{username}")
+async def get_user_scope(username: str, request: Request):
+    user = await _get_current_user(request)
+    return {"status": "success", "scope": server_permission_manager.get_user_scope(username)}
+
+# #24: Bulk CSV import
+@app.post("/api/fleet/import/csv")
+async def bulk_import_csv(request: Request):
+    user = await _get_current_user(request)
+    if "fleet_manage" not in user.get("permissions", []) and user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Fleet management permission required")
+    body = await request.json()
+    csv_content = body.get("csv", "")
+    if not csv_content:
+        raise HTTPException(status_code=400, detail="csv field required")
+    try:
+        servers = parse_csv_import(csv_content)
+        added = []
+        for s in servers:
+            sid = fleet_manager.add_server(
+                name=s["name"], host=s["host"], username=s["username"], password=s["password"],
+                port=s["port"], environment=s.get("environment"), location=s.get("location"),
+                tags=s.get("tags"), notes=s.get("notes"))
+            added.append(sid)
+        _audit("BULK_IMPORT", user=user["username"], detail=f"{len(added)} servers imported")
+        return {"status": "success", "imported": len(added), "server_ids": added}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# #25: Maintenance Windows
+@app.post("/api/maintenance")
+async def schedule_maintenance(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    try:
+        mw = maintenance_scheduler.schedule(
+            server_ids=body["server_ids"],
+            start=datetime.fromisoformat(body["start_time"]),
+            end=datetime.fromisoformat(body["end_time"]),
+            description=body.get("description", ""),
+            created_by=user["username"],
+            group_name=body.get("group_name"),
+            suppress_alerts=body.get("suppress_alerts", True),
+        )
+        _audit("MAINTENANCE_SCHEDULED", user=user["username"], detail=mw.id)
+        return {"status": "success", "window": {"id": mw.id, "status": mw.status}}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/maintenance")
+async def list_maintenance(request: Request):
+    await _get_current_user(request)
+    return {"status": "success", "windows": maintenance_scheduler.list_windows()}
+
+@app.delete("/api/maintenance/{window_id}")
+async def cancel_maintenance(window_id: str, request: Request):
+    user = await _get_current_user(request)
+    try:
+        maintenance_scheduler.cancel(window_id)
+        _audit("MAINTENANCE_CANCELLED", user=user["username"], detail=window_id)
+        return {"status": "success"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+# #26: Rolling Firmware Updates
+@app.post("/api/fleet/rolling-update")
+async def create_rolling_update(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    plan = rolling_update_orchestrator.create_plan(
+        server_ids=body["server_ids"], component=body["component"],
+        version=body["version"], batch_size=body.get("batch_size", 5),
+        created_by=user["username"], health_gate=body.get("health_gate", True))
+    _audit("ROLLING_UPDATE_CREATED", user=user["username"], detail=plan.id)
+    return {"status": "success", "plan": rolling_update_orchestrator.get_plan_status(plan.id)}
+
+@app.get("/api/fleet/rolling-update")
+async def list_rolling_updates(request: Request):
+    await _get_current_user(request)
+    return {"status": "success", "plans": rolling_update_orchestrator.list_plans()}
+
+@app.get("/api/fleet/rolling-update/{plan_id}")
+async def get_rolling_update(plan_id: str, request: Request):
+    await _get_current_user(request)
+    status = rolling_update_orchestrator.get_plan_status(plan_id)
+    if not status:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    return {"status": "success", "plan": status}
+
+# #28: Ticketing Integration
+@app.post("/api/tickets")
+async def link_ticket(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    ticket = ticketing_integration.link_ticket(
+        sr_number=body["sr_number"], server_id=body.get("server_id", ""),
+        investigation_id=body.get("investigation_id"),
+        summary=body.get("summary", ""), priority=body.get("priority", "medium"))
+    _audit("TICKET_LINKED", user=user["username"], detail=body["sr_number"])
+    return {"status": "success", "ticket": ticket}
+
+@app.get("/api/tickets")
+async def list_tickets(request: Request):
+    await _get_current_user(request)
+    return {"status": "success", "tickets": ticketing_integration.list_open_tickets()}
+
+@app.get("/api/tickets/server/{server_id}")
+async def get_server_tickets(server_id: str, request: Request):
+    await _get_current_user(request)
+    return {"status": "success", "tickets": ticketing_integration.get_tickets_for_server(server_id)}
+
+# #29: Server Locking
+@app.post("/api/servers/{server_id}/lock")
+async def lock_server(server_id: str, request: Request):
+    user = await _get_current_user(request)
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    try:
+        lock = server_lock_manager.acquire(server_id, user["username"], body.get("reason", ""))
+        return {"status": "success", "lock": {"server_id": server_id, "locked_by": user["username"],
+                "expires_at": lock.expires_at.isoformat() if lock.expires_at else None}}
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+@app.delete("/api/servers/{server_id}/lock")
+async def unlock_server(server_id: str, request: Request):
+    user = await _get_current_user(request)
+    try:
+        server_lock_manager.release(server_id, user["username"])
+        return {"status": "success"}
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+@app.get("/api/servers/{server_id}/lock")
+async def check_server_lock(server_id: str, request: Request):
+    await _get_current_user(request)
+    lock = server_lock_manager.is_locked(server_id)
+    return {"status": "success", "locked": lock is not None, "lock": lock}
+
+# #30: Task Assignment / Work Queue
+@app.post("/api/tasks")
+async def create_task(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    task = task_manager.create_task(
+        title=body["title"], description=body.get("description", ""),
+        created_by=user["username"], server_id=body.get("server_id"),
+        assigned_to=body.get("assigned_to"), priority=body.get("priority", "medium"),
+        sr_number=body.get("sr_number"))
+    _audit("TASK_CREATED", user=user["username"], detail=task.id)
+    return {"status": "success", "task": task_manager.get_queue(status=None)[0] if task_manager.tasks else {}}
+
+@app.get("/api/tasks")
+async def list_tasks(request: Request, assigned_to: str = None, status: str = None):
+    await _get_current_user(request)
+    return {"status": "success", "tasks": task_manager.get_queue(assigned_to, status),
+            "stats": task_manager.get_stats()}
+
+@app.put("/api/tasks/{task_id}/assign")
+async def assign_task(task_id: str, request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    try:
+        task_manager.assign(task_id, body["username"])
+        _audit("TASK_ASSIGNED", user=user["username"], detail=f"{task_id} -> {body['username']}")
+        return {"status": "success"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@app.put("/api/tasks/{task_id}/complete")
+async def complete_task(task_id: str, request: Request):
+    user = await _get_current_user(request)
+    try:
+        task_manager.complete(task_id)
+        _audit("TASK_COMPLETED", user=user["username"], detail=task_id)
+        return {"status": "success"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")

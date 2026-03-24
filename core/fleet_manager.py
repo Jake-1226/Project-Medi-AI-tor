@@ -49,6 +49,11 @@ class ServerInfo:
     service_tag: Optional[str] = None
     location: Optional[str] = None
     environment: Optional[str] = None  # production, staging, development
+    # #27: Rack/DC hierarchy
+    datacenter: Optional[str] = None
+    room: Optional[str] = None
+    rack: Optional[str] = None
+    rack_unit: Optional[str] = None
     tags: Set[str] = field(default_factory=set)
     groups: Set[str] = field(default_factory=set)
     created_at: datetime = field(default_factory=datetime.now)
@@ -71,6 +76,10 @@ class ServerInfo:
             "service_tag": self.service_tag,
             "location": self.location,
             "environment": self.environment,
+            "datacenter": self.datacenter,
+            "room": self.room,
+            "rack": self.rack,
+            "rack_unit": self.rack_unit,
             "tags": list(self.tags),  # Convert set to list
             "groups": list(self.groups),  # Convert set to list
             "status": self.status.value if isinstance(self.status, ServerStatus) else self.status,
