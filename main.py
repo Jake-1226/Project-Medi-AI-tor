@@ -53,6 +53,12 @@ from core.enterprise_extended import (
     sla_tracker, onboarding_manager, search_glossary, GLOSSARY,
     generate_investigation_html,
 )
+from core.enterprise_final import (
+    custom_runbook_manager, investigation_feedback_manager,
+    dashboard_layout_manager, bookmark_manager, executive_report_generator,
+    comment_manager, saved_search_manager, get_vendor_support,
+    compare_servers, export_for_bi,
+)
 
 # main.py (top imports)
 from models.server_models import ActionLevel
@@ -283,15 +289,18 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware — restrict to same-origin by default; override with CORS_ORIGINS env var
+# CORS middleware — restrict origins; defaults to localhost in dev (#60)
 _cors_origins = os.getenv("CORS_ORIGINS", "").strip()
 _allowed_origins = [o.strip() for o in _cors_origins.split(",") if o.strip()] if _cors_origins else []
+if not _allowed_origins:
+    _allowed_origins = ["http://localhost:8000", "http://localhost:3000", "http://127.0.0.1:8000"]
+    logger.info("CORS_ORIGINS not set — defaulting to localhost only (set CORS_ORIGINS for production)")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins or ["*"],  # '*' only when CORS_ORIGINS not set (dev)
-    allow_credentials=bool(_allowed_origins),  # credentials only with explicit origins
+    allow_origins=_allowed_origins,
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-Correlation-ID"],
 )
 
 # Security headers, rate limiting, correlation IDs
@@ -881,6 +890,189 @@ async def export_investigation_html(request: Request):
     return HTMLResponse(content=html, headers={
         "Content-Disposition": f'attachment; filename="investigation-report-{datetime.now().strftime("%Y%m%d-%H%M%S")}.html"'
     })
+
+# ═══════════════════════════════════════════════════════════════
+#  ENTERPRISE FINAL API — Gaps #41-#67
+# ═══════════════════════════════════════════════════════════════
+
+# #41: Custom Runbooks
+@app.post("/api/runbooks")
+async def add_runbook(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    rb = custom_runbook_manager.add_runbook(
+        title=body["title"], symptoms=body.get("symptoms",[]),
+        steps=body.get("steps",[]), category=body.get("category","general"),
+        created_by=user["username"], priority=body.get("priority",5))
+    _audit("RUNBOOK_CREATED", user=user["username"], detail=rb["id"])
+    return {"status":"success","runbook":rb}
+
+@app.get("/api/runbooks")
+async def list_runbooks(request: Request):
+    await _get_current_user(request)
+    return {"status":"success","data":custom_runbook_manager.list_all()}
+
+@app.get("/api/runbooks/match")
+async def match_runbooks(request: Request, issue: str = ""):
+    await _get_current_user(request)
+    return {"status":"success","matches":custom_runbook_manager.match_runbooks(issue)}
+
+# #42: Investigation Feedback
+@app.post("/api/feedback")
+async def submit_feedback(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    fb = investigation_feedback_manager.submit(
+        investigation_id=body.get("investigation_id",""),
+        was_correct=body.get("was_correct",True),
+        actual_cause=body.get("actual_cause",""),
+        notes=body.get("notes",""), submitted_by=user["username"])
+    _audit("FEEDBACK_SUBMITTED", user=user["username"], detail=fb["id"])
+    return {"status":"success","feedback":fb}
+
+@app.get("/api/feedback/stats")
+async def get_feedback_stats(request: Request):
+    await _get_current_user(request)
+    return {"status":"success","stats":investigation_feedback_manager.get_accuracy_stats(),
+            "recent":investigation_feedback_manager.list_feedback(20)}
+
+# #43: Multi-vendor support info
+@app.get("/api/vendors")
+async def get_vendors(request: Request):
+    return {"status":"success","vendors":get_vendor_support()}
+
+# #44: Dashboard Layout
+@app.post("/api/dashboard/layout")
+async def save_dashboard_layout(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    layout = dashboard_layout_manager.save_layout(user["username"], body)
+    return {"status":"success","layout":layout}
+
+@app.get("/api/dashboard/layout")
+async def get_dashboard_layout(request: Request):
+    user = await _get_current_user(request)
+    layout = dashboard_layout_manager.get_layout(user["username"])
+    return {"status":"success","layout":layout}
+
+# #46: Bookmarks
+@app.post("/api/bookmarks/{server_id}")
+async def add_bookmark(server_id: str, request: Request):
+    user = await _get_current_user(request)
+    bookmark_manager.add(user["username"], server_id)
+    return {"status":"success"}
+
+@app.delete("/api/bookmarks/{server_id}")
+async def remove_bookmark(server_id: str, request: Request):
+    user = await _get_current_user(request)
+    bookmark_manager.remove(user["username"], server_id)
+    return {"status":"success"}
+
+@app.get("/api/bookmarks")
+async def get_bookmarks(request: Request):
+    user = await _get_current_user(request)
+    return {"status":"success","bookmarks":bookmark_manager.get(user["username"])}
+
+# #50: Executive Reports
+@app.get("/api/reports/executive")
+async def get_executive_report(request: Request):
+    user = await _get_current_user(request)
+    fleet_overview = fleet_manager.get_fleet_overview() if fleet_manager else {}
+    sla_data = sla_tracker.get_fleet_sla(list(fleet_manager.servers.keys())) if fleet_manager else {}
+    report = executive_report_generator.generate_executive_summary(
+        fleet_overview, sla_data, len(incident_manager.incidents), len(knowledge_base_manager.articles))
+    return {"status":"success","report":report}
+
+@app.get("/api/reports/technician-metrics")
+async def get_technician_metrics(request: Request, username: str = None, days: int = Query(default=30,ge=1,le=365)):
+    await _get_current_user(request)
+    return {"status":"success","metrics":executive_report_generator.get_technician_metrics(username,days)}
+
+# #51: BI Export
+@app.get("/api/export/bi")
+async def export_bi_data(request: Request, dataset: str = "fleet", format: str = "csv"):
+    user = await _get_current_user(request)
+    if dataset == "fleet":
+        data = [s.to_dict() for s in fleet_manager.servers.values()] if fleet_manager else []
+    elif dataset == "incidents":
+        data = incident_manager.list_incidents()
+    elif dataset == "sla":
+        data = [sla_tracker.get_sla_report(sid) for sid in (fleet_manager.servers.keys() if fleet_manager else [])]
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown dataset: {dataset}. Use: fleet, incidents, sla")
+    content = export_for_bi(data, format)
+    media = "text/csv" if format == "csv" else "application/json"
+    from starlette.responses import PlainTextResponse
+    return PlainTextResponse(content, media_type=media, headers={
+        "Content-Disposition": f'attachment; filename="{dataset}-{datetime.now().strftime("%Y%m%d")}.{format}"'})
+
+# #64: Comments / @Mentions
+@app.post("/api/servers/{server_id}/comments")
+async def add_comment(server_id: str, request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    comment = comment_manager.add_comment(server_id, body.get("text",""), user["username"])
+    return {"status":"success","comment":comment}
+
+@app.get("/api/servers/{server_id}/comments")
+async def get_comments(server_id: str, request: Request):
+    await _get_current_user(request)
+    return {"status":"success","comments":comment_manager.get_comments(server_id)}
+
+@app.get("/api/mentions")
+async def get_mentions(request: Request):
+    user = await _get_current_user(request)
+    return {"status":"success","mentions":comment_manager.get_mentions(user["username"])}
+
+# #65: Server Comparison
+@app.post("/api/fleet/compare")
+async def compare_fleet_servers(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    ids = body.get("server_ids",[])
+    servers = [fleet_manager.servers[sid].to_dict() for sid in ids if sid in fleet_manager.servers]
+    return {"status":"success","comparison":compare_servers(servers)}
+
+# #66: Saved Searches
+@app.post("/api/searches")
+async def save_search(request: Request):
+    user = await _get_current_user(request)
+    body = await request.json()
+    s = saved_search_manager.save(user["username"], body.get("name",""), body.get("filters",{}))
+    return {"status":"success","search":s}
+
+@app.get("/api/searches")
+async def list_searches(request: Request):
+    user = await _get_current_user(request)
+    return {"status":"success","searches":saved_search_manager.get(user["username"])}
+
+@app.delete("/api/searches/{search_id}")
+async def delete_search(search_id: str, request: Request):
+    user = await _get_current_user(request)
+    saved_search_manager.delete(user["username"], search_id)
+    return {"status":"success"}
+
+# #52: Paginated fleet endpoint
+@app.get("/api/v1/fleet/servers")
+async def list_fleet_servers_paginated(request: Request,
+        page: int = Query(default=1, ge=1), per_page: int = Query(default=50, ge=1, le=200),
+        environment: str = None, status: str = None, datacenter: str = None):
+    """Paginated, filterable server list (#52, #58 API versioning)."""
+    user = await _get_current_user(request)
+    all_servers = list(fleet_manager.servers.values()) if fleet_manager else []
+    # Filter
+    if environment:
+        all_servers = [s for s in all_servers if s.environment == environment]
+    if status:
+        all_servers = [s for s in all_servers if (s.status.value if hasattr(s.status,'value') else s.status) == status]
+    if datacenter:
+        all_servers = [s for s in all_servers if getattr(s,'datacenter','') == datacenter]
+    total = len(all_servers)
+    start = (page - 1) * per_page
+    page_servers = all_servers[start:start + per_page]
+    return {"status":"success","data":[s.to_dict() for s in page_servers],
+            "pagination":{"page":page,"per_page":per_page,"total":total,
+                          "pages":(total + per_page - 1) // per_page if per_page else 1}}
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
