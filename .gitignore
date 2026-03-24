@@ -8,6 +8,9 @@ dist/
 build/
 *.egg
 
+# Runtime data (fleet state, audit logs)
+data/
+
 # Virtual environments
 venv/
 env/

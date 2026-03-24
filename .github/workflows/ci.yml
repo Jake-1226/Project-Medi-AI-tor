@@ -1,0 +1,72 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-test.txt
+
+    - name: Run unit tests
+      env:
+        AUTH_ADMIN_PASSWORD: test_admin_pass
+        AUTH_OPERATOR_PASSWORD: test_operator_pass
+        AUTH_VIEWER_PASSWORD: test_viewer_pass
+        DEMO_MODE: "true"
+      run: |
+        python -m pytest tests/ -x -q --tb=short -m "not integration"
+
+    - name: Check Python compilation
+      run: |
+        python -c "compile(open('main.py').read(), 'main.py', 'exec')"
+        python -c "compile(open('core/agent_brain.py').read(), 'core/agent_brain.py', 'exec')"
+        python -c "compile(open('core/agent_core.py').read(), 'core/agent_core.py', 'exec')"
+
+    - name: Check JS brace balance
+      run: |
+        python -c "
+        for f in ['static/js/app.js','static/js/fleet.js','static/js/realtime.js','static/js/customer.js']:
+            txt = open(f).read()
+            assert txt.count('{') == txt.count('}'), f'{f}: brace mismatch'
+            print(f'{f}: OK')
+        "
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - run: pip install ruff
+    - run: ruff check --select E,F,W --ignore E501 .
+
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build Docker image
+      run: docker build -f scripts/Dockerfile -t medi-ai-tor:${{ github.sha }} .
+    - name: Tag latest
+      run: docker tag medi-ai-tor:${{ github.sha }} medi-ai-tor:latest

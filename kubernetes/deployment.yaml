@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: medi-ai-tor
+  labels:
+    app: medi-ai-tor
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: medi-ai-tor
+  template:
+    metadata:
+      labels:
+        app: medi-ai-tor
+    spec:
+      containers:
+      - name: medi-ai-tor
+        image: medi-ai-tor:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: medi-ai-tor-secrets
+        - configMapRef:
+            name: medi-ai-tor-config
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: medi-ai-tor-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: medi-ai-tor
+spec:
+  selector:
+    app: medi-ai-tor
+  ports:
+  - port: 80
+    targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: medi-ai-tor-config
+data:
+  DEMO_MODE: "false"
+  LOG_FORMAT: "json"
+  LOG_LEVEL: "INFO"
+  VERIFY_SSL: "false"
+  REQUIRE_HTTPS: "true"
+  LOG_RETENTION_DAYS: "30"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: medi-ai-tor-secrets
+type: Opaque
+stringData:
+  AUTH_ADMIN_PASSWORD: "CHANGE_ME_IN_PRODUCTION"
+  AUTH_OPERATOR_PASSWORD: "CHANGE_ME_IN_PRODUCTION"
+  AUTH_VIEWER_PASSWORD: "CHANGE_ME_IN_PRODUCTION"
+  ENCRYPTION_SALT: "CHANGE_ME_IN_PRODUCTION"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: medi-ai-tor-data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

@@ -47,11 +47,37 @@ from security.auth import AuthManager, AuthenticationError, AuthorizationError
 from models.server_models import ActionLevel
 
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+# Configure structured JSON logging for production observability
+import logging.handlers
+
+_LOG_FORMAT = os.getenv("LOG_FORMAT", "text")  # "json" or "text"
+
+if _LOG_FORMAT == "json":
+    class _JsonFormatter(logging.Formatter):
+        def format(self, record):
+            log_obj = {
+                "ts": self.formatTime(record, self.datefmt),
+                "level": record.levelname,
+                "logger": record.name,
+                "msg": record.getMessage(),
+                "module": record.module,
+                "line": record.lineno,
+            }
+            if record.exc_info and record.exc_info[0]:
+                log_obj["exception"] = self.formatException(record.exc_info)
+            if hasattr(record, "correlation_id"):
+                log_obj["correlation_id"] = record.correlation_id
+            return json.dumps(log_obj, default=str)
+
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(_JsonFormatter())
+    logging.root.handlers = [_handler]
+    logging.root.setLevel(logging.INFO)
+else:
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════
@@ -64,17 +90,50 @@ auth_manager: Optional[AuthManager] = None
 # Rate limiter: per-IP request counts
 _rate_limits: Dict[str, list] = defaultdict(list)
 
-# Audit log (in-memory ring buffer, last 10 000 events)
+# Audit log — in-memory ring buffer + persistent append-only file for compliance
 _audit_log: List[Dict[str, Any]] = []
 _AUDIT_MAX = 10_000
+_AUDIT_FILE = os.path.join(os.path.dirname(__file__) or '.', 'data', 'audit.jsonl')
+
+def _ensure_audit_dir():
+    os.makedirs(os.path.dirname(_AUDIT_FILE), exist_ok=True)
 
 def _audit(event: str, *, ip: str = "?", user: str = "anonymous", detail: str = ""):
-    """Append an event to the audit log."""
+    """Append an event to the audit log (memory + persistent file)."""
     entry = {"ts": datetime.now().isoformat(), "event": event, "ip": ip, "user": user, "detail": detail}
     _audit_log.append(entry)
     if len(_audit_log) > _AUDIT_MAX:
         _audit_log.pop(0)
+    # Append to immutable file (JSONL = one JSON object per line)
+    try:
+        _ensure_audit_dir()
+        with open(_AUDIT_FILE, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(entry, default=str) + '\n')
+    except Exception:
+        pass  # file write is best-effort; in-memory log is authoritative
     logger.info(f"AUDIT [{event}] ip={ip} user={user} {detail}")
+
+def _enforce_audit_retention():
+    """Remove audit file entries older than retention period (#19)."""
+    retention_days = int(os.getenv("LOG_RETENTION_DAYS", "30"))
+    cutoff = datetime.now() - __import__('datetime').timedelta(days=retention_days)
+    try:
+        if not os.path.exists(_AUDIT_FILE):
+            return
+        kept = []
+        with open(_AUDIT_FILE, 'r', encoding='utf-8') as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                    if entry.get('ts', '') >= cutoff.isoformat():
+                        kept.append(line)
+                except json.JSONDecodeError:
+                    pass
+        with open(_AUDIT_FILE, 'w', encoding='utf-8') as f:
+            f.writelines(kept)
+        logger.info(f"Audit retention enforced: kept {len(kept)} entries (cutoff {retention_days} days)")
+    except Exception as e:
+        logger.warning(f"Audit retention enforcement failed: {e}")
 
 def _rate_check(ip: str, limit: int = 30, window: int = 60) -> bool:
     """Return True if request is within rate limit. Prunes old entries."""
@@ -120,6 +179,18 @@ _OS_COMMAND_WHITELIST = {
     'hardware_info', 'service_status', 'restart_service',
     'custom_command',  # custom_command only for admin role
 }
+
+# ─── Correlation ID Middleware ────────────────────────────────
+import uuid as _uuid
+
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    """Attach a unique correlation ID to every request for distributed tracing."""
+    async def dispatch(self, request: Request, call_next):
+        cid = request.headers.get("X-Correlation-ID") or str(_uuid.uuid4())
+        request.state.correlation_id = cid
+        response = await call_next(request)
+        response.headers["X-Correlation-ID"] = cid
+        return response
 
 # ─── Security Headers Middleware ─────────────────────────────
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -212,9 +283,10 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-# Security headers & rate limiting
+# Security headers, rate limiting, correlation IDs
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(CorrelationIdMiddleware)
 
 # Initialize global components
 agent = None
@@ -336,6 +408,9 @@ async def startup_event():
         third_party_api = None
     
     logger.info("Medi-AI-tor and all components initialized successfully")
+    
+    # Enforce data retention policy on startup (#19)
+    _enforce_audit_retention()
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -1280,6 +1355,46 @@ async def health_check():
     if not agent or not auth_manager:
         return JSONResponse(status_code=503, content={"status": "unhealthy"})
     return {"status": "healthy"}
+
+# ─── Prometheus-Compatible Metrics ───────────────────────────
+_request_count = defaultdict(int)
+_request_latency_sum = defaultdict(float)
+
+class MetricsMiddleware(BaseHTTPMiddleware):
+    """Track request count and latency for Prometheus export."""
+    async def dispatch(self, request: Request, call_next):
+        t0 = time.time()
+        response = await call_next(request)
+        elapsed = time.time() - t0
+        key = f'{request.method} {request.url.path} {response.status_code}'
+        _request_count[key] += 1
+        _request_latency_sum[key] += elapsed
+        return response
+
+app.add_middleware(MetricsMiddleware)
+
+@app.get("/metrics")
+async def prometheus_metrics():
+    """Prometheus-compatible metrics endpoint (text/plain exposition format)."""
+    lines = ["# HELP http_requests_total Total HTTP requests", "# TYPE http_requests_total counter"]
+    for key, count in sorted(_request_count.items()):
+        method, path, status = key.split(" ", 2)
+        lines.append(f'http_requests_total{{method="{method}",path="{path}",status="{status}"}} {count}')
+    lines += ["# HELP http_request_duration_seconds_sum Total request latency", "# TYPE http_request_duration_seconds_sum counter"]
+    for key, total in sorted(_request_latency_sum.items()):
+        method, path, status = key.split(" ", 2)
+        lines.append(f'http_request_duration_seconds_sum{{method="{method}",path="{path}",status="{status}"}} {total:.4f}')
+    # Application-level metrics
+    lines += ["# HELP medi_ai_tor_info Application info", "# TYPE medi_ai_tor_info gauge"]
+    lines.append(f'medi_ai_tor_info{{version="2.0",demo_mode="{agent.config.demo_mode if agent else "unknown"}"}} 1')
+    lines += ["# HELP medi_ai_tor_fleet_servers Total fleet servers", "# TYPE medi_ai_tor_fleet_servers gauge"]
+    lines.append(f"medi_ai_tor_fleet_servers {len(fleet_manager.servers) if fleet_manager else 0}")
+    lines += ["# HELP medi_ai_tor_active_sessions Active auth sessions", "# TYPE medi_ai_tor_active_sessions gauge"]
+    lines.append(f"medi_ai_tor_active_sessions {len(auth_manager.sessions) if auth_manager else 0}")
+    lines += ["# HELP medi_ai_tor_audit_events Total audit events", "# TYPE medi_ai_tor_audit_events counter"]
+    lines.append(f"medi_ai_tor_audit_events {len(_audit_log)}")
+    from starlette.responses import PlainTextResponse
+    return PlainTextResponse("\n".join(lines) + "\n", media_type="text/plain; version=0.0.4")
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
