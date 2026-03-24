@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Medi-AI-tor Technician Dashboard — AI-powered Dell server diagnostics, health monitoring, and remote management via iDRAC Redfish API.">
     <title>Medi-AI-tor — Technician Dashboard</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -149,7 +150,10 @@
                                 </div>
                                 <div class="connect-field">
                                     <label for="osPassword">Password</label>
-                                    <input type="password" id="osPassword" class="form-input" placeholder="Password" autocomplete="current-password" aria-label="OS Password">
+                                    <div style="position:relative">
+                                        <input type="password" id="osPassword" class="form-input" placeholder="Password" autocomplete="current-password" aria-label="OS Password">
+                                        <button type="button" class="pass-toggle" onclick="const p=document.getElementById('osPassword');p.type=p.type==='password'?'text':'password';this.textContent=p.type==='password'?'👁':'👁‍🗨'" title="Show/hide password" aria-label="Toggle password visibility">👁</button>
+                                    </div>
                                 </div>
                             </div>
                             <input type="hidden" id="osPort" value="22">
@@ -757,6 +761,7 @@
                 <span class="sub-tab" data-subtab="adv-health-score">Health Score</span>
                 <span class="sub-tab" data-subtab="adv-snapshot">Server Snapshot</span>
                 <span class="sub-tab" data-subtab="adv-predictive">Predictive</span>
+                <span class="sub-tab" data-subtab="adv-audit">Audit Log</span>
             </div>
             <div id="adv-lifecycle" class="sub-tab-content active">
                 <div class="log-toolbar">
@@ -820,6 +825,14 @@
                     <button class="btn btn-outline btn-sm" onclick="app.runAdvanced('firmware_compliance')">Firmware Compliance Report</button>
                 </div>
                 <div id="advPredictiveResult" class="action-result" style="display:none"></div>
+            </div>
+            <div id="adv-audit" class="sub-tab-content">
+                <div class="section-block">
+                    <h4>Security Audit Log</h4>
+                    <p class="section-desc">View recent authentication events, API actions, and security incidents. Requires admin role.</p>
+                    <button class="btn btn-primary btn-sm" onclick="app.runAdvanced('audit_log')">Load Audit Log</button>
+                </div>
+                <div id="advAuditResult" class="action-result" style="display:none"></div>
             </div>
         </div>
 

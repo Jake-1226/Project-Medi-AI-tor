@@ -273,6 +273,10 @@ class DellAIAgent {
                 this.showAlert('Connected to server successfully!', 'success');
                 this.log(`Connected to server: ${host}`, 'success');
                 
+                // P7: Update chat panel subtitle with connected server
+                const chatSub = document.getElementById('agentChatSubtitle');
+                if (chatSub) chatSub.textContent = `Connected to ${host}`;
+                
                 // Update button states
                 if (connectBtn) { connectBtn.textContent = 'Connected'; connectBtn.disabled = true; connectBtn.classList.remove('btn-loading'); }
                 if (disconnectBtn) disconnectBtn.disabled = false;
@@ -395,8 +399,7 @@ class DellAIAgent {
         this._stopAutoRefresh();
         this._autoRefreshTimer = setInterval(() => {
             if (this.currentServer) {
-                this.log('Auto-refreshing data...', 'info');
-                this.fetchAllDashboardData();
+                this.fetchAllDashboardData(true); // silent auto-refresh
             }
         }, 60000);
     }
@@ -1923,11 +1926,13 @@ class DellAIAgent {
     }
     
     // ─── Data Fetch ───────────────────────────────────────────────
-    async fetchAllDashboardData() {
+    async fetchAllDashboardData(silent = false) {
         if (!this.currentServer) return;
         
-        this.log('Loading dashboard data...', 'info');
-        this.showAlert('Loading server data...', 'info');
+        if (!silent) {
+            this.log('Loading dashboard data...', 'info');
+            this.showAlert('Loading server data...', 'info');
+        }
         
         try {
             // Use batch endpoint for parallel execution
@@ -2021,6 +2026,8 @@ class DellAIAgent {
         el.classList.add('active');
         const target = document.getElementById(el.dataset.subtab);
         if (target) target.classList.add('active');
+        // P8: Hide ops result containers from previous sub-tab
+        parent.querySelectorAll('.ops-result').forEach(r => { r.style.display = 'none'; });
     }
 
     // ─── Main Response Router ───────────────────────────────────
@@ -3715,6 +3722,7 @@ class DellAIAgent {
             'server_timeline':     { url: '/api/server/timeline', resultId: 'advSnapshotResult' },
             'predictive_analysis': { url: '/predictive-analysis', method: 'POST', body: {}, resultId: 'advPredictiveResult' },
             'firmware_compliance': { cmd: 'get_firmware_inventory', resultId: 'advPredictiveResult' },
+            'audit_log':          { url: '/api/audit-log?limit=50', resultId: 'advAuditResult' },
         };
 
         const m = mapping[action];

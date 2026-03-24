@@ -23,12 +23,30 @@ class FleetManager {
         if (this._authToken) h['Authorization'] = `Bearer ${this._authToken}`;
         return h;
     }
+
+    // Intercept 401 responses and redirect to login
+    _checkAuth(response) {
+        if (response.status === 401) {
+            sessionStorage.removeItem('auth_token');
+            window.location.href = '/login';
+            return false;
+        }
+        return true;
+    }
     
     init() {
         this.setupEventListeners();
         this.loadFleetData();
         this.startAutoRefresh();
         this.updateUI();
+        // Keyboard shortcut: Ctrl+K focuses server search
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                const search = document.getElementById('serverSearch');
+                if (search) { this.switchTab('servers'); search.focus(); }
+            }
+        });
     }
     
     setupEventListeners() {
@@ -197,6 +215,7 @@ class FleetManager {
     async loadFleetData() {
         try {
             const response = await fetch('/api/fleet/overview', { headers: this._headers(false) });
+            if (!this._checkAuth(response)) return;
             const data = await response.json();
             
             if (data.status === 'success') {

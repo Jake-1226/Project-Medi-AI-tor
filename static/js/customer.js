@@ -83,6 +83,13 @@ class CustomerChat {
                 sidebarOverlay.classList.remove('active');
             });
         }
+        // Close sidebar on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && sidebar?.classList.contains('open')) {
+                sidebar.classList.remove('open');
+                sidebarOverlay?.classList.remove('active');
+            }
+        });
 
         // Scroll-to-bottom FAB
         const chatMessages = document.getElementById('chatMessages');
