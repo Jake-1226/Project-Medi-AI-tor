@@ -261,7 +261,7 @@ class CustomerChat {
                 document.getElementById('sidebarOverlay')?.classList.remove('active');
 
                 // Directly send overview (no visible text in input)
-                this.addMsg('agent', `Connected to **${this._escapeHtml(host)}**. Running server overview...`);
+                this.addMsg('agent', `Great, I'm connected to **${this._escapeHtml(host)}**! Let me pull up a quick overview of your server...`);
                 this._sendDirect('Give me a server overview');
             } else {
                 btn.classList.remove('connecting');
@@ -325,7 +325,7 @@ class CustomerChat {
         if (btn) { btn.disabled = false; btn.classList.remove('connecting', 'connected'); }
         if (btnContent) btnContent.textContent = 'Connect to iDRAC';
         this.updateConnectionUI(false);
-        this.addMsg('system', 'Disconnected from server.');
+        this.addMsg('info', 'Disconnected. Whenever you\u2019re ready to check another server, just connect using the sidebar.');
         this.showToast('Disconnected', 'info');
         // Restore suggestion chips for next session
         const chips = document.getElementById('suggestionChips');
@@ -462,7 +462,7 @@ class CustomerChat {
         if (!msg) return;
 
         if (!this.connected) {
-            this.addMsg('info', 'Connect to a server first using the sidebar. Then I can help you diagnose any issue.');
+            this.addMsg('info', 'I\u2019d love to help! First, connect to a server using the sidebar \u2014 then I can diagnose anything.');
             return;
         }
 
@@ -561,7 +561,7 @@ class CustomerChat {
         } catch (err) {
             if (this._thinkingTimer) { clearInterval(this._thinkingTimer); this._thinkingTimer = null; }
             document.getElementById(thinkingId)?.remove();
-            this.addMsg('system', `Network error: ${err.message}`);
+            this.addMsg('system', `Hmm, I ran into a connection issue. Please check that the server is reachable and try again.`);
             this.updateAgentStatus('Error');
         } finally {
             this._sending = false;
@@ -622,7 +622,7 @@ class CustomerChat {
         this.addMsgHtml('agent', html);
         
         const followUps = this._buildContextualFollowUps(msg, result.data);
-        this.addFollowUps(followUps.length ? followUps : this._getSmartFollowUps(msg));
+        this.addFollowUps(followUps.length ? followUps : this._getSmartFollowUps(msg), 'You might want to ask:');
         this.updateAgentStatus('Ready');
         this._showSuggestions();
     }
@@ -851,7 +851,7 @@ class CustomerChat {
         if (diag.category === 'memory') followUps.push('Check memory details');
         if (diag.remediation_steps?.length) followUps.push('Can you fix this?');
         followUps.push('What else should I check?');
-        this.addFollowUps(followUps);
+        this.addFollowUps(followUps, 'Based on what I found, I\u2019d suggest:');
 
         if (result.metrics) this.renderMetrics(result.metrics);
         this.updateAgentStatus('Investigation complete', result.metrics);
@@ -1012,7 +1012,7 @@ class CustomerChat {
         html += '</div>';
 
         this.addMsgHtml('agent', html);
-        this.addFollowUps(['What\'s the current status?', 'Run health check', 'Run another investigation']);
+        this.addFollowUps(['What\'s the current status?', 'Run health check', 'Run another investigation'], 'What would you like to do next?');
         this.updateAgentStatus('Remediation complete');
     }
 
@@ -1255,17 +1255,41 @@ class CustomerChat {
         this.scrollToBottom();
     }
 
+    /** Convert internal tool names to friendly descriptions */
+    _humanizeTool(tool) {
+        const map = {
+            'system_info': 'identifying the server', 'check_system_info': 'identifying the server',
+            'health_check': 'running a health check', 'check_health': 'running a health check',
+            'temperatures': 'checking temperatures', 'check_temperatures': 'checking temperatures',
+            'temperature_sensors': 'reading temp sensors', 'get_temperature_sensors': 'reading temp sensors',
+            'fans': 'checking fan speeds', 'check_fans': 'checking fan speeds',
+            'power_supplies': 'checking power supplies', 'get_power_supplies': 'checking power supplies',
+            'power': 'checking power status', 'check_power': 'checking power status',
+            'memory': 'checking memory', 'check_memory': 'checking memory', 'get_memory': 'checking memory',
+            'storage': 'checking storage', 'check_storage': 'checking storage', 'get_storage_info': 'checking storage',
+            'network': 'checking network adapters', 'get_network_adapters': 'checking network adapters',
+            'firmware': 'checking firmware versions', 'check_firmware': 'checking firmware',
+            'bios': 'checking BIOS settings', 'get_bios_attributes': 'reading BIOS settings',
+            'sel_logs': 'reading system event logs', 'collect_logs': 'reading system logs',
+            'boot_order': 'checking boot order', 'get_boot_order': 'checking boot order',
+            'idrac': 'checking iDRAC config', 'get_idrac_info': 'checking iDRAC config',
+            'full_inventory': 'pulling full hardware inventory', 'get_full_inventory': 'pulling full inventory',
+        };
+        const key = (tool || '').toLowerCase().replace(/^check_|^get_/, '');
+        return map[tool] || map[key] || tool.replace(/_/g, ' ');
+    }
+
     updateThinkingActionStart(panelId, data) {
         const panel = document.getElementById(panelId);
         if (!panel) return;
         const stepsEl = panel.querySelector('.thinking-steps');
         if (!stepsEl) return;
 
-        const toolName = (data.tool || data.tool_name || '').replace('check_', '').replace(/_/g, ' ');
+        const friendly = this._humanizeTool(data.tool || data.tool_name || data.command || '');
         const stepDiv = document.createElement('div');
         stepDiv.className = 'thinking-step thinking-step-action-start thinking-step-new';
         stepDiv.innerHTML = `<span class="thinking-step-icon">⏳</span>
-            <span class="thinking-step-text">Running <strong>${toolName || 'tool'}</strong>...</span>`;
+            <span class="thinking-step-text">Now ${friendly}...</span>`;
         stepsEl.appendChild(stepDiv);
         requestAnimationFrame(() => stepDiv.classList.remove('thinking-step-new'));
 
@@ -1422,13 +1446,21 @@ class CustomerChat {
         }
     }
 
-    addFollowUps(options) {
+    addFollowUps(options, introText) {
         if (!Array.isArray(options) || !options.length) return;
         const container = document.getElementById('chatMessages');
         if (!container) return;
         const lastMsg = container.querySelector('.chat-msg.msg-agent:last-of-type .msg-text');
         const div = document.createElement('div');
         div.className = 'msg-followups';
+
+        // Add contextual intro line if provided
+        if (introText) {
+            const intro = document.createElement('div');
+            intro.className = 'followup-intro';
+            intro.textContent = introText;
+            div.appendChild(intro);
+        }
 
         // Create buttons with listeners BEFORE appending to DOM
         options.forEach(o => {

@@ -1137,7 +1137,7 @@ class AgentBrain:
             self._last_issue = message
             response = {
                 "type": "investigation",
-                "message": f"Investigation complete. {self._summarize_diagnosis()}",
+                "message": f"All done! Here's what I found. {self._summarize_diagnosis()}",
                 "data": result,
                 "metrics": self._build_business_metrics(),
             }
@@ -1148,7 +1148,7 @@ class AgentBrain:
             result = await self._dig_deeper(target, action_level)
             response = {
                 "type": "follow_up",
-                "message": result.get("summary", "Here's what I found."),
+                "message": result.get("summary", "Here\u2019s what I found \u2014 take a look:"),
                 "data": result,
             }
 
@@ -1157,7 +1157,7 @@ class AgentBrain:
             plan = self._propose_remediation()
             response = {
                 "type": "remediation_proposal",
-                "message": f"I recommend the following remediation plan. Say 'approve' to execute.",
+                "message": "I\u2019ve put together a remediation plan. Review the steps below and say **\u2018approve\u2019** when you\u2019re ready.",
                 "plan": plan,
                 "requires_approval": True,
             }
@@ -1213,13 +1213,19 @@ class AgentBrain:
             }
 
         elif intent == "greeting":
-            greeting = "Hello! 👋 I'm **Medi-AI-tor**, your AI server diagnostics agent."
+            _greetings = [
+                "Hey! \U0001f44b I'm **Medi-AI-tor**, your AI server diagnostics expert.",
+                "Hello there! \U0001f44b I'm **Medi-AI-tor** \u2014 ready to help with your server.",
+                "Hi! \U0001f44b **Medi-AI-tor** here \u2014 think of me as your AI server engineer.",
+            ]
+            import random as _rng
+            greeting = _rng.choice(_greetings)
             if self._last_diagnosis:
-                greeting += f"\n\nI'm still connected and have data from our last session. You can ask me anything about the server, or describe a new issue to investigate."
+                greeting += "\n\nI still have data from our last session. Feel free to ask follow-up questions, or describe a new issue."
             elif self.agent.is_connected():
-                greeting += f"\n\nI'm connected to the server. Ask me anything — try **\"give me a server overview\"** to start, or describe an issue you're seeing."
+                greeting += "\n\nI'm connected and ready to go! Try **\"give me a server overview\"** to start, or just describe what's happening."
             else:
-                greeting += f"\n\nConnect to a server using the panel on the left, then I can help you diagnose issues, check health, review firmware, and more."
+                greeting += "\n\nConnect to a server using the sidebar, and I'll take it from there."
             response = {"type": "answer", "message": greeting}
 
         elif intent == "help":
@@ -1245,12 +1251,13 @@ I investigate like a senior Dell engineer — I form hypotheses, run targeted ch
 
         elif intent == "thanks":
             responses = [
-                "You're welcome! Let me know if you need anything else. 👍",
-                "Happy to help! Feel free to ask more questions about the server.",
-                "Glad I could help! I'm here if you need to investigate anything else.",
+                "You're welcome! Happy to help \u2014 let me know if anything else comes up. \U0001f44d",
+                "Glad I could help! I'm here whenever you need to troubleshoot. \U0001f60a",
+                "Anytime! Feel free to ask more questions about the server.",
+                "No problem! That's what I'm here for. \U0001f44d",
             ]
-            import random
-            response = {"type": "answer", "message": random.choice(responses)}
+            import random as _rng
+            response = {"type": "answer", "message": _rng.choice(responses)}
 
         elif intent == "about":
             response = {"type": "answer", "message": "I'm **Medi-AI-tor**, a purpose-built AI agent for Dell server diagnostics. I'm not an LLM — I'm a **ReAct reasoning engine** that uses hypothesis-driven investigation to diagnose server issues.\n\nI connect to Dell iDRAC controllers via the Redfish API, collect real telemetry data, decode hardware errors (MCA, PCIe AER), compare firmware against Dell's catalog, and arrive at a root-cause diagnosis with an evidence chain.\n\nI investigate like a senior support engineer would — but in ~30 seconds instead of 45+ minutes."}
