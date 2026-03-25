@@ -1301,6 +1301,7 @@ async def get_customer_chat():
 @app.get("/technician", response_class=HTMLResponse)
 @app.get("/technician/app", response_class=HTMLResponse)
 @app.get("/dashboard", response_class=HTMLResponse)
+@app.get("/app", response_class=HTMLResponse)
 async def get_technician_dashboard(request: Request):
     """Serve the technician dashboard with ALL JS+CSS inlined."""
     token = request.cookies.get("auth_token")

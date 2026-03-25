@@ -241,8 +241,8 @@
                         await Promise.all(keys.map(k => caches.delete(k)));
                     } catch(e) {}
                 }
-                // Redirect to dashboard (use /dashboard to bypass any cached /technician)
-                window.location.href = '/dashboard';
+                // Redirect to dashboard (use /app to bypass any cached /technician)
+                window.location.href = '/app';
             } else {
                 let msg = data.detail || 'Login failed';
                 // P5: Show lockout feedback with countdown
