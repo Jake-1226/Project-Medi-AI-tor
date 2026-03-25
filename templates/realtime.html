@@ -345,6 +345,8 @@
         </section>
     </div>
 
+    <!-- Kill stale service worker -->
+    <script>if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(w=>w.unregister()));caches.keys().then(n=>n.forEach(k=>caches.delete(k)));}</script>
     <!-- Scripts -->
     <script src="/static/js/realtime.js"></script>
 </body>

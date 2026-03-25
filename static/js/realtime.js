@@ -159,7 +159,7 @@ class RealtimeMonitor {
     async _fetchInitialMetrics() {
         try {
             // Check if server is already connected
-            const statusR = await fetch('/api/server/quick-status');
+            const statusR = await fetch('/api/server/quick-status', { headers: this._headers(false) });
             if (!statusR.ok) return;
             const statusData = await statusR.json();
             const sd = statusData.data || statusData;
