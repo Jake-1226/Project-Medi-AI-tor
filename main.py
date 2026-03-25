@@ -220,6 +220,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        # Kill service worker cache on every response
+        response.headers["Clear-Site-Data"] = '"cache"'
         # CSP: allow self + inline styles (needed by dashboard) + CDN fonts
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
@@ -1297,72 +1299,24 @@ async def get_customer_chat():
     return FileResponse('templates/customer.html', headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 @app.get("/technician", response_class=HTMLResponse)
-async def get_technician_dashboard(request: Request):
-    """Serve the technician dashboard.
-    
-    Two-phase load to defeat service worker cache:
-    Phase 1: Serve a tiny HTML page that nukes all service workers/caches
-    Phase 2: Once clean, load the real dashboard via /technician/app
-    """
-    token = request.cookies.get("auth_token")
-    if not token:
-        from starlette.responses import RedirectResponse
-        return RedirectResponse(url="/login", status_code=302)
-    try:
-        await auth_manager.validate_token(token)
-    except Exception:
-        from starlette.responses import RedirectResponse
-        return RedirectResponse(url="/login", status_code=302)
-    
-    # Phase 1: Tiny bootstrap page that kills SW then loads real app
-    return HTMLResponse(content="""<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Medi-AI-tor</title></head>
-<body style="background:#0f172a;color:#f1f5f9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">
-<div style="text-align:center"><p>Loading dashboard...</p></div>
-<script>
-(async()=>{
-    if('serviceWorker' in navigator){
-        const regs=await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map(r=>r.unregister()));
-    }
-    if('caches' in window){
-        const keys=await caches.keys();
-        await Promise.all(keys.map(k=>caches.delete(k)));
-    }
-    window.location.replace('/technician/app');
-})();
-</script>
-</body></html>""", headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
-
 @app.get("/technician/app", response_class=HTMLResponse)
-async def get_technician_app(request: Request):
-    """Serve the actual dashboard with inlined JS+CSS (phase 2, after SW is killed)."""
+@app.get("/dashboard", response_class=HTMLResponse)
+async def get_technician_dashboard(request: Request):
+    """Serve the technician dashboard with ALL JS+CSS inlined."""
     token = request.cookies.get("auth_token")
     if not token:
         from starlette.responses import RedirectResponse
         return RedirectResponse(url="/login", status_code=302)
     try:
         await auth_manager.validate_token(token)
-        # Read HTML template and JS, inline the JS to bypass any service worker cache
         import pathlib
         base = pathlib.Path(__file__).parent
         html = (base / 'templates' / 'dashboard.html').read_text(encoding='utf-8')
         js = (base / 'static' / 'js' / 'app.js').read_text(encoding='utf-8')
         css = (base / 'static' / 'css' / 'style.css').read_text(encoding='utf-8')
-        # Inline JS — service worker can't intercept inline scripts
-        html = html.replace(
-            '<script src="/static/js/app.js"></script>',
-            f'<script>\n{js}\n</script>'
-        )
-        # Inline CSS — service worker can't intercept inline styles
-        html = html.replace(
-            '<link rel="stylesheet" href="/static/css/style.css">',
-            f'<style>\n{css}\n</style>'
-        )
-        return HTMLResponse(content=html, headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Clear-Site-Data": '"cache", "storage"',
-        })
+        html = html.replace('<script src="/static/js/app.js"></script>', f'<script>\n{js}\n</script>')
+        html = html.replace('<link rel="stylesheet" href="/static/css/style.css">', f'<style>\n{css}\n</style>')
+        return HTMLResponse(content=html, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
     except Exception:
         from starlette.responses import RedirectResponse
         return RedirectResponse(url="/login", status_code=302)
