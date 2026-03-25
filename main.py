@@ -474,6 +474,7 @@ async def startup_event():
                             model=sdata.get('model'),
                             service_tag=sdata.get('service_tag'),
                             environment=sdata.get('environment', 'production'),
+                            _already_encrypted=True,
                         )
                         loaded += 1
                     except Exception as e:

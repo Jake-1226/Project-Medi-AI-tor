@@ -151,7 +151,8 @@ class FleetManager:
     def add_server(self, name: str, host: str, username: str, password: str, 
                    port: int = 443, model: str = None, service_tag: str = None,
                    location: str = None, environment: str = None, 
-                   tags: List[str] = None, notes: str = None) -> str:
+                   tags: List[str] = None, notes: str = None,
+                   _already_encrypted: bool = False) -> str:
         """Add a new server to the fleet with duplicate detection"""
         
         # Check for duplicate server (same host, username, and port)
@@ -191,7 +192,7 @@ class FleetManager:
             host=host,
             port=port,
             username=username,
-            password=self._encrypt_password(password),
+            password=password if _already_encrypted else self._encrypt_password(password),
             _password_encrypted=True,
             model=model,
             service_tag=service_tag,
