@@ -168,6 +168,7 @@
     </div>
 
     <div class="toast-container" id="toastContainer"></div>
-    <script src="/static/js/customer.js?v=20260324"></script>
+    <script>if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(r=>r.forEach(w=>w.unregister()));caches.keys().then(n=>n.forEach(k=>caches.delete(k)));}</script>
+    <script src="/static/js/customer.js"></script>
 </body>
 </html>

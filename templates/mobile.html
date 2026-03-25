@@ -23,12 +23,10 @@
     
     <!-- Service Worker Registration -->
     <script>
+        // Service worker disabled — was causing stale cache issues across all pages
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/static/sw.js')
-                    .then(registration => console.log('SW registered'))
-                    .catch(error => console.log('SW registration failed'));
-            });
+            navigator.serviceWorker.getRegistrations().then(r => r.forEach(w => w.unregister()));
+            caches.keys().then(n => n.forEach(k => caches.delete(k)));
         }
     </script>
 </head>

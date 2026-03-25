@@ -187,6 +187,13 @@
     </div>
 
     <script>
+    // Kill stale service worker cache
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(r => r.forEach(w => w.unregister()));
+        caches.keys().then(n => n.forEach(k => caches.delete(k)));
+    }
+    </script>
+    <script>
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('loginBtn');
