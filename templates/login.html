@@ -232,6 +232,15 @@
                 // Store token in sessionStorage for JS API calls (cookie is HTTP-only for security)
                 sessionStorage.setItem('auth_token', data.token);
                 sessionStorage.setItem('auth_user', JSON.stringify(data.user));
+                // Kill service worker before navigating (ensures fresh dashboard load)
+                if ('serviceWorker' in navigator) {
+                    try {
+                        const regs = await navigator.serviceWorker.getRegistrations();
+                        await Promise.all(regs.map(r => r.unregister()));
+                        const keys = await caches.keys();
+                        await Promise.all(keys.map(k => caches.delete(k)));
+                    } catch(e) {}
+                }
                 // Redirect to technician dashboard
                 window.location.href = '/technician';
             } else {
