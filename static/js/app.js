@@ -2991,6 +2991,25 @@ class DellAIAgent {
         if (!c) return;
         this.inventory.server_info = info;
         const statusBadge = this._badge(info.status);
+        
+        // Also populate System Info General tab if empty
+        const sysC = document.getElementById('systemInfoContainer');
+        if (sysC && (sysC.innerHTML.includes('placeholder-text') || sysC.innerHTML.trim() === '' || sysC.innerText.trim().length < 50)) {
+            sysC.innerHTML = `
+            <div class="section-block"><h4>System Identity</h4>
+            <div class="metric-tiles">
+                <div class="metric-tile"><div class="tile-value">${this._v(info.model,'—')}</div><div class="tile-label">Model</div></div>
+                <div class="metric-tile"><div class="tile-value">${this._v(info.service_tag,'—')}</div><div class="tile-label">Service Tag</div></div>
+                <div class="metric-tile"><div class="tile-value">${this._v(info.power_state,'—')}</div><div class="tile-label">Power State</div></div>
+                <div class="metric-tile"><div class="tile-value">${this._v(info.firmware_version || info.bios_version,'—')}</div><div class="tile-label">BIOS</div></div>
+                <div class="metric-tile"><div class="tile-value">${this._v(info.idrac_version,'—')}</div><div class="tile-label">iDRAC</div></div>
+                <div class="metric-tile"><div class="tile-value">${this._v(info.cpu_model,'—')}</div><div class="tile-label">CPU</div></div>
+                <div class="metric-tile"><div class="tile-value">${info.cpu_count || '—'}</div><div class="tile-label">CPUs</div></div>
+                <div class="metric-tile"><div class="tile-value">${info.total_memory_gb ? info.total_memory_gb + ' GB' : '—'}</div><div class="tile-label">Total RAM</div></div>
+                <div class="metric-tile"><div class="tile-value">${this._v(info.hostname,'—')}</div><div class="tile-label">Hostname</div></div>
+                <div class="metric-tile"><div class="tile-value">${this._v(info.os_name || info.os_version,'—')}</div><div class="tile-label">OS</div></div>
+            </div></div>`;
+        }
         c.innerHTML = `
             <div class="section-block">
                 <h4>Server Identity</h4>
