@@ -1298,10 +1298,45 @@ async def get_customer_chat():
 
 @app.get("/technician", response_class=HTMLResponse)
 async def get_technician_dashboard(request: Request):
-    """Serve the technician/support dashboard — requires authentication.
-    If no valid token, redirect to /login.
-    Inlines app.js to bypass service worker cache.
+    """Serve the technician dashboard.
+    
+    Two-phase load to defeat service worker cache:
+    Phase 1: Serve a tiny HTML page that nukes all service workers/caches
+    Phase 2: Once clean, load the real dashboard via /technician/app
     """
+    token = request.cookies.get("auth_token")
+    if not token:
+        from starlette.responses import RedirectResponse
+        return RedirectResponse(url="/login", status_code=302)
+    try:
+        await auth_manager.validate_token(token)
+    except Exception:
+        from starlette.responses import RedirectResponse
+        return RedirectResponse(url="/login", status_code=302)
+    
+    # Phase 1: Tiny bootstrap page that kills SW then loads real app
+    return HTMLResponse(content="""<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Medi-AI-tor</title></head>
+<body style="background:#0f172a;color:#f1f5f9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">
+<div style="text-align:center"><p>Loading dashboard...</p></div>
+<script>
+(async()=>{
+    if('serviceWorker' in navigator){
+        const regs=await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r=>r.unregister()));
+    }
+    if('caches' in window){
+        const keys=await caches.keys();
+        await Promise.all(keys.map(k=>caches.delete(k)));
+    }
+    window.location.replace('/technician/app');
+})();
+</script>
+</body></html>""", headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+
+@app.get("/technician/app", response_class=HTMLResponse)
+async def get_technician_app(request: Request):
+    """Serve the actual dashboard with inlined JS+CSS (phase 2, after SW is killed)."""
     token = request.cookies.get("auth_token")
     if not token:
         from starlette.responses import RedirectResponse
