@@ -104,10 +104,14 @@ class FleetManager:
         self.fleet_metrics: Dict[str, Any] = {}
         self.alerts: List[Dict] = []
         
-        # Credential encryption
+        # Credential encryption — use a stable key derived from SECRET_KEY so
+        # passwords survive app restarts (fleet state is persisted to disk)
+        import os, base64, hashlib
         from cryptography.fernet import Fernet
-        self._cipher_key = Fernet.generate_key()
-        self._cipher = Fernet(self._cipher_key)
+        secret = os.getenv("SECRET_KEY", "medi-ai-tor-default-fleet-key")
+        key = base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest())
+        self._cipher_key = key
+        self._cipher = Fernet(key)
         
         # Default groups
         self._create_default_groups()

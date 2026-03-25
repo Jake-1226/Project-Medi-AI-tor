@@ -455,6 +455,34 @@ async def startup_event():
     
     logger.info("Medi-AI-tor and all components initialized successfully")
     
+    # Load persisted fleet state from previous session
+    try:
+        fleet_path = os.path.join(os.path.dirname(__file__) or '.', 'data', 'fleet_state.json')
+        if os.path.exists(fleet_path):
+            with open(fleet_path, 'r') as f:
+                fleet_data = json.load(f)
+            loaded = 0
+            for sid, sdata in fleet_data.items():
+                if sid not in fleet_manager.servers:
+                    try:
+                        fleet_manager.add_server(
+                            name=sdata.get('name', 'Unknown'),
+                            host=sdata.get('host', ''),
+                            username=sdata.get('username', ''),
+                            password=sdata.get('password', ''),
+                            port=sdata.get('port', 443),
+                            model=sdata.get('model'),
+                            service_tag=sdata.get('service_tag'),
+                            environment=sdata.get('environment', 'production'),
+                        )
+                        loaded += 1
+                    except Exception as e:
+                        logger.warning(f"Could not restore fleet server {sdata.get('name')}: {e}")
+            if loaded:
+                logger.info(f"Restored {loaded} server(s) from fleet state")
+    except Exception as e:
+        logger.warning(f"Fleet state load: {e}")
+
     # Enforce data retention policy on startup (#19)
     _enforce_audit_retention()
 
@@ -487,14 +515,18 @@ async def shutdown_event():
     except Exception as e:
         logger.warning(f"Session manager shutdown: {e}")
     
-    # Persist fleet data to disk
+    # Persist fleet data to disk (including encrypted passwords for reconnection)
     try:
         if fleet_manager and fleet_manager.servers:
             import json, os
             data_dir = os.path.join(os.path.dirname(__file__), 'data')
             os.makedirs(data_dir, exist_ok=True)
             fleet_path = os.path.join(data_dir, 'fleet_state.json')
-            fleet_data = {sid: s.to_dict() for sid, s in fleet_manager.servers.items()}
+            fleet_data = {}
+            for sid, s in fleet_manager.servers.items():
+                d = s.to_dict()
+                d['password'] = s.password  # Include encrypted password for persistence
+                fleet_data[sid] = d
             with open(fleet_path, 'w') as f:
                 json.dump(fleet_data, f, indent=2, default=str)
             logger.info(f"Fleet state persisted to {fleet_path} ({len(fleet_data)} servers)")
