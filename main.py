@@ -2502,9 +2502,25 @@ async def acknowledge_alert(alert_id: str, request: dict):
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
 
 @app.get("/fleet", response_class=HTMLResponse)
-async def get_fleet_dashboard():
-    """Serve the fleet management dashboard"""
-    return FileResponse('templates/fleet.html', headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+async def get_fleet_dashboard(request: Request):
+    """Serve the fleet management dashboard with inlined JS+CSS."""
+    token = request.cookies.get("auth_token")
+    if not token:
+        from starlette.responses import RedirectResponse
+        return RedirectResponse(url="/login", status_code=302)
+    try:
+        await auth_manager.validate_token(token)
+        import pathlib
+        base = pathlib.Path(__file__).parent
+        html = (base / 'templates' / 'fleet.html').read_text(encoding='utf-8')
+        js = (base / 'static' / 'js' / 'fleet.js').read_text(encoding='utf-8')
+        css = (base / 'static' / 'css' / 'fleet.css').read_text(encoding='utf-8')
+        html = html.replace('<script src="/static/js/fleet.js"></script>', f'<script>\n{js}\n</script>')
+        html = html.replace('<link rel="stylesheet" href="/static/css/fleet.css">', f'<style>\n{css}\n</style>')
+        return HTMLResponse(content=html, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+    except Exception:
+        from starlette.responses import RedirectResponse
+        return RedirectResponse(url="/login", status_code=302)
 
 @app.get("/api/fleet/overview")
 async def get_fleet_overview(request: Request):
