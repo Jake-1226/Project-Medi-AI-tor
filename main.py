@@ -2837,7 +2837,7 @@ async def get_realtime_dashboard(request: Request):
     html = html.replace('<link rel="stylesheet" href="/static/css/realtime.css">', f'<style>\n{rt_css}\n</style>')
     return HTMLResponse(content=html, headers={
         "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Clear-Site-Data": '"cache", "storage"',
+        "Clear-Site-Data": '"cache"',
     })
 
 @app.websocket("/ws/monitoring")

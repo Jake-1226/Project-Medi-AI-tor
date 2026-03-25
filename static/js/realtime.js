@@ -158,41 +158,50 @@ class RealtimeMonitor {
 
     async _fetchInitialMetrics() {
         try {
-            // Check if server is already connected
+            // Check if server is already connected (from technician dashboard or prior session)
             const statusR = await fetch('/api/server/quick-status', { headers: this._headers(false) });
             if (!statusR.ok) return;
             const statusData = await statusR.json();
             const sd = statusData.data || statusData;
-            
+
             if (sd.connected === true) {
-                // Server is already connected — update connection bar
+                // Server is already connected — hide connection form, show connected state
+                const serverLabel = sd.model ? `${sd.model} (${sd.host})` : (sd.host || 'server');
                 const hostInput = document.getElementById('monitorHost');
                 const bar = document.getElementById('connectionBar');
                 if (hostInput && sd.host) hostInput.value = sd.host;
-                if (bar) bar.style.display = 'none'; // Hide connection form
-                this.updateConnectionStatus(true);
-                this.showNotification(`Connected to ${sd.model || sd.host || 'server'}`, 'success');
-            }
-            
-            // Check if monitoring is already running
-            const r = await fetch('/monitoring/metrics', { headers: this._headers(false) });
-            if (r.ok) {
-                const d = await r.json();
-                const m = d.data?.metrics || {};
-                this.isMonitoring = d.data?.monitoring_active || false;
-                if (Object.keys(m).length && Object.values(m).some(v => v.current_value > 0)) {
-                    this.updateMetrics(m);
-                    this.showNotification('Live metrics loaded', 'success');
-                    this._startPolling();
-                    this._startChartUpdates();
-                } else if (sd.connected === true && !this.isMonitoring) {
-                    // Connected but monitoring not started — start it
+                if (bar) bar.style.display = 'none';
+                this.updateConnectionStatus(true, serverLabel);
+                this.showNotification(`Connected to ${serverLabel}`, 'success');
+
+                // Auto-start monitoring if not already running
+                const r = await fetch('/monitoring/metrics', { headers: this._headers(false) });
+                let hasLiveMetrics = false;
+                if (r.ok) {
+                    const d = await r.json();
+                    const m = d.data?.metrics || {};
+                    this.isMonitoring = d.data?.monitoring_active || false;
+                    if (Object.keys(m).length && Object.values(m).some(v => v.current_value > 0)) {
+                        this.updateMetrics(m);
+                        hasLiveMetrics = true;
+                    }
+                }
+
+                if (!this.isMonitoring) {
+                    // Start monitoring — the session agent is connected, just needs monitoring kicked off
                     try {
-                        await fetch('/monitoring/start', { method: 'POST', headers: this._headers() });
-                        this.showNotification('Monitoring auto-started', 'success');
-                        this._startPolling();
+                        const startR = await fetch('/monitoring/start', { method: 'POST', headers: this._headers() });
+                        if (startR.ok) {
+                            this.isMonitoring = true;
+                            this.showNotification('Monitoring started automatically', 'success');
+                        }
                     } catch (e) { /* silent */ }
                 }
+
+                // Always try WebSocket for live streaming, with polling fallback
+                this.connectWebSocket();
+                this._startPolling();
+                this._startChartUpdates();
             }
         } catch (e) { /* silent on startup */ }
     }
@@ -395,16 +404,26 @@ class RealtimeMonitor {
     }
 
     // ─── UI updates ──────────────────────────────────────
-    updateConnectionStatus(connected) {
+    updateConnectionStatus(connected, serverInfo) {
         const dot = document.getElementById('connection-dot');
         const text = document.getElementById('connection-text');
         if (dot) dot.className = `connection-dot ${connected ? 'connected' : 'disconnected'}`;
-        if (text) text.textContent = connected ? 'Connected' : 'Disconnected';
+        if (text) {
+            if (connected && serverInfo) {
+                text.textContent = `Connected to ${serverInfo}`;
+            } else {
+                text.textContent = connected ? 'Connected' : 'Disconnected';
+            }
+        }
 
         const connBtn = document.getElementById('connect-btn');
         const discBtn = document.getElementById('disconnect-btn');
         if (connBtn) connBtn.disabled = connected;
         if (discBtn) discBtn.disabled = !connected;
+
+        // Show/hide connection bar based on state
+        const bar = document.getElementById('connectionBar');
+        if (bar) bar.style.display = connected ? 'none' : '';
     }
 
     handleChartControl(button) {
@@ -513,7 +532,7 @@ async function connectAndMonitor() {
 
         if (btn) { btn.textContent = 'Connected'; btn.style.background = '#22c55e'; }
         window.realtimeMonitor?.showNotification(`Connected to ${host} — monitoring started`, 'success');
-        window.realtimeMonitor?.updateConnectionStatus(true);
+        window.realtimeMonitor?.updateConnectionStatus(true, host);
 
         // Hide connection form after successful connect
         const bar = document.getElementById('connectionBar');
