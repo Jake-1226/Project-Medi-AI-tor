@@ -2804,9 +2804,30 @@ async def get_mobile_dashboard():
     return FileResponse('templates/mobile.html', headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 @app.get("/monitoring", response_class=HTMLResponse)
-async def get_realtime_dashboard():
-    """Serve the real-time monitoring dashboard"""
-    return FileResponse('templates/realtime.html', headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+async def get_realtime_dashboard(request: Request):
+    """Serve the real-time monitoring dashboard — inlines JS to bypass SW cache."""
+    # Check auth — redirect to login if no token
+    token = request.cookies.get("auth_token")
+    if not token:
+        from starlette.responses import RedirectResponse
+        return RedirectResponse(url="/login", status_code=302)
+    try:
+        await auth_manager.validate_token(token)
+    except Exception:
+        from starlette.responses import RedirectResponse
+        return RedirectResponse(url="/login", status_code=302)
+    
+    import pathlib
+    base = pathlib.Path(__file__).parent
+    html = (base / 'templates' / 'realtime.html').read_text(encoding='utf-8')
+    rt_js = (base / 'static' / 'js' / 'realtime.js').read_text(encoding='utf-8')
+    rt_css = (base / 'static' / 'css' / 'realtime.css').read_text(encoding='utf-8')
+    html = html.replace('<script src="/static/js/realtime.js"></script>', f'<script>\n{rt_js}\n</script>')
+    html = html.replace('<link rel="stylesheet" href="/static/css/realtime.css">', f'<style>\n{rt_css}\n</style>')
+    return HTMLResponse(content=html, headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Clear-Site-Data": '"cache", "storage"',
+    })
 
 @app.websocket("/ws/monitoring")
 async def websocket_monitoring(websocket: WebSocket):
