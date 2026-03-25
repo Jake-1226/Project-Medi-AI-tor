@@ -1262,6 +1262,7 @@ async def get_customer_chat():
 async def get_technician_dashboard(request: Request):
     """Serve the technician/support dashboard — requires authentication.
     If no valid token, redirect to /login.
+    Inlines app.js to bypass service worker cache.
     """
     token = request.cookies.get("auth_token")
     if not token:
@@ -1269,7 +1270,26 @@ async def get_technician_dashboard(request: Request):
         return RedirectResponse(url="/login", status_code=302)
     try:
         await auth_manager.validate_token(token)
-        return FileResponse('templates/dashboard.html', headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+        # Read HTML template and JS, inline the JS to bypass any service worker cache
+        import pathlib
+        base = pathlib.Path(__file__).parent
+        html = (base / 'templates' / 'dashboard.html').read_text(encoding='utf-8')
+        js = (base / 'static' / 'js' / 'app.js').read_text(encoding='utf-8')
+        css = (base / 'static' / 'css' / 'style.css').read_text(encoding='utf-8')
+        # Inline JS — service worker can't intercept inline scripts
+        html = html.replace(
+            '<script src="/static/js/app.js"></script>',
+            f'<script>\n{js}\n</script>'
+        )
+        # Inline CSS — service worker can't intercept inline styles
+        html = html.replace(
+            '<link rel="stylesheet" href="/static/css/style.css">',
+            f'<style>\n{css}\n</style>'
+        )
+        return HTMLResponse(content=html, headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Clear-Site-Data": '"cache", "storage"',
+        })
     except Exception:
         from starlette.responses import RedirectResponse
         return RedirectResponse(url="/login", status_code=302)
