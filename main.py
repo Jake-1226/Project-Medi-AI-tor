@@ -1212,6 +1212,47 @@ async def get_audit_log(request: Request, limit: int = Query(default=100, le=100
 #  PAGE ROUTES
 # ═══════════════════════════════════════════════════════════════
 
+@app.get("/reset", response_class=HTMLResponse)
+async def reset_browser_cache():
+    """Nuclear cache reset — clears service workers, caches, storage, then redirects to login."""
+    return HTMLResponse(content="""<!DOCTYPE html>
+<html><head><title>Clearing cache...</title></head>
+<body style="background:#0f172a;color:#f1f5f9;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">
+<div style="text-align:center">
+<h2>Clearing browser cache...</h2>
+<p id="status">Removing stale data...</p>
+<script>
+(async function(){
+    const s = document.getElementById('status');
+    try {
+        // 1. Unregister ALL service workers
+        if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            for (const r of regs) { await r.unregister(); }
+            s.textContent = 'Service workers removed (' + regs.length + ')...';
+        }
+        // 2. Delete ALL caches
+        if ('caches' in window) {
+            const names = await caches.keys();
+            for (const n of names) { await caches.delete(n); }
+            s.textContent = 'Caches cleared (' + names.length + ')...';
+        }
+        // 3. Clear storage
+        sessionStorage.clear();
+        localStorage.clear();
+        s.textContent = 'All clear! Redirecting...';
+    } catch(e) {
+        s.textContent = 'Error: ' + e.message + ' — redirecting anyway...';
+    }
+    // 4. Redirect to login after a moment
+    setTimeout(function(){ window.location.href = '/login'; }, 1000);
+})();
+</script>
+</div></body></html>""", headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Clear-Site-Data": '"cache", "storage"',
+    })
+
 @app.get("/", response_class=HTMLResponse)
 async def get_customer_chat():
     """Serve the customer-facing AI chat page (public — no auth required)"""
