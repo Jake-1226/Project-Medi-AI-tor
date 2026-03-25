@@ -1146,8 +1146,13 @@ class LoginRequest(BaseModel):
 
 @app.get("/login", response_class=HTMLResponse)
 async def get_login_page():
-    """Serve the login page"""
-    return FileResponse('templates/login.html', headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+    """Serve the login page — inlined to bypass service worker cache."""
+    import pathlib
+    html = (pathlib.Path(__file__).parent / 'templates' / 'login.html').read_text(encoding='utf-8')
+    return HTMLResponse(content=html, headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Clear-Site-Data": '"cache", "storage"',
+    })
 
 @app.post("/api/auth/login")
 async def auth_login(creds: LoginRequest, request: Request):
