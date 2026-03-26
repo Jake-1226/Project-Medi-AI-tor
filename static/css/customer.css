@@ -1694,15 +1694,15 @@ body {
 
 /* Suggestion chip stagger entrance */
 .suggest-chip {
-    animation: chipIn 0.4s ease-out backwards;
+    animation: chipIn 0.4s ease-out forwards;
 }
-.suggest-chip:nth-child(1) { animation-delay: 0.3s; }
-.suggest-chip:nth-child(2) { animation-delay: 0.4s; }
-.suggest-chip:nth-child(3) { animation-delay: 0.5s; }
-.suggest-chip:nth-child(4) { animation-delay: 0.6s; }
+.suggest-chip:nth-child(1) { animation-delay: 0.05s; }
+.suggest-chip:nth-child(2) { animation-delay: 0.1s; }
+.suggest-chip:nth-child(3) { animation-delay: 0.15s; }
+.suggest-chip:nth-child(4) { animation-delay: 0.2s; }
 @keyframes chipIn {
-    from { opacity: 0; transform: translateY(8px) scale(0.95); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+    from { transform: translateY(6px); }
+    to { transform: translateY(0); }
 }
 
 /* Chip hover glow */
