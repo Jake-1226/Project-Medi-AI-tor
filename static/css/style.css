@@ -3059,6 +3059,97 @@ body.tech-body {
     color: var(--accent-hover);
 }
 
+/* ── Hero Summary Card ── */
+.hero-card {
+    background: linear-gradient(135deg, #6366f1 0%, #818cf8 50%, #4f46e5 100%);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 20px;
+    color: white;
+    box-shadow: 0 12px 40px rgba(99,102,241,0.25);
+    position: relative;
+    overflow: hidden;
+    animation: heroIn 0.6s cubic-bezier(0.22,1,0.36,1);
+}
+.hero-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(-45deg, rgba(255,255,255,0.08) 0%, transparent 50%, rgba(255,255,255,0.04) 100%);
+    pointer-events: none;
+}
+@keyframes heroIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.hero-content { position: relative; z-index: 1; }
+.hero-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.hero-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 10px rgba(74,222,128,0.5);
+    animation: heroPulse 2s ease-in-out infinite;
+}
+@keyframes heroPulse {
+    0%,100% { box-shadow: 0 0 10px rgba(74,222,128,0.5); }
+    50% { box-shadow: 0 0 20px rgba(74,222,128,0.8); }
+}
+.hero-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.9;
+}
+.hero-model {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-left: auto;
+}
+.hero-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+.hero-stat {
+    text-align: center;
+    padding: 14px 8px;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(8px);
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.15);
+    transition: all 0.2s ease;
+}
+.hero-stat:hover {
+    background: rgba(255,255,255,0.15);
+    transform: translateY(-2px);
+}
+.hero-val {
+    font-size: 1.8rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 4px;
+}
+.hero-lbl {
+    font-size: 0.72rem;
+    font-weight: 500;
+    opacity: 0.85;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+@media (max-width: 600px) {
+    .hero-grid { grid-template-columns: repeat(2, 1fr); }
+    .hero-card { padding: 20px; }
+    .hero-val { font-size: 1.4rem; }
+}
+
 /* ── Metric Tiles ── */
 .tech-body .metric-tiles {
     display: grid;

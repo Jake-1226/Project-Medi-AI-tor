@@ -331,6 +331,9 @@ class DellAIAgent {
                 // F1: Collapse connect banner to compact bar
                 this._collapseBanner(host, result.server_info);
 
+                // Show hero card with server info
+                this._showHeroCard(result.server_info);
+
                 // Auto-fetch all dashboard data
                 setTimeout(() => this.fetchAllDashboardData(), 1000);
                 // Start auto-refresh every 60 seconds
@@ -372,6 +375,7 @@ class DellAIAgent {
     async disconnectFromServer() {
         this._stopAutoRefresh();
         this.stopMonitoring();
+        this._hideHeroCard();
         try {
             this.currentServer = null;
             this.showAlert('Disconnected from server', 'info');
@@ -441,6 +445,41 @@ class DellAIAgent {
             clearInterval(this._autoRefreshTimer);
             this._autoRefreshTimer = null;
         }
+    }
+
+    // ─── Hero summary card ──────────────────────────────────────
+    _showHeroCard(serverInfo) {
+        const card = document.getElementById('heroCard');
+        if (!card) return;
+        card.style.display = '';
+        const model = document.getElementById('heroModel');
+        if (model && serverInfo) {
+            const si = serverInfo.server_info || serverInfo;
+            model.textContent = si.model || si.Model || '';
+        }
+        // Populate with quick-status data
+        this._updateHeroFromQuickStatus();
+    }
+
+    async _updateHeroFromQuickStatus() {
+        try {
+            const r = await fetch('/api/server/quick-status', { headers: this._getAuthHeaders() });
+            if (!r.ok) return;
+            const d = await r.json();
+            const sd = d.data || d;
+            if (!sd.connected) return;
+            const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+            set('heroHealth', sd.health ? sd.health.charAt(0).toUpperCase() + sd.health.slice(1) : 'OK');
+            set('heroPower', sd.power_state || 'On');
+            set('heroMemory', sd.total_memory_gb ? sd.total_memory_gb + ' GB' : '--');
+            set('heroTemp', sd.cpu_count ? sd.cpu_count + ' CPU' : '--');
+            set('heroModel', sd.model || '');
+        } catch (_) { /* silent */ }
+    }
+
+    _hideHeroCard() {
+        const card = document.getElementById('heroCard');
+        if (card) card.style.display = 'none';
     }
 
     // ─── F1: Banner collapse / expand ────────────────────────────
@@ -2059,6 +2098,7 @@ class DellAIAgent {
                     }
                 }
                 this.lastDataRefresh = Date.now();
+                this._updateHeroFromQuickStatus();
                 if (failedCmds.length > 0) {
                     this.log(`⚠️ Failed to load: ${failedCmds.join(', ')}`, 'warning');
                     this.showAlert(`Partial data: ${failedCmds.length} source(s) failed`, 'warning');

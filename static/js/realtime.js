@@ -244,6 +244,8 @@ class RealtimeMonitor {
 
         const unit = m.unit || card.querySelector('.metric-unit')?.textContent || '';
         const valEl = card.querySelector('.metric-value .value');
+        if (valEl) valEl.classList.add('updating');
+        if (valEl) setTimeout(() => valEl.classList.remove('updating'), 400);
         if (valEl) valEl.textContent = this._fmtVal(m.current_value, unit);
 
         const statusEl = card.querySelector('.metric-status');

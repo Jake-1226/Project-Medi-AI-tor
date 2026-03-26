@@ -1648,3 +1648,111 @@ body {
 /* K1: Copy Chat button focus */
 .copy-chat-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .copy-chat-btn:hover { color: var(--primary); border-color: var(--primary); }
+
+/* ═══════════════════════════════════════════════════════════
+   DEMO POLISH — Animations, glassmorphism, micro-interactions
+   ═══════════════════════════════════════════════════════════ */
+
+/* Subtle animated gradient on chat area background */
+.chat-main::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg,
+        rgba(99,102,241,0.03) 0%,
+        rgba(34,197,94,0.02) 50%,
+        rgba(99,102,241,0.03) 100%);
+    background-size: 400% 400%;
+    animation: chatGradient 20s ease infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+.chat-main { position: relative; }
+.chat-messages { position: relative; z-index: 1; }
+
+@keyframes chatGradient {
+    0%,100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+/* Welcome message entrance */
+.chat-msg.msg-agent:first-child {
+    animation: welcomeIn 0.7s cubic-bezier(0.22,1,0.36,1);
+}
+@keyframes welcomeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Glassmorphic welcome card */
+.chat-msg.msg-agent:first-child .msg-text {
+    background: rgba(255,255,255,0.85) !important;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(99,102,241,0.15) !important;
+    box-shadow: 0 8px 32px rgba(99,102,241,0.08), inset 0 1px 0 rgba(255,255,255,0.6);
+}
+
+/* Suggestion chip stagger entrance */
+.suggest-chip {
+    animation: chipIn 0.4s ease-out backwards;
+}
+.suggest-chip:nth-child(1) { animation-delay: 0.3s; }
+.suggest-chip:nth-child(2) { animation-delay: 0.4s; }
+.suggest-chip:nth-child(3) { animation-delay: 0.5s; }
+.suggest-chip:nth-child(4) { animation-delay: 0.6s; }
+@keyframes chipIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Chip hover glow */
+.suggest-info:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    box-shadow: 0 4px 16px rgba(99,102,241,0.35);
+    transform: translateY(-2px);
+}
+.suggest-diag:hover {
+    background: var(--green);
+    color: white;
+    border-color: var(--green);
+    box-shadow: 0 4px 16px rgba(34,197,94,0.35);
+    transform: translateY(-2px);
+}
+.suggest-issue:hover {
+    background: var(--red);
+    color: white;
+    border-color: var(--red);
+    box-shadow: 0 4px 16px rgba(239,68,68,0.35);
+    transform: translateY(-2px);
+}
+
+/* Connected status dot ripple */
+.server-card-dot {
+    position: relative;
+}
+.server-card-dot::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid var(--green);
+    animation: dotRipple 2s ease-out infinite;
+    pointer-events: none;
+}
+@keyframes dotRipple {
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* Chat input focus glow */
+.chat-input:focus {
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.12), 0 4px 12px rgba(99,102,241,0.08);
+}
+
+/* Send button hover */
+.chat-send:not(:disabled):hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+}
