@@ -97,6 +97,9 @@
 /* Alert count highlight */
 .stat-alerts .stat-value { color: #e74c3c; }
 .stat-online .stat-value { color: #27ae60; }
+.stat-alerts { cursor: pointer; transition: all 0.2s ease; border-radius: 8px; padding: 4px 8px; margin: -4px -8px; }
+.stat-alerts:hover { background: rgba(239, 68, 68, 0.08); }
+.stat-online { cursor: default; }
 
 /* Tabs */
 .fleet-tabs {
@@ -534,7 +537,7 @@
     font-weight: 600;
     color: #94a3b8;
     border-bottom: 1px solid rgba(51, 65, 85, 0.5);
-    font-size: 0.78rem;
+    font-size: 0.82rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -543,6 +546,7 @@
     padding: 1rem;
     border-bottom: 1px solid rgba(51, 65, 85, 0.3);
     color: #e2e8f0;
+    font-size: 0.85rem;
 }
 
 .servers-table tr:hover {
@@ -920,10 +924,10 @@
 .form-group select,
 .form-group textarea {
     padding: 0.75rem;
-    border: 1px solid rgba(51, 65, 85, 0.8);
+    border: 1px solid rgba(99, 102, 241, 0.2);
     border-radius: 6px;
     font-size: 1rem;
-    background: rgba(15, 23, 42, 0.6);
+    background: rgba(30, 41, 59, 0.8);
     color: #e2e8f0;
     transition: border-color 0.2s ease;
 }
@@ -1463,10 +1467,10 @@
 .form-group select,
 .form-group textarea {
     padding: 0.75rem;
-    border: 2px solid rgba(51, 65, 85, 0.8);
+    border: 1px solid rgba(99, 102, 241, 0.2);
     border-radius: 8px;
     font-size: 0.9rem;
-    background: rgba(15, 23, 42, 0.6);
+    background: rgba(30, 41, 59, 0.8);
     color: #e2e8f0;
     transition: border-color 0.2s ease;
 }
@@ -1693,6 +1697,39 @@
 
 /* Notes text */
 .notes-text { color: #94a3b8; font-size: 13px; line-height: 1.5; }
+
+/* Missing utility classes */
+.btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.78rem;
+    border-radius: 6px;
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+}
+.btn-danger:hover {
+    background: #dc2626;
+}
+
+.btn-info {
+    background: #3b82f6;
+    color: white;
+}
+.btn-info:hover {
+    background: #2563eb;
+}
+
+.env-badge {
+    background: rgba(99, 102, 241, 0.15);
+    color: #818cf8;
+    padding: 0.2rem 0.6rem;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-block;
+}
 
 /* Print stylesheet */
 @media print {

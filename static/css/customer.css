@@ -11,18 +11,18 @@
     --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
 
-    --primary: #4f46e5;
-    --primary-hover: #4338ca;
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
     --primary-light: #eef2ff;
-    --primary-subtle: rgba(79,70,229,0.08);
-    --accent: #7c3aed;
+    --primary-subtle: rgba(99,102,241,0.08);
+    --accent: #818cf8;
 
-    --green: #16a34a;
+    --green: #22c55e;
     --green-bg: #f0fdf4;
     --green-border: #86efac;
-    --yellow: #d97706;
+    --yellow: #f59e0b;
     --yellow-bg: #fffbeb;
-    --red: #dc2626;
+    --red: #ef4444;
     --red-bg: #fef2f2;
 
     --bg: #f8fafc;
@@ -33,7 +33,7 @@
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
     --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
     --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
-    --shadow-focus: 0 0 0 3px rgba(79,70,229,0.15);
+    --shadow-focus: 0 0 0 3px rgba(99,102,241,0.15);
 
     --text: #0f172a;
     --text-secondary: #475569;

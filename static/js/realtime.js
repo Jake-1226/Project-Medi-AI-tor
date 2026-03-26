@@ -80,6 +80,7 @@ class RealtimeMonitor {
                 this.isConnected = true;
                 this.reconnectAttempts = 0;
                 this.updateConnectionStatus(true);
+                this._setLiveBadge('live');
                 this.showNotification('WebSocket connected — receiving live metrics', 'success');
                 this._stopPolling();
                 this._startChartUpdates();
@@ -100,17 +101,19 @@ class RealtimeMonitor {
                 this.showNotification('WebSocket error — falling back to polling', 'warning');
             };
 
-            // Timeout: if WS doesn't connect in 8s, show fallback message
+            // Timeout: if WS doesn't connect in 8s, fall back to polling
             setTimeout(() => {
                 if (this._connecting && !this.isConnected) {
                     this._connecting = false;
-                    this.showNotification('Live connection unavailable — using periodic refresh instead', 'warning');
-                    this.updateConnectionStatus(false, 'polling');
+                    this.showNotification('Live connection unavailable — using periodic refresh', 'warning');
+                    this.updateConnectionStatus(true, 'polling');
+                    this._startPolling();
                 }
             }, 8000);
         } catch (error) {
             this._connecting = false;
-            this.showNotification('Failed to connect WebSocket', 'error');
+            this.showNotification('Failed to connect WebSocket — using polling', 'error');
+            this._startPolling();
         }
     }
 
@@ -121,6 +124,7 @@ class RealtimeMonitor {
         this._connecting = false;
         this._stopPolling();
         this._stopChartUpdates();
+        this._setLiveBadge(null);
         this.updateConnectionStatus(false);
         this.showNotification('Disconnected', 'info');
     }
@@ -131,6 +135,7 @@ class RealtimeMonitor {
             setTimeout(() => this.connectWebSocket(), this.reconnectDelay);
         } else {
             this.showNotification('WebSocket unavailable — polling every 10s', 'info');
+            this._setLiveBadge('polling');
             this._startPolling();
         }
     }
@@ -198,9 +203,8 @@ class RealtimeMonitor {
                     } catch (e) { /* silent */ }
                 }
 
-                // Always try WebSocket for live streaming, with polling fallback
+                // Try WebSocket for live streaming; polling starts only as fallback on WS failure
                 this.connectWebSocket();
-                this._startPolling();
                 this._startChartUpdates();
             }
         } catch (e) { /* silent on startup */ }
@@ -225,6 +229,12 @@ class RealtimeMonitor {
     }
 
     // ─── Metric cards ────────────────────────────────────
+    _fmtVal(v, unit) {
+        if (typeof v !== 'number') return '--';
+        if (unit === '%' || unit === 'W' || unit === 'RPM') return Math.round(v).toLocaleString();
+        return v.toFixed(1);
+    }
+
     updateMetricCard(metricName, m) {
         const card = document.querySelector(`[data-metric="${metricName}"]`);
         if (!card) return;
@@ -232,8 +242,9 @@ class RealtimeMonitor {
         // Set status on card element for CSS border coloring
         card.setAttribute('data-status', m.current_status || 'normal');
 
+        const unit = m.unit || card.querySelector('.metric-unit')?.textContent || '';
         const valEl = card.querySelector('.metric-value .value');
-        if (valEl) valEl.textContent = (typeof m.current_value === 'number') ? m.current_value.toFixed(1) : '--';
+        if (valEl) valEl.textContent = this._fmtVal(m.current_value, unit);
 
         const statusEl = card.querySelector('.metric-status');
         if (statusEl) {
@@ -253,9 +264,9 @@ class RealtimeMonitor {
         const avg = card.querySelector('.stat-avg');
         const max = card.querySelector('.stat-max');
         const min = card.querySelector('.stat-min');
-        if (avg) avg.textContent = m.average_10min?.toFixed(1) || '--';
-        if (max) max.textContent = m.max_10min?.toFixed(1) || '--';
-        if (min) min.textContent = m.min_10min?.toFixed(1) || '--';
+        if (avg) avg.textContent = this._fmtVal(m.average_10min, unit);
+        if (max) max.textContent = this._fmtVal(m.max_10min, unit);
+        if (min) min.textContent = this._fmtVal(m.min_10min, unit);
     }
 
     // ─── Chart.js charts ─────────────────────────────────
@@ -404,6 +415,24 @@ class RealtimeMonitor {
     }
 
     // ─── UI updates ──────────────────────────────────────
+    _setLiveBadge(mode) {
+        const badge = document.getElementById('live-badge');
+        if (!badge) return;
+        if (mode === 'live') {
+            badge.textContent = 'LIVE';
+            badge.style.display = 'inline-block';
+            badge.style.background = 'rgba(34,197,94,0.15)';
+            badge.style.color = '#22c55e';
+        } else if (mode === 'polling') {
+            badge.textContent = 'POLLING';
+            badge.style.display = 'inline-block';
+            badge.style.background = 'rgba(245,158,11,0.15)';
+            badge.style.color = '#f59e0b';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
     updateConnectionStatus(connected, serverInfo) {
         const dot = document.getElementById('connection-dot');
         const text = document.getElementById('connection-text');
