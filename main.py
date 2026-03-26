@@ -46,6 +46,7 @@ from core.evidence_chain import EvidenceChain
 from core.diagnosis_fingerprint import DiagnosisFingerprinter
 from core.fleet_correlation import FleetCorrelationEngine
 from core.session_handoff import SessionHandoffManager
+from core.agent_brain import _fingerprinter as diagnosis_fingerprinter
 from security.auth import AuthManager, AuthenticationError, AuthorizationError
 from core.enterprise import (
     custom_role_manager, server_permission_manager, get_ui_capabilities,
@@ -333,7 +334,6 @@ realtime_monitor = None
 health_monitor = None
 webhook_manager = None
 rbac_manager = None
-diagnosis_fingerprinter = DiagnosisFingerprinter()
 fleet_correlation_engine = FleetCorrelationEngine()
 session_handoff_mgr = SessionHandoffManager()
 
@@ -2120,10 +2120,16 @@ async def api_health_check():
     
     # Demo mode
     checks["demo_mode"] = app_config.demo_mode if app_config else False
-    
+
+    # Patent-strengthening systems
+    checks["diagnosis_fingerprints"] = diagnosis_fingerprinter.get_stats().get("total_fingerprints", 0)
+    checks["fleet_correlation"] = "active"
+    checks["session_handoff"] = session_handoff_mgr.get_stats()
+    checks["evidence_chain"] = "enabled"
+
     if checks.get("session_manager") != "ok" or checks.get("auth") != "ok":
         overall = "unhealthy"
-    
+
     return {
         "status": overall,
         "agent": "Medi-AI-tor v2.0 (per-session)",

@@ -23,8 +23,13 @@ from core.agent_tools import (
     AGENT_TOOLS, AgentTool, ToolResult, get_tools_for_category,
     get_tools_for_keywords,
 )
+from core.evidence_chain import EvidenceChain
+from core.diagnosis_fingerprint import DiagnosisFingerprinter, SymptomVector
 
 logger = logging.getLogger(__name__)
+
+# Shared fingerprinter instance (persists across investigations)
+_fingerprinter = DiagnosisFingerprinter()
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -276,6 +281,8 @@ class AgentBrain:
         self._remediation_log: List[dict] = []
         self._tool_cache_times: Dict[str, float] = {}  # tool_name -> timestamp of last execution
         self._CACHE_TTL = 60  # seconds before cached data is considered stale
+        self._evidence_chain: Optional[EvidenceChain] = None
+        self._fingerprinter = _fingerprinter
 
     def set_stream_callback(self, callback: Callable):
         """Set async callback for streaming events to frontend: callback(event_type, data)"""
@@ -300,11 +307,20 @@ class AgentBrain:
         plus the full reasoning chain.
         """
         self.memory = WorkingMemory()  # fresh memory for this investigation
+        self._evidence_chain = EvidenceChain()  # fresh evidence chain
         start_time = time.time()
         logger.info(f"AgentBrain: Starting investigation — \"{issue}\"")
 
         # ── Step 0: Form initial hypotheses ──────────────────
         initial_hyps = self._form_initial_hypotheses(issue)
+
+        # Record hypotheses in evidence chain
+        hyp_event_ids = []
+        for h in initial_hyps:
+            eid = self._evidence_chain.record_hypothesis(
+                h.id, h.description, h.category.value, h.confidence)
+            hyp_event_ids.append(eid)
+
         thought0 = Thought(
             step=0,
             reasoning=f"Analyzing issue: \"{issue}\". Forming initial hypotheses based on keywords.",
@@ -358,12 +374,34 @@ class AgentBrain:
                     logger.info(f"AgentBrain: Skipping already-used tool {thought.next_action}")
                     continue
 
+            # Record tool invocation in evidence chain
+            top_hyp = self.memory.get_active_hypotheses()
+            testing_hyp = top_hyp[0].id if top_hyp else "general"
+            tool_eid = self._evidence_chain.record_tool_invocation(
+                tool.name, {}, testing_hyp, hyp_event_ids[:1]) if self._evidence_chain else None
+
             result = await self._execute_tool(tool, action_level)
+
+            # Record API call in evidence chain
+            if self._evidence_chain and result and tool_eid:
+                self._evidence_chain.record_api_call(
+                    tool.name, result.to_dict() if result else {}, tool_eid)
+
             await self._stream("action_result", result.to_dict() if result else {"tool_name": tool.name, "success": False, "summary": "Tool execution failed"})
 
             if result and result.success:
                 # OBSERVE
                 findings = self._observe(tool, result)
+
+                # Record evidence in chain
+                if self._evidence_chain:
+                    for fact in result.facts:
+                        supports = fact.status in ("warning", "critical")
+                        self._evidence_chain.record_evidence(
+                            fact.description, supports,
+                            "strong" if fact.status == "critical" else "moderate",
+                            testing_hyp, [tool_eid] if tool_eid else [])
+
                 await self._stream("findings", {
                     "step": step, "tool": tool.name,
                     "summary": result.summary,
@@ -387,8 +425,49 @@ class AgentBrain:
         diagnosis = self._build_diagnosis()
         await self._stream("conclusion", diagnosis)
 
+        # Record conclusion in evidence chain
+        duration_ms = int((time.time() - start_time) * 1000)
+        if self._evidence_chain:
+            evidence_ids = [e.id for e in self._evidence_chain.events
+                           if e.event_type.value == "evidence_collected"]
+            self._evidence_chain.record_conclusion(
+                diagnosis=diagnosis.get("summary", ""),
+                confidence=diagnosis.get("confidence", 0),
+                root_cause=diagnosis.get("root_cause", ""),
+                remediation=diagnosis.get("remediation", ""),
+                supporting_evidence_ids=evidence_ids[-5:],  # last 5 evidence events
+            )
+
+        # Record fingerprint for future instant recall
+        try:
+            facts_for_fp = [f.to_dict() for f in self.memory.facts.values()]
+            symptoms = self._fingerprinter.extract_symptoms(facts_for_fp)
+            server_model = None
+            if self.agent and hasattr(self.agent, 'current_session') and self.agent.current_session:
+                server_model = getattr(self.agent.current_session, 'server_host', None)
+            self._fingerprinter.record_diagnosis(
+                symptoms=symptoms,
+                root_cause=diagnosis.get("root_cause", "unknown"),
+                diagnosis=diagnosis.get("summary", ""),
+                remediation=diagnosis.get("remediation", ""),
+                confidence=diagnosis.get("confidence", 0),
+                tools_used=list(self.memory.tools_used),
+                duration_ms=duration_ms,
+                server_model=server_model,
+            )
+            logger.info(f"AgentBrain: Diagnosis fingerprinted (duration={duration_ms}ms)")
+        except Exception as e:
+            logger.warning(f"AgentBrain: Fingerprint recording failed: {e}")
+
         # Build backwards-compatible report for the existing deep-dive UI
         full_report = self._build_compatible_report(issue, diagnosis)
+
+        # Attach evidence chain ID to report for audit access
+        if self._evidence_chain:
+            full_report["evidence_chain_id"] = self._evidence_chain.investigation_id
+            full_report["evidence_chain_hash"] = self._evidence_chain.chain_hash
+            full_report["evidence_events"] = len(self._evidence_chain.events)
+
         return full_report
 
     # ═══════════════════════════════════════════════════════════

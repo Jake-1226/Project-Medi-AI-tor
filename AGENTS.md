@@ -17,6 +17,10 @@ core/
   agent_tools.py                 20+ diagnostic tools with parsers
   agent_core.py                  Connection management, command routing (49 handlers)
   agent_memory.py                Working memory (facts, hypotheses, evidence)
+  evidence_chain.py              Cryptographic evidence provenance (audit trail)
+  diagnosis_fingerprint.py       Pattern-based diagnosis recall (learning without ML)
+  fleet_correlation.py           Cross-server symptom correlation engine
+  session_handoff.py             Secure session transfer between technicians
   knowledge_base.py              MCA/PCIe decoders, firmware catalog, POST codes
   config.py                      Configuration management with security levels
   fleet_manager.py               Multi-server fleet management + health scoring
