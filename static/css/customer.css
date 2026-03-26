@@ -453,6 +453,7 @@ body {
 .chat-messages {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 16px 24px;
     display: flex;
     flex-direction: column;
@@ -470,6 +471,7 @@ body {
     gap: 12px;
     max-width: 760px;
     animation: msgSlide 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    min-width: 0;
 }
 @keyframes msgSlide {
     from { opacity: 0; transform: translateY(12px); }
@@ -528,6 +530,9 @@ body {
     border-radius: var(--radius-lg);
     border-top-left-radius: 4px;
     padding: 14px 18px;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    min-width: 0;
     font-size: 0.9rem;
     line-height: 1.65;
     color: var(--text);

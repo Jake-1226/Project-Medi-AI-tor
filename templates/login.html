@@ -146,11 +146,12 @@
             margin-top: 12px;
         }
         @media (max-width: 480px) {
-            .login-card { padding: 24px 20px; }
+            body { overflow-x: hidden; }
+            .login-card { padding: 24px 16px; max-width: calc(100vw - 32px); width: calc(100vw - 32px); }
             .login-header h1 { font-size: 1.3rem; }
-            .form-input { font-size: 16px; padding: 14px; }
+            .form-input { font-size: 16px; padding: 12px; width: 100%; }
             .btn-login { padding: 14px; font-size: 1rem; }
-            .roles-hint { font-size: 0.72rem; }
+            .roles-hint { font-size: 0.7rem; word-break: break-word; }
         }
     </style>
 </head>
