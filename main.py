@@ -42,6 +42,10 @@ from core.webhook_manager import WebhookManager
 from core.rbac import RBACManager
 from core.alert_system import alert_system
 from core.fleet_manager import fleet_manager
+from core.evidence_chain import EvidenceChain
+from core.diagnosis_fingerprint import DiagnosisFingerprinter
+from core.fleet_correlation import FleetCorrelationEngine
+from core.session_handoff import SessionHandoffManager
 from security.auth import AuthManager, AuthenticationError, AuthorizationError
 from core.enterprise import (
     custom_role_manager, server_permission_manager, get_ui_capabilities,
@@ -329,6 +333,9 @@ realtime_monitor = None
 health_monitor = None
 webhook_manager = None
 rbac_manager = None
+diagnosis_fingerprinter = DiagnosisFingerprinter()
+fleet_correlation_engine = FleetCorrelationEngine()
+session_handoff_mgr = SessionHandoffManager()
 
 # ─── Per-Session Connection Helpers ──────────────────────────────
 async def _get_session_conn(request: Request):
@@ -3510,6 +3517,214 @@ async def compare_fleet_servers(body: dict, request: Request):
     except Exception as e:
         logger.error(f"Comparison error: {e}")
         raise HTTPException(status_code=500, detail=_sanitize_error(e))
+
+# ═══════════════════════════════════════════════════════════════════════
+# PATENT-STRENGTHENING ENDPOINTS
+# Evidence Chain, Diagnosis Fingerprinting, Fleet Correlation, Session Handoff
+# ═══════════════════════════════════════════════════════════════════════
+
+# ── Evidence Chain (Provenance) ──
+
+@app.get("/api/evidence-chain/{investigation_id}")
+async def get_evidence_chain(investigation_id: str, request: Request):
+    """Get the full evidence chain for an investigation (audit trail)."""
+    user = await _get_current_user(request)
+    # Evidence chains are stored per-session on the AgentBrain
+    conn, _ = await _get_session_conn(request)
+    brain = conn.brain
+    chain = getattr(brain, '_evidence_chain', None)
+    if not chain or chain.investigation_id != investigation_id:
+        raise HTTPException(status_code=404, detail="Evidence chain not found")
+    return {"status": "success", "chain": chain.export_chain()}
+
+@app.get("/api/evidence-chain/{investigation_id}/verify")
+async def verify_evidence_chain(investigation_id: str, request: Request):
+    """Verify the cryptographic integrity of an evidence chain."""
+    user = await _get_current_user(request)
+    conn, _ = await _get_session_conn(request)
+    brain = conn.brain
+    chain = getattr(brain, '_evidence_chain', None)
+    if not chain or chain.investigation_id != investigation_id:
+        raise HTTPException(status_code=404, detail="Evidence chain not found")
+    is_valid = chain.verify_integrity()
+    return {
+        "status": "success",
+        "investigation_id": investigation_id,
+        "integrity_valid": is_valid,
+        "chain_hash": chain.chain_hash,
+        "event_count": len(chain.events),
+    }
+
+@app.get("/api/evidence-chain/{investigation_id}/causal-path/{event_id}")
+async def get_causal_path(investigation_id: str, event_id: str, request: Request):
+    """Trace the causal path from a conclusion back to its root evidence."""
+    user = await _get_current_user(request)
+    conn, _ = await _get_session_conn(request)
+    brain = conn.brain
+    chain = getattr(brain, '_evidence_chain', None)
+    if not chain or chain.investigation_id != investigation_id:
+        raise HTTPException(status_code=404, detail="Evidence chain not found")
+    path = chain.get_causal_path(event_id)
+    return {"status": "success", "path": [e.to_dict() for e in path]}
+
+# ── Diagnosis Fingerprinting ──
+
+@app.get("/api/fingerprints")
+async def get_diagnosis_fingerprints(request: Request):
+    """Get diagnosis fingerprint statistics and top patterns."""
+    user = await _get_current_user(request)
+    return {"status": "success", "data": diagnosis_fingerprinter.get_stats()}
+
+@app.post("/api/fingerprints/match")
+async def match_fingerprint(request: Request):
+    """Check if current symptoms match a known diagnosis pattern."""
+    user = await _get_current_user(request)
+    conn, _ = await _get_session_conn(request)
+    agent = conn.agent
+    if not agent.is_connected():
+        raise HTTPException(status_code=400, detail="Not connected to server")
+    # Collect current facts
+    try:
+        health = await agent.execute_action(
+            action_level=ActionLevel.READ_ONLY,
+            command="health_check",
+            parameters={}
+        )
+        facts = []
+        hs = health.get("health_status", {})
+        for issue in hs.get("critical_issues", []):
+            comp = issue if isinstance(issue, str) else issue.get("component", issue.get("name", str(issue)))
+            facts.append({"component": comp, "status": "critical"})
+        for warn in hs.get("warnings", []):
+            comp = warn if isinstance(warn, str) else warn.get("component", warn.get("name", str(warn)))
+            facts.append({"component": comp, "status": "warning"})
+        symptoms = diagnosis_fingerprinter.extract_symptoms(facts)
+        exact = diagnosis_fingerprinter.match(symptoms)
+        if exact:
+            return {"status": "success", "match_type": "exact", "fingerprint": exact.fingerprint,
+                    "root_cause": exact.root_cause, "diagnosis": exact.diagnosis,
+                    "remediation": exact.remediation, "confidence": exact.confidence,
+                    "occurrences": exact.occurrence_count}
+        fuzzy = diagnosis_fingerprinter.fuzzy_match(symptoms)
+        if fuzzy:
+            record, score = fuzzy
+            return {"status": "success", "match_type": "fuzzy", "similarity": score,
+                    "fingerprint": record.fingerprint, "root_cause": record.root_cause,
+                    "diagnosis": record.diagnosis, "remediation": record.remediation}
+        return {"status": "success", "match_type": "none", "message": "No matching pattern found"}
+    except Exception as e:
+        logger.error(f"Fingerprint match error: {e}")
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
+
+# ── Fleet Correlation ──
+
+@app.post("/api/fleet/correlate")
+async def correlate_fleet_symptoms(request: Request):
+    """Check if current server's symptoms appear on other fleet servers."""
+    user = await _get_current_user(request)
+    conn, _ = await _get_session_conn(request)
+    agent = conn.agent
+    if not agent.is_connected():
+        raise HTTPException(status_code=400, detail="Not connected to server")
+    try:
+        body = await request.json()
+        symptoms = body.get("symptoms", ["thermal_spike"])
+        server_id = conn.host or "current"
+        # Get fleet health data for correlation
+        fleet_data = {}
+        for sid, server in fleet_manager.servers.items():
+            if hasattr(server, 'health_data') and server.health_data:
+                fleet_data[sid] = {"server_name": server.name, "health_data": server.health_data}
+        result = fleet_correlation_engine.correlate(server_id, symptoms, fleet_data)
+        _audit("FLEET_CORRELATION", user=user.get("username", "?"),
+               detail=f"scope={result.scope.value} affected={len(result.affected_servers)}")
+        return {"status": "success", "correlation": result.to_dict()}
+    except Exception as e:
+        logger.error(f"Fleet correlation error: {e}")
+        raise HTTPException(status_code=500, detail=_sanitize_error(e))
+
+@app.get("/api/fleet/symptom-summary")
+async def get_fleet_symptom_summary(request: Request):
+    """Get a summary of symptoms across the fleet."""
+    user = await _get_current_user(request)
+    return {"status": "success", "data": fleet_correlation_engine.get_fleet_symptom_summary()}
+
+# ── Session Handoff ──
+
+@app.post("/api/session/handoff/create")
+async def create_session_handoff(request: Request):
+    """Create a handoff token to transfer your session to another technician."""
+    user = await _get_current_user(request)
+    conn, _ = await _get_session_conn(request)
+    body = await request.json()
+    to_user = body.get("to_username")
+    notes = body.get("notes", "")
+    # Build investigation summary
+    summary = {}
+    if conn.host:
+        summary["connected_to"] = conn.host
+    if hasattr(conn.brain, '_evidence_chain') and conn.brain._evidence_chain:
+        chain = conn.brain._evidence_chain
+        summary["investigation_id"] = chain.investigation_id
+        summary["evidence_events"] = len(chain.events)
+    handoff = session_handoff_mgr.create_handoff(
+        from_session_id=user.get("session_id", ""),
+        from_username=user["username"],
+        to_username=to_user,
+        notes=notes,
+        investigation_summary=summary,
+    )
+    _audit("SESSION_HANDOFF_CREATED", user=user["username"],
+           detail=f"to={to_user or 'any'} token={handoff.token[:8]}...")
+    return {"status": "success", "handoff": handoff.to_dict(), "token": handoff.token}
+
+@app.post("/api/session/handoff/accept")
+async def accept_session_handoff(request: Request):
+    """Accept a handoff token and receive the transferred session."""
+    user = await _get_current_user(request)
+    body = await request.json()
+    token = body.get("token", "")
+    if not token:
+        raise HTTPException(status_code=400, detail="Token required")
+    handoff = session_handoff_mgr.accept_handoff(
+        token=token,
+        accepting_username=user["username"],
+        accepting_session_id=user.get("session_id", ""),
+    )
+    if not handoff:
+        raise HTTPException(status_code=400, detail="Invalid, expired, or already used token")
+    # Transfer the session connection
+    from_sid = handoff.from_session_id
+    to_sid = user.get("session_id", "")
+    if from_sid and to_sid and session_mgr:
+        from_conn = session_mgr.connections.get(from_sid)
+        if from_conn:
+            # Move the agent to the new session
+            session_mgr.connections[to_sid] = from_conn
+            from_conn.session_id = to_sid
+            from_conn.username = user["username"]
+            from_conn.touch()
+            # Remove from old session
+            if from_sid in session_mgr.connections and from_sid != to_sid:
+                del session_mgr.connections[from_sid]
+            logger.info(f"Session transferred: {handoff.from_username} -> {user['username']}")
+    _audit("SESSION_HANDOFF_ACCEPTED", user=user["username"],
+           detail=f"from={handoff.from_username} token={token[:8]}...")
+    return {"status": "success", "handoff": handoff.to_dict()}
+
+@app.get("/api/session/handoff/pending")
+async def get_pending_handoffs(request: Request):
+    """Get handoffs available for the current user."""
+    user = await _get_current_user(request)
+    pending = session_handoff_mgr.get_pending_for_user(user["username"])
+    return {"status": "success", "handoffs": pending}
+
+@app.get("/api/session/handoff/history")
+async def get_handoff_history(request: Request):
+    """Get handoff history (admin only)."""
+    user = await _require_role(request, "admin")
+    return {"status": "success", "history": session_handoff_mgr.get_history(),
+            "stats": session_handoff_mgr.get_stats()}
 
 if __name__ == "__main__":
     uvicorn.run(
